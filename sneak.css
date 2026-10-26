@@ -1,0 +1,202 @@
+/* 「鬼鬼祟祟」双人潜行线的附加样式，单独成文件，避免动主样式表。 */
+
+.mode-button--sneak {
+  color: #d9f4ee;
+  border-color: rgba(110, 196, 180, 0.5);
+  background:
+    linear-gradient(160deg, rgba(25, 53, 55, 0.96), rgba(13, 23, 29, 0.98));
+}
+
+.mode-button--sneak:hover {
+  color: #f0fffa;
+  border-color: rgba(146, 232, 213, 0.74);
+}
+
+.mode-button--sneak .mode-badge {
+  color: #c4fff1;
+  background: #0d3a35;
+  border-color: #3d8d80;
+}
+
+/* ---------- 玩家面板里的双人状态 ---------- */
+
+.player-panel.is-sneak {
+  border-color: rgba(83, 150, 140, 0.68);
+}
+
+.player-panel.is-sneak .panel-theme {
+  color: #d9fff4;
+}
+
+.player-panel.is-sneak .panel-charge,
+.player-panel.is-sneak .panel-effects,
+.player-panel.is-sneak .panel-fit-line,
+.player-panel.is-sneak .panel-bar--fit {
+  display: none;
+}
+
+.panel-sneak {
+  margin: 9px 0 10px;
+  padding: 9px 9px 8px;
+  background: linear-gradient(160deg, rgba(24, 48, 49, 0.6), rgba(11, 19, 24, 0.55));
+  border: 1px solid rgba(96, 164, 152, 0.38);
+}
+
+.sneak-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #9cb8b2;
+  font-size: 14px;
+}
+
+.sneak-row + .sneak-row {
+  margin-top: 7px;
+}
+
+.sneak-name {
+  flex: 0 0 40px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.sneak-name--a {
+  color: #9fe3ff;
+}
+
+.sneak-name--b {
+  color: #ffcf8a;
+}
+
+.sneak-meter {
+  flex: 1 1 auto;
+  height: 5px;
+  overflow: hidden;
+  background: #131f24;
+  border: 1px solid rgba(77, 116, 116, 0.32);
+}
+
+.sneak-meter i {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #58c9b0, #ffcf6a 62%, #ff5f52);
+  transition: width 120ms linear;
+}
+
+.sneak-row b {
+  flex: 0 0 52px;
+  color: #c6ded7;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sneak-row.is-alert b {
+  color: #ff8d7d;
+}
+
+.sneak-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(84, 128, 121, 0.28);
+  color: #789690;
+  font-size: 13.5px;
+}
+
+.sneak-meta b {
+  color: #d7efe8;
+  font-weight: 700;
+}
+
+/* 叠罗汉 / 拉线时的组合技状态 */
+.sneak-combo {
+  margin-top: 8px;
+  padding: 6px 8px;
+  color: #d8fff4;
+  font-size: 13px;
+  line-height: 1.55;
+  background: rgba(55, 122, 112, 0.22);
+  border-left: 2px solid #7ce8c8;
+}
+
+.sneak-combo.is-rope {
+  color: #ffe2b8;
+  background: rgba(122, 100, 55, 0.22);
+  border-left-color: #ffcf8a;
+}
+
+/* ---------- 游戏内的双人按键提示 ---------- */
+
+.sneak-legend {
+  position: absolute;
+  left: 16px;
+  top: 132px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  max-width: min(620px, calc(100% - 338px));
+  padding: 8px 11px;
+  color: #9cbdb6;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
+  background: linear-gradient(150deg, rgba(10, 22, 25, 0.88), rgba(6, 11, 15, 0.86));
+  border: 1px solid rgba(88, 152, 142, 0.45);
+  pointer-events: none;
+  user-select: none;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+.sneak-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.sneak-legend-item i {
+  width: 6px;
+  height: 6px;
+  margin-right: 3px;
+  background: #9fe3ff;
+  box-shadow: 0 0 6px rgba(126, 206, 255, 0.7);
+}
+
+.sneak-legend-item--b i {
+  background: #ffcf8a;
+  box-shadow: 0 0 6px rgba(255, 196, 120, 0.7);
+}
+
+.sneak-legend-item--combo {
+  color: #cfe7df;
+  padding-left: 10px;
+  border-left: 1px solid rgba(110, 176, 164, 0.34);
+}
+
+.sneak-legend-item--combo kbd {
+  border-color: rgba(132, 210, 192, 0.55);
+  color: #d9fff4;
+}
+
+.sneak-legend kbd {
+  height: 21px;
+  min-width: 21px;
+  padding: 0 5px;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .sneak-legend {
+    left: 8px;
+    top: 112px;
+    max-width: calc(100% - 218px);
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+}
