@@ -2,13 +2,24 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#08050d" />
     <meta
       name="description"
       content="南瓜小径：一款万圣节像素风网页横版小游戏。提灯穿过月光森林，走上五段墓园夜路「五盏灯」；最后一程沉入地下，在电磁长夜里收集骨头、选择电荷、校准磁场并越过岩浆。另有一条百鬼夜行线路：用一套方向键同时带着越走越长的队伍走到钟楼顶的百鬼门，一个都不能少。双人同屏的「鬼鬼祟祟」里，两只小鬼还能叠罗汉、拉影子线。"
     />
     <title>南瓜小径 · Pumpkin Hollow</title>
+    <script>
+      // 尽早标出移动端，避免样式在模块脚本加载前闪一下桌面布局。
+      (function () {
+        var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        var noHover = window.matchMedia && window.matchMedia('(hover: none)').matches;
+        var forced = /(?:\?|&)mobile(?:=|&|$)/.test(window.location.search);
+        if (forced || (coarse && noHover)) {
+          document.documentElement.classList.add('is-mobile');
+        }
+      })();
+    </script>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' shape-rendering='crispEdges'%3E%3Crect x='8' y='1' width='2' height='3' fill='%237d9b4c'/%3E%3Crect x='2' y='4' width='14' height='11' fill='%23ef7415'/%3E%3Crect x='4' y='8' width='2' height='2' fill='%23271018'/%3E%3Crect x='12' y='8' width='2' height='2' fill='%23271018'/%3E%3Crect x='6' y='12' width='6' height='1' fill='%23271018'/%3E%3C/svg%3E"
@@ -223,6 +234,22 @@
 
               <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+              <div class="touch-controls" id="touchControls" hidden aria-label="触屏操作">
+                <div class="touch-pad touch-pad--move" role="group" aria-label="移动">
+                  <button class="touch-btn touch-btn--down" type="button" data-touch-action="down" aria-label="蹲下或下落">↓</button>
+                  <button class="touch-btn touch-btn--left" type="button" data-touch-action="left" aria-label="向左">←</button>
+                  <button class="touch-btn touch-btn--right" type="button" data-touch-action="right" aria-label="向右">→</button>
+                </div>
+                <div class="touch-menu">
+                  <button class="touch-btn touch-btn--menu" id="touchBagButton" type="button" aria-label="打开背包">背包</button>
+                  <button class="touch-btn touch-btn--menu" id="touchPauseButton" type="button" aria-label="暂停">暂停</button>
+                </div>
+                <div class="touch-pad touch-pad--action" role="group" aria-label="动作">
+                  <button class="touch-btn touch-btn--interact" id="touchInteractButton" type="button" aria-label="互动">互动</button>
+                  <button class="touch-btn touch-btn--jump" type="button" data-touch-action="up" aria-label="跳跃">↑</button>
+                </div>
+              </div>
+
               <div class="overlay start-overlay" id="startScreen">
                 <div class="start-panel">
                   <div class="pumpkin-emblem" aria-hidden="true">
@@ -273,7 +300,8 @@
                     <button class="secondary-button mode-button mode-button--sneak" id="startSneakButton" type="button">
                       <span class="mode-badge">双人同屏</span>
                       <span class="mode-main">鬼鬼祟祟</span>
-                      <span class="mode-sub">鬼鬼 WASD + E · 祟祟 方向键 + / · 五段潜行到屋顶</span>
+                      <span class="mode-sub mode-sub--desktop">鬼鬼 WASD + E · 祟祟 方向键 + / · 五段潜行到屋顶</span>
+                      <span class="mode-sub mode-sub--mobile">电脑端双人同屏 · 手机上点按查看说明</span>
                     </button>
                   </div>
 
@@ -283,6 +311,11 @@
                     <span><kbd>↓</kbd> 蹲下 / 下穿</span>
                     <span><kbd>Tab</kbd> 背包 / 名册</span>
                     <span><kbd>E</kbd> 互动 / 抱南瓜</span>
+                  </div>
+                  <div class="mini-controls mobile-controls" aria-label="触屏操作提示">
+                    <span>左侧 ← → 移动 · ↓ 下穿</span>
+                    <span>右侧 ↑ 跳跃 · 互动 抱南瓜</span>
+                    <span>底部中间 背包 / 暂停</span>
                   </div>
                 </div>
               </div>
@@ -433,6 +466,9 @@
                     <span>继续前行</span>
                     <span class="button-arrow" aria-hidden="true">→</span>
                   </button>
+                  <button class="secondary-button pause-themes-button touch-restart-button" id="pauseRestartButton" type="button">
+                    重走这一段
+                  </button>
                   <button class="secondary-button pause-themes-button" id="pauseExitButton" type="button">
                     回到起始页
                   </button>
@@ -517,6 +553,14 @@
         <span>教程 + 五盏灯 + 百鬼夜行（三条难度赛道 · 十一位同行者）+ 鬼鬼祟祟（双人同屏潜行）+ 三套时装 + 十种糖果状态</span>
       </div>
     </main>
+
+    <div class="rotate-prompt" id="rotatePrompt" role="dialog" aria-live="polite" aria-label="请横屏游玩">
+      <div class="rotate-card">
+        <span class="rotate-mark" aria-hidden="true">↻</span>
+        <h2>请把手机横过来</h2>
+        <p>南瓜小径按 16:9 横屏设计。横屏后会自动继续。</p>
+      </div>
+    </div>
 
     <script type="module" src="./src/main.js"></script>
   </body>

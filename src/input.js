@@ -62,6 +62,21 @@ export class Input {
     return this.enabled && this.keys.has(action);
   }
 
+  /**
+   * 触屏按键走同一个动作集合。
+   * 「按下」同时进入 keys（持续按住）与 pressed（这一帧刚按下），
+   * 和键盘的 keydown 行为保持一致。
+   */
+  press(action) {
+    if (!this.enabled) return;
+    this.keys.add(action);
+    this.pressed.add(action);
+  }
+
+  release(action) {
+    this.keys.delete(action);
+  }
+
   consumePress(action) {
     if (!this.pressed.has(action)) return false;
     this.pressed.delete(action);

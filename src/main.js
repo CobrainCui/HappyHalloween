@@ -2,6 +2,10 @@ import { Game } from './game.js';
 import { getItemDef } from './collectibles.js';
 import { CANDY_EFFECTS, CANDY_EFFECT_TYPES } from './candyEffects.js';
 import { PARADE_ROUTE, PARADE_TRACKS } from './parade.js';
+import { TouchControls, isMobileDevice } from './touch.js';
+
+const isMobile = isMobileDevice();
+document.documentElement.classList.toggle('is-mobile', isMobile);
 
 const canvas = document.querySelector('#game');
 const startScreen = document.querySelector('#startScreen');
@@ -20,6 +24,7 @@ const startSneakButton = document.querySelector('#startSneakButton');
 const closeTrackButton = document.querySelector('#closeTrackButton');
 const trackGrid = document.querySelector('#trackGrid');
 const resumeButton = document.querySelector('#resumeButton');
+const pauseRestartButton = document.querySelector('#pauseRestartButton');
 const pauseExitButton = document.querySelector('#pauseExitButton');
 const defeatRestartButton = document.querySelector('#defeatRestartButton');
 const defeatExitButton = document.querySelector('#defeatExitButton');
@@ -151,6 +156,8 @@ const questTime = document.querySelector('#questTime');
 const questProgress = document.querySelector('#questProgress');
 
 const toast = document.querySelector('#toast');
+const touchRoot = document.querySelector('#touchControls');
+const touchBagButton = document.querySelector('#touchBagButton');
 const topStatusText = document.querySelector('#topStatusText');
 const completeKicker = document.querySelector('#completeKicker');
 const completeTitle = document.querySelector('#completeTitle');
@@ -183,6 +190,18 @@ const game = new Game(canvas);
 let toastTimer = 0;
 let tutorialPipSignature = '';
 
+// 触屏按键只借用 Input 的动作集合，游戏逻辑不需要知道设备。
+// 桌面端这层一直隐藏，也不会被激活。
+const touchControls = new TouchControls(touchRoot, game.input, {
+  onBag: () => toggleBagPanel(),
+  onPause: () => {
+    if (game.state === 'playing') game.pause();
+  },
+  onInteract: () => {
+    if (game.state === 'playing') game.interact();
+  },
+});
+
 // 右上角面板的三种形态：完整 → 简省信息 → 只剩一枚开关。
 const PANEL_COLLAPSE_STATES = ['full', 'compact', 'switch'];
 const PANEL_COLLAPSE_META = {
@@ -213,7 +232,8 @@ function setCompactStats(stats) {
   });
 }
 
-setPanelCollapse('full');
+// 手机横屏时画面只有几百像素宽，先收成简省信息版，需要时再展开。
+setPanelCollapse(isMobile ? 'compact' : 'full');
 
 panelCollapseButton.addEventListener('click', (event) => {
   const index = PANEL_COLLAPSE_STATES.indexOf(panelCollapse);
@@ -310,6 +330,14 @@ function syncOverlays(state) {
     state === 'roster' ||
     state === 'sacrifice';
   playerPanel.hidden = !inRun;
+
+  // 触屏按键只在真正操作时出现；面板打开时让位给弹层。
+  const showTouchControls = isMobile && state === 'playing' && game.mode !== 'sneak';
+  touchRoot.hidden = !showTouchControls;
+  touchControls.setActive(showTouchControls);
+  if (isMobile) {
+    touchBagButton.textContent = game.mode === 'parade' ? '名册' : '背包';
+  }
 
   if (state === 'playing' && document.activeElement instanceof HTMLElement) {
     document.activeElement.blur();
@@ -1091,7 +1119,8 @@ function updateHud() {
     interactionKeyAlt.hidden = !hud.interaction.altKey;
     interactionKeyAlt.textContent = hud.interaction.altKey ?? '';
     interactionPrompt.classList.toggle('is-locked', !hud.interaction.available);
-    if (hud.tutorial) {
+    // 手机上交给 CSS 把提示抬到虚拟按键上方，避免和拇指打架。
+    if (hud.tutorial && !isMobile) {
       interactionPrompt.style.bottom = '136px';
     } else {
       interactionPrompt.style.removeProperty('bottom');
@@ -1208,12 +1237,21 @@ defeatExitButton.addEventListener('click', () => {
 });
 
 startSneakButton.addEventListener('click', () => {
+  // 双人同屏要两个人共用键盘；手机上没有地方放两套完整的操作。
+  if (isMobile) {
+    showToast('鬼鬼祟祟要两个人共用键盘，请在电脑端试玩。', 3800);
+    return;
+  }
   enterFullscreen();
   game.startSneak();
 });
 
 resumeButton.addEventListener('click', () => {
   game.resume();
+});
+
+pauseRestartButton.addEventListener('click', () => {
+  restartRun();
 });
 
 pauseExitButton.addEventListener('click', () => {
@@ -1268,9 +1306,20 @@ function syncFullscreenUi() {
 
 function enterFullscreen() {
   if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
-  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {
-    // 浏览器不给全屏（比如在受限的 iframe 里）就留在铺满窗口的布局里。
-  });
+  document.documentElement
+    .requestFullscreen({ navigationUI: 'hide' })
+    .then(() => {
+      // 安卓可以借全屏锁成横屏；iOS 不支持，交给横屏提示。
+      if (!isMobile) return;
+      try {
+        window.screen?.orientation?.lock?.('landscape')?.catch?.(() => {});
+      } catch {
+        // 有的浏览器会同步抛错，忽略即可。
+      }
+    })
+    .catch(() => {
+      // 浏览器不给全屏（比如在受限的 iframe 里）就留在铺满窗口的布局里。
+    });
 }
 
 function toggleFullscreen() {
@@ -1295,6 +1344,55 @@ if (typeof ResizeObserver !== 'undefined') {
   window.addEventListener('resize', syncUiScale);
 }
 
+/** Tab 和触屏「背包」共用：按模式决定打开背包、名册，还是只给一句提示。 */
+function toggleBagPanel() {
+  // 双人潜行没有背包：两只鬼只带了一胆子。
+  if (game.mode === 'sneak') {
+    if (game.state === 'playing') {
+      showToast('潜行时没有背包。两只鬼只带了一胆子。', 1900);
+    }
+    return;
+  }
+  // 百鬼夜行里打开的是队伍名册：谁跟着你、谁还没遇到。
+  if (game.mode === 'parade') {
+    if (game.state === 'playing') {
+      game.openRoster();
+      updateRoster();
+    } else if (game.state === 'roster') {
+      game.closeRoster();
+    }
+    return;
+  }
+  // 前四段手里只有灯；第五段进入电磁长夜，背包与骨槽重新可用。
+  if (game.mode === 'memorial' && game.level.stage !== 5) {
+    if (game.state === 'playing') showToast('追思路上不用背包，手里只有灯。', 1800);
+    return;
+  }
+  if (game.state === 'playing') {
+    game.openBackpack();
+    updateInventory();
+  } else if (game.state === 'inventory') {
+    game.closeBackpack();
+  }
+}
+
+/** R 和触屏暂停面板里的「重走这一段」共用。 */
+function restartRun() {
+  if (game.state !== 'playing' && game.state !== 'paused') return;
+  game.restart();
+  showToast(
+    game.mode === 'memorial'
+      ? '已回到这一段的起点 · 灯还亮着'
+      : game.mode === 'parade'
+        ? game.getParadeTrackId() === 'hard'
+          ? '已回到本段起点 · 留下的人不会回来'
+          : '已回到这一段的起点 · 之前同行的客人还在'
+        : game.mode === 'sneak'
+          ? '已回到这一段起点 · 被发现次数也退回去了'
+          : '已回到本段起点 · 南瓜还在原地',
+  );
+}
+
 window.addEventListener('keydown', (event) => {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.repeat) return;
@@ -1310,39 +1408,8 @@ window.addEventListener('keydown', (event) => {
     (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT');
 
   if (event.code === 'Tab') {
-    // 双人潜行没有背包：两只鬼只带了一胆子。
-    if (game.mode === 'sneak') {
-      event.preventDefault();
-      if (game.state === 'playing') {
-        showToast('潜行时没有背包。两只鬼只带了一胆子。', 1900);
-      }
-      return;
-    }
-    // 百鬼夜行里 Tab 打开的是队伍名册：谁跟着你、谁还没遇到。
-    if (game.mode === 'parade') {
-      event.preventDefault();
-      if (game.state === 'playing') {
-        game.openRoster();
-        updateRoster();
-      } else if (game.state === 'roster') {
-        game.closeRoster();
-      }
-      return;
-    }
-    // 前四段手里只有灯；第五段进入电磁长夜，背包与骨槽重新可用。
-    if (game.mode === 'memorial' && game.level.stage !== 5) {
-      event.preventDefault();
-      if (game.state === 'playing') showToast('追思路上不用背包，手里只有灯。', 1800);
-      return;
-    }
-    if (game.state === 'playing') {
-      event.preventDefault();
-      game.openBackpack();
-      updateInventory();
-    } else if (game.state === 'inventory') {
-      event.preventDefault();
-      game.closeBackpack();
-    }
+    event.preventDefault();
+    toggleBagPanel();
     return;
   }
 
@@ -1431,18 +1498,7 @@ window.addEventListener('keydown', (event) => {
 
   if (event.code === 'KeyR' && (game.state === 'playing' || game.state === 'paused')) {
     event.preventDefault();
-    game.restart();
-    showToast(
-      game.mode === 'memorial'
-        ? '已回到这一段的起点 · 灯还亮着'
-        : game.mode === 'parade'
-          ? game.getParadeTrackId() === 'hard'
-            ? '已回到本段起点 · 留下的人不会回来'
-            : '已回到这一段的起点 · 之前同行的客人还在'
-          : game.mode === 'sneak'
-            ? '已回到这一段起点 · 被发现次数也退回去了'
-            : '已回到本段起点 · 南瓜还在原地',
-    );
+    restartRun();
     return;
   }
 

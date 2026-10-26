@@ -1,0 +1,11 @@
+# WorkBuddy internal artifacts (not part of the game)
+.wbapp_*.genie
+.workbuddy/
+
+# Dependencies (none currently, future-proofing)
+node_modules/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.local
