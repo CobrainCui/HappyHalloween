@@ -29,7 +29,7 @@ export const THEMES = Object.freeze([
     style: 'forest',
     mood: 'forest',
     objective: '学会走路、跳跃、下穿、拾取、南瓜与背包',
-    brief: '没有危险。沿着月光熟悉方向键、背包，以及地上的南瓜。',
+    brief: '没有危险。沿着月光熟悉移动、背包，以及地上的南瓜。',
     startTip: '欢迎来到南瓜小径。慢慢走，不着急。',
   },
   {
@@ -654,7 +654,7 @@ export class Level {
         },
         {
           id: 'pumpkin-toss',
-          text: '按 E 抱起南瓜，再按 E 抛出去。',
+          text: '抱起南瓜，再抛出去。',
           cheer: '抛起来了。推、抛、叠高，南瓜都随你。',
         },
         {
@@ -669,7 +669,7 @@ export class Level {
         },
         {
           id: 'backpack',
-          text: '按 Tab 看背包：骨头、衣橱和糖果罐都在这儿。',
+          text: '打开背包：骨头、衣橱和糖果罐都在这儿。',
           cheer: '很好。骨头、时装和糖果都在这里。',
         },
         {

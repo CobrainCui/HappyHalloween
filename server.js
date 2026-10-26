@@ -1,10 +1,14 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { networkInterfaces } from 'node:os';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const PORT = Number(process.env.PORT) || 4173;
+// 默认只给自己看；npm run start:lan 时才让同一 Wi-Fi 下的手机连进来。
+const LAN = process.env.HOST === '0.0.0.0' || process.argv.includes('--lan');
+const HOST = process.env.HOST || (LAN ? '0.0.0.0' : '127.0.0.1');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -49,7 +53,20 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, HOST, () => {
   console.log(`\n  🎃 南瓜小径已点亮：http://127.0.0.1:${PORT}\n`);
+  if (LAN) {
+    const addresses = Object.values(networkInterfaces())
+      .flat()
+      .filter((item) => item && item.family === 'IPv4' && !item.internal)
+      .map((item) => item.address);
+    for (const address of addresses) {
+      console.log(`  手机同 Wi-Fi 打开：http://${address}:${PORT}`);
+    }
+    if (!addresses.length) {
+      console.log('  没找到局域网地址，检查一下 Wi-Fi 连接。');
+    }
+    console.log('');
+  }
   console.log('  按 Ctrl+C 熄灭灯火。\n');
 });

@@ -5,6 +5,7 @@
   "type": "module",
   "description": "南瓜小径：万圣节像素风网页横版小游戏，包含新手教程、追思小径「五盏灯」、可同时操控整支队伍并有三条难度赛道的六段「百鬼夜行」、会叠罗汉、拉影子线的双人同屏潜行「鬼鬼祟祟」，以及会推、会抛、会叠的南瓜",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:lan": "node server.js --lan"
   }
 }

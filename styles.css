@@ -3422,3 +3422,520 @@ html:fullscreen body {
 .screen-fullscreen:focus-visible {
   opacity: 1;
 }
+
+/* ---------- 触屏 / 移动端网页 ---------- */
+
+/* 手机横屏时把页面外壳收掉，只留 16:9 的游戏画面。
+   画面两侧的留白涂成夜色，触屏按键叠在画面底部两角。 */
+html.is-mobile {
+  --touch-btn: clamp(52px, 9.5vmin, 76px);
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+html.is-mobile body {
+  min-height: 100svh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #05030a;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+html.is-mobile body::before,
+html.is-mobile body::after {
+  display: none;
+}
+
+html.is-mobile .page {
+  --shell-width: 100%;
+  width: 100%;
+  min-height: 100svh;
+  min-height: 100dvh;
+  padding: 0;
+  justify-content: center;
+}
+
+html.is-mobile .topbar,
+html.is-mobile .control-bar,
+html.is-mobile .page-note,
+html.is-mobile .screen-fullscreen,
+html.is-mobile .sneak-legend {
+  display: none;
+}
+
+html.is-mobile .game-shell {
+  display: grid;
+  width: 100%;
+  height: 100svh;
+  height: 100dvh;
+  margin: 0;
+  place-items: center;
+}
+
+html.is-mobile .frame {
+  width: min(100vw, calc(100svh * 16 / 9));
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: min(100svh, calc(100vw * 9 / 16));
+  height: min(100dvh, calc(100vw * 9 / 16));
+  padding: 0;
+  background: #05030a;
+  border: 0;
+  box-shadow: none;
+}
+
+html.is-mobile .frame::before,
+html.is-mobile .frame::after {
+  display: none;
+}
+
+html.is-mobile .screen {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.is-mobile #game {
+  touch-action: none;
+}
+
+html.is-mobile .overlay {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* ---------- 起始页与弹层 ---------- */
+
+html.is-mobile .overlay {
+  padding: 8px;
+  align-items: safe center;
+  justify-items: center;
+}
+
+html.is-mobile .start-panel {
+  width: 100%;
+  max-width: 760px;
+}
+
+html.is-mobile .start-panel .pumpkin-emblem,
+html.is-mobile .start-panel .overlay-kicker,
+html.is-mobile .goal-badge {
+  display: none;
+}
+
+html.is-mobile .overlay h2 {
+  margin: 0 0 5px;
+  font-size: clamp(22px, 3.4vmin + 10px, 30px);
+  letter-spacing: 0.08em;
+}
+
+html.is-mobile .overlay-copy {
+  margin-bottom: 9px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+html.is-mobile .mode-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 0;
+}
+
+html.is-mobile .primary-button.mode-button,
+html.is-mobile .secondary-button.mode-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px 12px;
+  gap: 2px;
+}
+
+html.is-mobile .mode-main {
+  font-size: 16px;
+  letter-spacing: 0.1em;
+}
+
+html.is-mobile .mode-sub {
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+html.is-mobile .mode-badge {
+  top: 3px;
+  right: 5px;
+  padding: 1px 4px;
+  font-size: 9px;
+}
+
+.mode-sub--mobile {
+  display: none;
+}
+
+html.is-mobile .mode-sub--desktop {
+  display: none;
+}
+
+html.is-mobile .mode-sub--mobile {
+  display: inline;
+}
+
+html.is-mobile .mode-button--sneak {
+  opacity: 0.78;
+}
+
+.mobile-controls {
+  display: none;
+}
+
+html.is-mobile .mini-controls:not(.mobile-controls) {
+  display: none;
+}
+
+html.is-mobile .mini-controls.mobile-controls {
+  display: flex;
+  gap: 6px 14px;
+  margin-top: 9px;
+  color: #9c86a8;
+  font-size: 11.5px;
+}
+
+html.is-mobile .inventory-panel,
+html.is-mobile .track-panel,
+html.is-mobile .roster-panel,
+html.is-mobile .sacrifice-panel,
+html.is-mobile .theme-panel,
+html.is-mobile .complete-panel,
+html.is-mobile .pause-panel {
+  width: min(100%, 760px);
+  max-height: calc(100% - 4px);
+  padding: 13px 15px;
+}
+
+html.is-mobile .overlay h2,
+html.is-mobile .inventory-panel h2,
+html.is-mobile .pause-panel h2,
+html.is-mobile .complete-panel h2 {
+  font-size: 24px;
+}
+
+html.is-mobile .icon-button {
+  width: 44px;
+  height: 44px;
+  font-size: 26px;
+}
+
+html.is-mobile .inventory-foot,
+html.is-mobile .placement-tip,
+html.is-mobile .inventory-foot kbd,
+html.is-mobile .placement-tip kbd {
+  font-size: 12px;
+}
+
+html.is-mobile .inventory-foot kbd,
+html.is-mobile .placement-tip kbd {
+  display: none;
+}
+
+html.is-mobile .track-grid,
+html.is-mobile .sacrifice-grid {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+html.is-mobile .track-card {
+  min-height: 0;
+}
+
+html.is-mobile .wardrobe-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+html.is-mobile .sacrifice-key {
+  display: none;
+}
+
+html.is-mobile .pause-tips {
+  display: none;
+}
+
+html.is-mobile .text-button {
+  min-height: 34px;
+  padding: 4px 10px;
+}
+
+.touch-restart-button {
+  display: none;
+}
+
+html.is-mobile .touch-restart-button {
+  display: flex;
+}
+
+/* ---------- 游戏内 HUD ---------- */
+
+html.is-mobile .player-panel {
+  top: max(8px, env(safe-area-inset-top));
+  right: max(8px, env(safe-area-inset-right));
+  font-size: 13px;
+}
+
+html.is-mobile .player-panel[data-collapse="compact"] {
+  width: 196px;
+  padding: 9px 10px;
+}
+
+html.is-mobile .panel-theme {
+  font-size: 16px;
+}
+
+html.is-mobile .panel-collapse {
+  top: 9px;
+  right: 9px;
+  min-width: 32px;
+  height: 32px;
+  font-size: 13px;
+}
+
+html.is-mobile .player-panel[data-collapse="switch"] .panel-collapse {
+  height: 34px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+
+html.is-mobile .quest-track {
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  width: calc(100% - 220px);
+  min-width: 150px;
+  font-size: 12px;
+}
+
+html.is-mobile .tutorial-coach {
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  width: calc(100% - 220px);
+  padding: 9px 11px;
+  font-size: 13.5px;
+}
+
+html.is-mobile .toast {
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  max-width: calc(100% - 220px);
+  padding: 8px 11px;
+  font-size: 13px;
+}
+
+html.is-mobile .screen.has-quest .toast {
+  top: 78px;
+}
+
+/* 电磁长夜的信息面板原本占着左下角，手机上让给方向键，挪到左上。 */
+html.is-mobile .field-hud {
+  top: max(8px, env(safe-area-inset-top));
+  bottom: auto;
+  left: max(8px, env(safe-area-inset-left));
+  width: min(280px, calc(100% - 220px));
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
+html.is-mobile .field-controls {
+  font-size: 11px;
+}
+
+html.is-mobile .interaction-prompt {
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--touch-btn, 52px) * 0.9 + 10px);
+  max-width: calc(100% - 20px);
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+html.is-mobile .interaction-prompt kbd {
+  display: none;
+}
+
+/* ---------- 虚拟按键 ---------- */
+
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-pad {
+  position: absolute;
+  display: flex;
+  gap: calc(var(--touch-btn) * 0.12);
+}
+
+.touch-pad--move {
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: max(10px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: repeat(2, var(--touch-btn));
+  grid-template-rows: repeat(2, var(--touch-btn));
+}
+
+.touch-pad--action {
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  align-items: flex-end;
+}
+
+.touch-btn--left {
+  grid-area: 2 / 1;
+}
+
+.touch-btn--right {
+  grid-area: 2 / 2;
+}
+
+.touch-btn--down {
+  grid-area: 1 / 2;
+}
+
+.touch-btn {
+  display: grid;
+  place-items: center;
+  width: var(--touch-btn);
+  height: var(--touch-btn);
+  padding: 0;
+  color: #f3ddc0;
+  font-family: var(--mono);
+  font-size: calc(var(--touch-btn) * 0.46);
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: pointer;
+  background: rgba(19, 11, 26, 0.58);
+  border: 1px solid rgba(255, 178, 94, 0.38);
+  border-radius: 9px;
+  box-shadow:
+    0 3px 0 rgba(4, 1, 8, 0.55),
+    inset 0 0 18px rgba(255, 150, 60, 0.06);
+  opacity: 0.82;
+  transition: background 90ms linear, border-color 90ms linear, transform 90ms linear;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-btn--jump {
+  width: calc(var(--touch-btn) * 1.15);
+  height: calc(var(--touch-btn) * 1.15);
+}
+
+.touch-btn--interact {
+  font-family: var(--sans);
+  font-size: calc(var(--touch-btn) * 0.25);
+  letter-spacing: 0.06em;
+}
+
+.touch-btn.is-down,
+.touch-btn:active {
+  background: rgba(255, 139, 42, 0.34);
+  border-color: rgba(255, 208, 142, 0.86);
+  box-shadow:
+    0 1px 0 rgba(4, 1, 8, 0.55),
+    0 0 18px rgba(255, 139, 42, 0.32);
+  transform: translateY(2px);
+  opacity: 1;
+}
+
+.touch-menu {
+  position: absolute;
+  bottom: max(11px, env(safe-area-inset-bottom));
+  left: 50%;
+  display: flex;
+  gap: 8px;
+  transform: translateX(-50%);
+}
+
+.touch-btn--menu {
+  width: calc(var(--touch-btn) * 0.78);
+  height: calc(var(--touch-btn) * 0.78);
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  border-radius: 7px;
+  opacity: 0.72;
+}
+
+.touch-btn--menu.is-down,
+.touch-btn--menu:active {
+  opacity: 1;
+}
+
+/* ---------- 竖屏提示 ---------- */
+
+.rotate-prompt {
+  display: none;
+}
+
+@media (orientation: portrait) {
+  html.is-mobile .rotate-prompt {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    padding:
+      calc(24px + env(safe-area-inset-top))
+      24px
+      calc(24px + env(safe-area-inset-bottom));
+    text-align: center;
+    place-items: center;
+    background:
+      radial-gradient(ellipse at 50% 38%, rgba(78, 42, 100, 0.32), transparent 55%),
+      linear-gradient(180deg, #07040c, #0b0612 55%, #050309);
+  }
+
+  html.is-mobile .rotate-card {
+    max-width: 340px;
+  }
+
+  html.is-mobile .rotate-mark {
+    display: inline-block;
+    color: #ffb35e;
+    font-size: 58px;
+    line-height: 1;
+    text-shadow: 0 0 26px rgba(255, 139, 42, 0.35);
+    animation: rotate-nudge 2.2s ease-in-out infinite;
+  }
+
+  html.is-mobile .rotate-card h2 {
+    margin: 12px 0 8px;
+    color: #f8ead6;
+    font-size: 27px;
+    letter-spacing: 0.12em;
+  }
+
+  html.is-mobile .rotate-card p {
+    margin: 0;
+    color: #a994b8;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+}
+
+@keyframes rotate-nudge {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  45% {
+    transform: rotate(-90deg);
+  }
+  70% {
+    transform: rotate(-90deg);
+  }
+}
