@@ -1,9 +1,15 @@
+import { BUFF_CANDIES } from './buffCandies.js';
+
 /**
  * 糖果 = 临时状态。
  *
- * 每种糖果对应一种真实存在的精神障碍诊断名（ICD-10 中文正式名称），
- * 只借用该诊断里「可观察到的行为表现」做玩法，不描述、不评判真实的患病体验，
- * 也不构成任何医学诊断。名称与编码均来自现行诊断分类，没有自造病名。
+ * 这份表是路上捡到就吃的「糖纸」：每种对应一种真实存在的精神障碍诊断名
+ * （ICD-10 中文正式名称），只借用该诊断里「可观察到的行为表现」做玩法，
+ * 不描述、不评判真实的患病体验，也不构成任何医学诊断。
+ * 名称与编码均来自现行诊断分类，没有自造病名。
+ *
+ * Trick or Treat 副本的增益糖是另一套，见 buffCandies.js；
+ * 两套共用下面的持续时间叠加规则和 neutralEffectMods。
  *
  * 叠加规则：
  *   - 不同糖果的状态可以同时存在，行为与数值按乘法叠加；
@@ -19,7 +25,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 10,
     accent: '#ffcf4a',
     summary:
-      '精力过剩、动作停不下来：每隔一小段时间自动向上跳，跳高是平常的 2 倍；跳到空中也照样能左右移动。',
+      '每隔一会儿自动往上跳，高度是平常的 2 倍。空中也能左右移动。',
     mods: { moveScale: 1.06 },
     // height 是「高度倍数」，换算成初速度时会开平方。
     autoJump: { height: 2, interval: [1.0, 1.8] },
@@ -33,7 +39,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 10,
     accent: '#ff6fa5',
     summary:
-      '重复同一个动作：每次起跳落地后，身体会不受控地再补跳一次，约为平常高度的 3/4。',
+      '起跳落地后，身体会不受控地再补跳一次，约平常高度的 3/4。',
     mods: {},
     repeatJump: { height: 0.75, delay: 0.06 },
   },
@@ -46,7 +52,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 10,
     accent: '#a87a58',
     summary:
-      '精神运动性迟滞：脚步变慢、跳跃变低，身体也更沉——落地比平时更重、更快。',
+      '脚步变慢，跳得更低，落地也更重。',
     mods: { moveScale: 0.62, jumpVelocityScale: 0.91, gravityScale: 1.18 },
   },
 
@@ -58,7 +64,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 8,
     accent: '#8dffa8',
     summary:
-      '突如其来的惊恐与逃离冲动：每隔几秒不受控地向前冲一步，并带一个短促的惊跳；冲刺的一瞬间不会被危险碰到。',
+      '每隔几秒不受控地向前冲一步，还带一下惊跳。冲刺那一下不会被危险碰到。',
     mods: {},
     panic: { interval: [2.6, 3.8], speed: 250, hop: 150, grace: 0.45 },
   },
@@ -71,7 +77,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 10,
     accent: '#c86b6b',
     summary:
-      '多动、注意难以持续：跑得更快，但每隔一阵会走神半秒，左右输入暂时不起作用。',
+      '跑得更快，但每隔一阵会走神半秒，左右输入暂时失灵。',
     mods: { moveScale: 1.45, frictionScale: 0.6 },
     lapse: { interval: [2.0, 3.2], duration: 0.3 },
   },
@@ -84,7 +90,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 8,
     accent: '#ffd9ec',
     summary:
-      '夸大性妄想：你坚信自己会飞——这 8 秒里真的飞得起来。按住 ↑ 持续上升，松开就慢慢下沉，← → 照常移动；飞着的时候，场也暂时拉不住你。',
+      '这 8 秒里你能飞。按住 ↑ 上升，松开慢慢下沉，← → 照常移动。飞着的时候场也拉不住你。',
     mods: {},
     flight: { riseAccel: 640, fallAccel: 420, maxRise: 175, maxFall: 130, idleGravity: 140 },
   },
@@ -97,7 +103,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 8,
     accent: '#ff9a6b',
     summary:
-      '不自主的抽动：每隔一秒左右，身体会突然抖一下——短促地向上弹一点，同时往旁边偏一点。',
+      '每隔一秒左右身体抖一下，往上弹一点，往旁边偏一点。',
     mods: {},
     tic: { interval: [0.7, 1.4], hop: 150, push: 70 },
   },
@@ -110,7 +116,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 12,
     accent: '#e0ad63',
     summary:
-      '情绪在两极之间来回，每 3 秒换一次：高涨时脚步轻快、跳得更高；低落时整个人沉下来，走得慢、跳得低。',
+      '每 3 秒换一次：高涨时走得快、跳得高；低落时走得慢、跳得低。',
     mods: {},
     bipolar: {
       period: 3,
@@ -127,7 +133,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 10,
     accent: '#a9ecff',
     summary:
-      '突如其来的睡意：每隔几秒会睡着约 1 秒，期间左右和跳跃都不听使唤，身体顺着惯性往下坠。',
+      '每隔几秒睡着 1 秒。这期间左右和跳跃都不管用，身体往下坠。',
     mods: {},
     sleep: { interval: [4.5, 6.5], duration: 1 },
   },
@@ -140,7 +146,7 @@ export const CANDY_EFFECTS = Object.freeze({
     duration: 8,
     accent: '#f0d29a',
     summary:
-      '你说东，它偏往西：← 和 → 的效果对调。想往右走，得按左键。',
+      '← 和 → 对调。想往右走，得按左键。',
     mods: { invertAxis: true },
   },
 });
@@ -148,7 +154,12 @@ export const CANDY_EFFECTS = Object.freeze({
 export const CANDY_EFFECT_TYPES = Object.freeze(Object.keys(CANDY_EFFECTS));
 
 export function getCandyEffect(type) {
-  return CANDY_EFFECTS[type] ?? null;
+  return CANDY_EFFECTS[type] ?? BUFF_CANDIES[type] ?? null;
+}
+
+/** 这条状态是「路上的糖纸」还是 Trick or Treat 的增益糖。 */
+export function isBuffCandy(type) {
+  return Boolean(BUFF_CANDIES[type]);
 }
 
 /** 没有任何状态时的中性修正值。 */
@@ -158,6 +169,14 @@ export function neutralEffectMods() {
     jumpVelocityScale: 1,
     frictionScale: 1,
     gravityScale: 1,
+    maxFallScale: 1,
+    extraJumps: 0,
+    glide: false,
+    dash: false,
+    airDash: false,
+    wallJump: false,
+    shield: false,
+    magnet: 0,
     lockAxis: false,
     lockJump: false,
     invertAxis: false,

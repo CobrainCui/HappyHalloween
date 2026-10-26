@@ -470,7 +470,7 @@ kbd {
   letter-spacing: 0.08em;
 }
 
-/* ---------- 追思路线「五盏灯」的玩家面板 ---------- */
+/* ---------- 追思路线「三盏灯」的玩家面板 ---------- */
 
 .panel-memorial {
   margin: 8px 0 11px;
@@ -498,6 +498,10 @@ kbd {
   margin-top: 5px;
 }
 
+.panel-memorial-lights + .panel-memorial-lights {
+  margin-top: 5px;
+}
+
 .panel-memorial-row b {
   flex: 1 1 auto;
   min-width: 0;
@@ -522,7 +526,7 @@ kbd {
   font-weight: 700;
 }
 
-/* 百鬼夜行的赛道标签：简单 / 普通 / 困难 */
+/* 魑魅魍魉的赛道标签：简单 / 普通 / 困难 */
 .panel-parade-track {
   display: flex;
   align-items: center;
@@ -551,8 +555,7 @@ kbd {
   background: #e08a7a;
 }
 
-.player-panel.is-memorial .panel-charge,
-.player-panel.is-memorial .panel-effects {
+.player-panel.is-memorial .panel-charge {
   display: none;
 }
 
@@ -953,7 +956,8 @@ kbd {
 }
 
 .start-panel {
-  max-width: 620px;
+  width: min(100%, 820px);
+  max-width: 820px;
   text-align: center;
   animation: panel-in 0.55s steps(7, end) both;
 }
@@ -1015,6 +1019,56 @@ kbd {
   letter-spacing: 0.16em;
   background: rgba(255, 147, 51, 0.035);
   border: 1px dashed rgba(211, 152, 84, 0.4);
+}
+
+/* 起始页：标题区收紧，入口排成整齐的两列。
+   整个画面按 1280×720 设计，这里的尺寸直接用 px，跟着 UI 一起缩放。 */
+.start-brand {
+  margin: 0 0 6px;
+  color: #c9a970;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.start-panel .pumpkin-emblem {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 10px;
+}
+
+.start-panel .overlay-kicker {
+  font-size: 12px;
+}
+
+.start-panel h2 {
+  margin: 7px 0 9px;
+  font-size: 42px;
+  letter-spacing: 0.09em;
+}
+
+.start-panel .overlay-copy {
+  margin-bottom: 9px;
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+.start-panel .goal-badge {
+  margin: 0 auto 12px;
+  padding: 5px 12px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+
+.start-panel .mini-controls {
+  margin-top: 8px;
+  font-size: 13.5px;
+}
+
+.start-panel .save-reset-button {
+  margin-top: 6px;
 }
 
 .primary-button {
@@ -1121,21 +1175,27 @@ kbd {
 }
 
 .mode-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin-top: 2px;
 }
 
 .primary-button.mode-button,
 .secondary-button.mode-button {
-  min-width: 236px;
-  min-height: 72px;
+  width: 100%;
+  min-width: 0;
+  min-height: 70px;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 26px;
+  gap: 3px;
+  padding: 10px 18px;
   letter-spacing: 0.08em;
+}
+
+/* 继续在上、副本在下，各占一整行；中间四条线路两两并排。 */
+.mode-button--continue,
+.mode-button--trick {
+  grid-column: 1 / -1;
 }
 
 .primary-button.mode-button {
@@ -1153,30 +1213,31 @@ kbd {
   filter: drop-shadow(0 4px 0 rgba(7, 3, 11, 0.65));
 }
 
-/* 追思小径：比电磁长夜更暖、更旧一点。 */
+/* 追思路线：南瓜派的暖金，在整片紫黑里亮半格。 */
 .mode-button--memorial {
-  color: #f0e1c9;
-  border-color: rgba(190, 150, 96, 0.48);
+  color: #ffe8c6;
+  border-color: rgba(226, 158, 76, 0.5);
   background:
-    linear-gradient(160deg, rgba(61, 43, 39, 0.96), rgba(28, 19, 25, 0.98));
+    linear-gradient(160deg, rgba(64, 39, 26, 0.97), rgba(24, 15, 22, 0.99));
 }
 
 .mode-button--memorial:hover {
-  color: #fff3de;
-  border-color: rgba(232, 191, 126, 0.72);
+  color: #fff5e2;
+  border-color: rgba(255, 190, 108, 0.78);
 }
 
 .mode-button--memorial .mode-badge {
-  color: #ffdba0;
-  border-color: rgba(197, 148, 84, 0.5);
+  color: #ffd489;
+  background: #472a0f;
+  border-color: rgba(226, 158, 76, 0.55);
 }
 
-/* 百鬼夜行：更深、更红，像一盏被风吹斜的引路灯。 */
+/* 魑魅魍魉：更深、更红，像一盏被风吹斜的引路灯。 */
 .mode-button--parade {
-  color: #f5d9ce;
-  border-color: rgba(196, 86, 72, 0.55);
+  color: #ffe0d2;
+  border-color: rgba(214, 92, 64, 0.55);
   background:
-    linear-gradient(160deg, rgba(58, 20, 30, 0.97), rgba(16, 8, 20, 0.98));
+    linear-gradient(160deg, rgba(62, 24, 28, 0.97), rgba(20, 9, 18, 0.99));
 }
 
 .mode-button--parade:hover {
@@ -1186,13 +1247,82 @@ kbd {
 
 .mode-button--parade .mode-badge {
   color: #ffc2a6;
-  background: #4a1418;
-  border-color: rgba(196, 86, 72, 0.62);
+  background: #4d1618;
+  border-color: rgba(214, 92, 64, 0.62);
 }
 
-/* 百鬼夜行的玩家面板：没有电荷、背包和糖果，只有队伍与门。 */
-.player-panel.is-parade .panel-charge,
-.player-panel.is-parade .panel-effects {
+/* Trick or Treat：糖纸街的糖紫与暖橙，和其它线路分开。 */
+.mode-button--trick {
+  color: #ffe6f2;
+  border-color: rgba(224, 130, 200, 0.5);
+  background:
+    linear-gradient(160deg, rgba(58, 28, 58, 0.97), rgba(22, 12, 30, 0.99));
+}
+
+.mode-button--trick:hover {
+  color: #fff4fa;
+  border-color: rgba(255, 180, 235, 0.78);
+}
+
+.mode-button--trick .mode-badge {
+  color: #ffd0ec;
+  background: #4a2448;
+  border-color: rgba(224, 130, 200, 0.55);
+}
+
+.player-panel.is-trick .panel-charge {
+  display: none;
+}
+
+.player-panel.is-trick .panel-theme {
+  color: #ffd6a0;
+}
+
+/* 继续上次的夜路：比其它入口更暖，排在第一位。 */
+.primary-button.mode-button.mode-button--continue {
+  color: #2a1706;
+  border-color: rgba(255, 226, 166, 0.9);
+  background:
+    linear-gradient(160deg, #f3c972, #d98f3c);
+  filter: drop-shadow(0 5px 14px rgba(240, 178, 80, 0.35));
+}
+
+.primary-button.mode-button.mode-button--continue:hover {
+  filter: brightness(1.06) drop-shadow(0 6px 16px rgba(240, 178, 80, 0.48));
+}
+
+.mode-button--continue .mode-badge {
+  color: #2a1706;
+  background: #ffe6ac;
+  border-color: rgba(120, 72, 18, 0.35);
+}
+
+.mode-button--continue .mode-sub {
+  opacity: 0.78;
+}
+
+/* 清档入口只在小字区域出现，不抢主按钮。 */
+.save-reset-button {
+  margin-top: 10px;
+  padding: 4px 10px;
+  border: 0;
+  background: none;
+  color: #8f7c9c;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(143, 124, 156, 0.4);
+  text-underline-offset: 3px;
+}
+
+.save-reset-button:hover {
+  color: #d9c6e4;
+}
+
+/* 魑魅魍魉的玩家面板：没有电荷，只有队伍与门；糖果状态来自糖袋。 */
+.player-panel.is-parade .panel-charge {
   display: none;
 }
 
@@ -1205,9 +1335,9 @@ kbd {
 }
 
 .mode-main {
-  font-size: 18px;
+  font-size: 17.5px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
 }
 
 .mode-sub {
@@ -1216,7 +1346,8 @@ kbd {
   font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.04em;
-  opacity: 0.66;
+  line-height: 1.5;
+  opacity: 0.78;
 }
 
 .mode-badge {
@@ -1816,7 +1947,7 @@ kbd {
   border: 1px dashed #3f2d46;
 }
 
-/* ---------- 百鬼夜行：三条赛道 ---------- */
+/* ---------- 魑魅魍魉：三条赛道 ---------- */
 
 .track-panel {
   width: min(100%, 980px);
@@ -2421,7 +2552,7 @@ kbd {
   }
 
   .start-panel {
-    max-width: 360px;
+    max-width: 100%;
   }
 
   .overlay h2 {
@@ -2452,17 +2583,17 @@ kbd {
 
   .primary-button.mode-button,
   .secondary-button.mode-button {
-    min-width: 165px;
-    min-height: 62px;
-    padding: 10px 12px;
+    min-width: 0;
+    min-height: 58px;
+    padding: 8px 12px;
   }
 
   .mode-main {
-    font-size: 17px;
+    font-size: 16px;
   }
 
   .mode-sub {
-    font-size: 12px;
+    font-size: 11.5px;
   }
 
   .mini-controls {
@@ -2619,31 +2750,98 @@ kbd {
     padding-top: 14px;
   }
 
-  .pumpkin-emblem {
-    width: 50px;
-    height: 50px;
-    margin-bottom: 6px;
-  }
-
-  .overlay h2 {
+  .overlay:not(.start-overlay) h2 {
     margin-block: 5px;
     font-size: 33px;
   }
 
-  .overlay-copy {
+  .overlay:not(.start-overlay) .overlay-copy {
     margin-bottom: 9px;
     line-height: 1.55;
   }
 
-  .goal-badge {
+  .overlay:not(.start-overlay) .goal-badge {
     margin-bottom: 10px;
   }
 
-  .mini-controls {
+  .overlay:not(.start-overlay) .mini-controls {
     margin-top: 10px;
   }
 
   .page-note {
+    display: none;
+  }
+}
+
+/* 起始页按画面本身的高度收放：窗口不是标准 16:9 时，
+   矮下去的是游戏画面，而不是浏览器窗口。 */
+.start-overlay {
+  container-type: size;
+  align-items: safe center;
+  background:
+    radial-gradient(ellipse at 50% 4%, rgba(255, 132, 34, 0.13), transparent 46%),
+    radial-gradient(ellipse at 12% 82%, rgba(125, 155, 76, 0.07), transparent 46%),
+    radial-gradient(ellipse at 88% 76%, rgba(177, 132, 214, 0.14), transparent 52%),
+    linear-gradient(180deg, rgba(10, 5, 14, 0.82), rgba(6, 3, 10, 0.94));
+}
+
+@container (max-height: 600px) {
+  html:not(.is-mobile) .start-panel .pumpkin-emblem,
+  html:not(.is-mobile) .start-panel .overlay-kicker {
+    display: none;
+  }
+
+  html:not(.is-mobile) .start-panel h2 {
+    margin: 6px 0 8px;
+    font-size: 32px;
+  }
+
+  html:not(.is-mobile) .start-panel .overlay-copy {
+    margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  html:not(.is-mobile) .start-panel .goal-badge {
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+
+  html:not(.is-mobile) .primary-button.mode-button,
+  html:not(.is-mobile) .secondary-button.mode-button {
+    min-height: 56px;
+    padding: 7px 14px;
+  }
+
+  html:not(.is-mobile) .mode-main {
+    font-size: 16px;
+  }
+
+  html:not(.is-mobile) .start-panel .mini-controls {
+    margin-top: 8px;
+    font-size: 12px;
+  }
+}
+
+@container (max-height: 470px) {
+  html:not(.is-mobile) .start-panel .overlay-copy,
+  html:not(.is-mobile) .start-panel .goal-badge,
+  html:not(.is-mobile) .start-panel .mini-controls,
+  html:not(.is-mobile) .start-panel .save-reset-button {
+    display: none;
+  }
+
+  html:not(.is-mobile) .start-panel .start-brand {
+    margin-bottom: 2px;
+  }
+
+  html:not(.is-mobile) .primary-button.mode-button,
+  html:not(.is-mobile) .secondary-button.mode-button {
+    min-height: 46px;
+    padding: 5px 12px;
+  }
+
+  html:not(.is-mobile) .mode-sub {
     display: none;
   }
 }
@@ -3015,7 +3213,1121 @@ kbd {
   line-height: 1.55;
 }
 
+/* ---------- 糖袋（Trick or Treat） ---------- */
+
+.pouch-panel {
+  width: min(100%, 860px);
+}
+
+.pouch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.pouch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px 10px;
+  background:
+    linear-gradient(160deg, rgba(46, 28, 54, 0.72), rgba(23, 13, 28, 0.88));
+  border: 1px solid rgba(120, 84, 134, 0.42);
+  border-left: 2px solid var(--accent, #ffcf72);
+  border-radius: 4px;
+}
+
+.pouch-card.is-empty {
+  opacity: 0.55;
+}
+
+.pouch-card-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pouch-key {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  color: #a995b1;
+  font-family: var(--mono);
+  font-size: 10px;
+  background: rgba(10, 5, 14, 0.55);
+  border: 1px solid rgba(120, 84, 134, 0.38);
+  border-radius: 3px;
+}
+
+.pouch-glyph {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  color: var(--accent, #ffcf72);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--accent, #ffcf72);
+  border-radius: 50%;
+}
+
+.pouch-amount {
+  margin-left: auto;
+  color: var(--accent, #ffcf72);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.pouch-card strong {
+  color: #f1dfe9;
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.pouch-card em {
+  color: var(--accent, #ffcf72);
+  font-size: 11.5px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+.pouch-card p {
+  flex: 1;
+  margin: 3px 0 7px;
+  color: #a08aa8;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.pouch-use {
+  align-self: flex-start;
+  min-width: 76px;
+  padding: 4px 12px;
+  color: #17101c;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  background: var(--accent, #ffcf72);
+  border: 1px solid var(--accent, #ffcf72);
+  border-radius: 3px;
+}
+
+.pouch-use:hover {
+  filter: brightness(1.08);
+}
+
+.pouch-use:focus-visible {
+  outline: 2px solid #fff0cf;
+  outline-offset: 2px;
+}
+
+.pouch-use:disabled {
+  color: #8b7c90;
+  cursor: default;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(120, 84, 134, 0.32);
+  filter: none;
+}
+
+/* 糖纸街的人物对话 */
+.trick-door-panel {
+  width: min(100%, 760px);
+  max-height: 100%;
+  padding: 16px 18px 15px;
+  overflow: auto;
+  color: #e8d9ea;
+  background:
+    linear-gradient(150deg, rgba(42, 24, 48, 0.98), rgba(15, 8, 20, 0.98));
+  border: 1px solid var(--accent, #ffcf72);
+  box-shadow:
+    0 10px 34px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.trick-door-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+#trickDoorPortrait {
+  flex: 0 0 auto;
+  width: 112px;
+  height: 128px;
+  image-rendering: pixelated;
+  background:
+    radial-gradient(ellipse at 50% 62%, rgba(255, 207, 114, 0.16), transparent 68%),
+    rgba(10, 5, 14, 0.5);
+  border: 1px solid rgba(255, 207, 114, 0.42);
+  border-radius: 4px;
+}
+
+.trick-door-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.trick-door-copy h2 {
+  margin: 2px 0 6px;
+  color: #fff4e4;
+  font-size: 25px;
+  letter-spacing: 0.06em;
+}
+
+.trick-door-line {
+  margin: 0;
+  color: #bfa9c8;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.trick-door-task {
+  margin: 13px 0 12px;
+  padding-top: 11px;
+  border-top: 1px dashed rgba(255, 207, 114, 0.38);
+}
+
+.trick-door-candy {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 4px 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.trick-door-candy .pouch-glyph {
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
+}
+
+.trick-door-task-text {
+  margin: 0;
+  color: #d8c6dc;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* 捣蛋不再是随机糖：面板里先把「抢了就跑」的规则说清楚。 */
+.trick-door-trick {
+  margin: 8px 0 0;
+  padding: 7px 10px;
+  color: #f0d9b8;
+  font-size: 13px;
+  line-height: 1.6;
+  background: rgba(255, 176, 90, 0.08);
+  border-left: 2px solid var(--accent, #ffcf72);
+  border-radius: 2px;
+}
+
+.trick-door-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.trick-door-actions .primary-button,
+.trick-door-actions .secondary-button {
+  min-height: 44px;
+  padding: 9px 18px;
+  font-size: 14px;
+}
+
+.trick-door-actions .text-button {
+  margin-left: auto;
+}
+
+html.is-mobile .trick-door-panel {
+  width: min(100%, 760px);
+  padding: 12px 14px;
+}
+
+html.is-mobile #trickDoorPortrait {
+  width: 84px;
+  height: 96px;
+}
+
+html.is-mobile .trick-door-copy h2 {
+  font-size: 21px;
+}
+
+html.is-mobile .trick-door-line,
+html.is-mobile .trick-door-task-text,
+html.is-mobile .trick-door-trick {
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .trick-door-head {
+    gap: 10px;
+  }
+
+  #trickDoorPortrait {
+    width: 84px;
+    height: 96px;
+  }
+}
+
+/* 糖纸街的门上谜题 */
+.trick-puzzle-panel {
+  width: min(100%, 880px);
+  max-height: 100%;
+  padding: 16px 20px 14px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  color: #e8d9ea;
+  background:
+    linear-gradient(150deg, rgba(42, 24, 48, 0.98), rgba(15, 8, 20, 0.98));
+  border: 1px solid var(--accent, #ffcf72);
+  box-shadow:
+    0 10px 34px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.trick-puzzle-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.trick-puzzle-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.trick-puzzle-heading h2 {
+  margin: 2px 0 6px;
+  color: #fff4e4;
+  font-size: 25px;
+  letter-spacing: 0.06em;
+}
+
+.trick-puzzle-intro {
+  margin: 0;
+  color: #bfa9c8;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.trick-puzzle-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 8px 2px;
+  color: #9a86a4;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  border-top: 1px dashed rgba(255, 207, 114, 0.3);
+  border-bottom: 1px dashed rgba(255, 207, 114, 0.3);
+}
+
+.trick-puzzle-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  min-height: 300px;
+  padding: 10px 0;
+}
+
+.trick-puzzle-feedback {
+  min-height: 22px;
+  margin: 0 0 10px;
+  color: #bfa9c8;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.trick-puzzle-feedback.is-success {
+  color: #9ff2c2;
+}
+
+.trick-puzzle-feedback.is-wrong {
+  color: #ff9aa8;
+}
+
+.trick-puzzle-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  color: #8e7b99;
+  font-size: 12px;
+  border-top: 1px dashed rgba(255, 207, 114, 0.3);
+}
+
+.puzzle-question {
+  margin: 0;
+  color: #fff4e4;
+  font-size: 19px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.puzzle-question-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 7px;
+  color: var(--accent, #ffcf72);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  vertical-align: 2px;
+  border: 1px solid rgba(255, 207, 114, 0.36);
+  border-radius: 2px;
+}
+
+.puzzle-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 660px;
+  margin: 0 auto;
+}
+
+.puzzle-option {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 52px;
+  padding: 8px 14px;
+  color: #ead8ee;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(30, 17, 40, 0.92);
+  border: 1px solid rgba(255, 207, 114, 0.26);
+  border-radius: 3px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.puzzle-option:hover {
+  background: rgba(48, 28, 60, 0.96);
+  border-color: var(--accent, #ffcf72);
+}
+
+.puzzle-option:focus-visible {
+  outline: 2px solid #fff0cf;
+  outline-offset: 2px;
+}
+
+.puzzle-option.is-right {
+  color: #eafff2;
+  background: rgba(80, 190, 120, 0.2);
+  border-color: #8ff0b0;
+}
+
+.puzzle-option.is-wrong {
+  color: #ffc4cb;
+  background: rgba(190, 60, 80, 0.16);
+  border-color: #ff8f9a;
+}
+
+.puzzle-option:disabled {
+  cursor: default;
+}
+
+.puzzle-option-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.puzzle-option-unit {
+  color: #9a86a4;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.puzzle-number {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: #17101c;
+  font-size: 15px;
+  font-weight: 900;
+  background: var(--accent, #ffcf72);
+  border-radius: 2px;
+}
+
+.puzzle-lantern {
+  position: relative;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 24px;
+  background: linear-gradient(180deg, rgba(255, 214, 120, 0.95), rgba(255, 138, 68, 0.7));
+  border: 1px solid rgba(255, 214, 120, 0.75);
+  border-radius: 50% 50% 42% 42%;
+  box-shadow: 0 0 10px rgba(255, 190, 94, 0.45);
+}
+
+.puzzle-lantern::after {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 4px;
+  height: 6px;
+  content: '';
+  background: #ffd678;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px #ffcf72;
+}
+
+.puzzle-bolt {
+  flex: 0 0 auto;
+  color: #ffe08a;
+  font-size: 18px;
+  text-shadow: 0 0 8px rgba(255, 224, 138, 0.6);
+}
+
+.puzzle-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+}
+
+.puzzle-bone-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 52px;
+  padding: 5px 7px 3px;
+  background: rgba(30, 17, 40, 0.78);
+  border-bottom: 2px solid rgba(242, 228, 204, 0.32);
+}
+
+.puzzle-bone-chip b {
+  color: #fff4e4;
+  font-size: 23px;
+  line-height: 1.1;
+}
+
+.puzzle-bone-chip.is-blank {
+  border-bottom-color: var(--accent, #ffcf72);
+  border-bottom-style: dashed;
+}
+
+.puzzle-bone-chip.is-blank b {
+  color: var(--accent, #ffcf72);
+}
+
+.puzzle-bone-icon {
+  image-rendering: pixelated;
+}
+
+.puzzle-boxes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.puzzle-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 180px;
+  padding: 13px 12px;
+  color: #e8d9ea;
+  font-family: var(--sans);
+  cursor: pointer;
+  background: linear-gradient(180deg, rgba(44, 27, 52, 0.95), rgba(22, 12, 28, 0.96));
+  border: 1px solid rgba(255, 207, 114, 0.32);
+  border-radius: 3px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.puzzle-box:hover {
+  border-color: var(--accent, #ffcf72);
+}
+
+.puzzle-box:focus-visible {
+  outline: 2px solid #fff0cf;
+  outline-offset: 2px;
+}
+
+.puzzle-box-label {
+  color: var(--accent, #ffcf72);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.puzzle-box-lid {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 8px;
+  border: 1px dashed rgba(255, 207, 114, 0.26);
+}
+
+.puzzle-box-inscription {
+  color: #d8c6dc;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.puzzle-box-candy {
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.puzzle-box.is-open {
+  background: rgba(255, 207, 114, 0.12);
+  border-color: #ffd678;
+}
+
+.puzzle-box.is-open .puzzle-box-candy {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.puzzle-box.is-wrong {
+  border-color: #ff8f9a;
+  animation: puzzle-shake 0.36s ease;
+}
+
+.puzzle-equations {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.puzzle-equation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 2px 8px;
+  color: #d8c6dc;
+}
+
+.puzzle-equation.is-question {
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 207, 114, 0.3);
+}
+
+.puzzle-icon-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.puzzle-inline-icon,
+.puzzle-memory-icon,
+.puzzle-window-cell canvas {
+  image-rendering: pixelated;
+}
+
+.puzzle-equals {
+  color: var(--accent, #ffcf72);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.puzzle-question-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: #17101c;
+  font-size: 18px;
+  font-weight: 900;
+  background: var(--accent, #ffcf72);
+  border-radius: 50%;
+}
+
+.puzzle-scale {
+  position: relative;
+  width: min(390px, 92%);
+  margin: 2px auto 0;
+  padding-top: 14px;
+}
+
+.puzzle-scale::after {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 2px;
+  height: 86px;
+  content: '';
+  background: linear-gradient(180deg, rgba(255, 207, 114, 0.42), rgba(255, 207, 114, 0.06));
+  transform: translateX(-50%);
+}
+
+.puzzle-scale-beam {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  min-height: 94px;
+  border-top: 3px solid rgba(255, 207, 114, 0.55);
+  transform: rotate(var(--tilt, 0deg));
+  transform-origin: center top;
+  transition: transform 0.25s ease;
+}
+
+.puzzle-scale-beam.is-even {
+  border-top-color: #9ff2c2;
+}
+
+.puzzle-pan {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 54px;
+  padding-top: 14px;
+}
+
+.puzzle-pan::before {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 1px;
+  height: 14px;
+  content: '';
+  background: rgba(255, 207, 114, 0.45);
+}
+
+.puzzle-pan-candy {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 5px;
+  color: #fff4e4;
+  font-size: 15px;
+  background: rgba(30, 17, 40, 0.84);
+  border: 1px solid rgba(255, 207, 114, 0.28);
+  border-radius: 3px;
+}
+
+.puzzle-scale-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.puzzle-step-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: #17101c;
+  font-size: 23px;
+  font-weight: 900;
+  cursor: pointer;
+  background: var(--accent, #ffcf72);
+  border: 1px solid var(--accent, #ffcf72);
+  border-radius: 3px;
+}
+
+.puzzle-step-button:hover {
+  filter: brightness(1.08);
+}
+
+.puzzle-step-button:disabled {
+  color: #8b7c90;
+  cursor: default;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(120, 84, 134, 0.32);
+  filter: none;
+}
+
+.puzzle-scale-value {
+  min-width: 66px;
+  color: #fff4e4;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.puzzle-weigh {
+  min-height: 44px;
+  padding: 8px 18px;
+  font-size: 14px;
+}
+
+.puzzle-memory-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--puzzle-columns, 4), minmax(0, 1fr));
+  gap: 8px;
+  width: min(320px, 100%);
+  margin: 0 auto;
+}
+
+.puzzle-memory-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  background: linear-gradient(145deg, rgba(58, 37, 68, 0.9), rgba(26, 14, 32, 0.95));
+  border: 1px solid rgba(255, 207, 114, 0.26);
+  border-radius: 3px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.puzzle-memory-card:hover {
+  border-color: var(--accent, #ffcf72);
+}
+
+.puzzle-memory-card:focus-visible {
+  outline: 2px solid #fff0cf;
+  outline-offset: 2px;
+}
+
+.puzzle-bandage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(230, 207, 156, 0.16) 0 5px,
+      rgba(230, 207, 156, 0.03) 5px 11px
+    );
+}
+
+.puzzle-memory-card.is-open {
+  background: rgba(36, 23, 46, 0.96);
+  border-color: rgba(255, 207, 114, 0.5);
+}
+
+.puzzle-memory-card.is-matched {
+  background: rgba(255, 207, 114, 0.1);
+  border-color: var(--accent, #ffcf72);
+  box-shadow: inset 0 0 14px rgba(255, 207, 114, 0.18);
+}
+
+.puzzle-spot {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.puzzle-window {
+  padding: 10px;
+  background: rgba(10, 5, 14, 0.46);
+  border: 2px solid rgba(255, 207, 114, 0.22);
+  border-radius: 4px;
+}
+
+.puzzle-window-label {
+  margin: 0 0 8px;
+  color: #bfa9c8;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.puzzle-window-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--puzzle-columns, 4), minmax(0, 1fr));
+  gap: 5px;
+}
+
+.puzzle-window-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 2px;
+}
+
+button.puzzle-window-cell {
+  cursor: pointer;
+}
+
+button.puzzle-window-cell:hover {
+  border-color: rgba(255, 207, 114, 0.5);
+}
+
+.puzzle-window-cell.is-empty {
+  opacity: 0.35;
+}
+
+.puzzle-window-cell.is-found {
+  background: rgba(143, 240, 176, 0.08);
+  border-color: #8ff0b0;
+  box-shadow:
+    inset 0 0 0 1px #8ff0b0,
+    0 0 10px rgba(143, 240, 176, 0.32);
+}
+
+.puzzle-window-cell.is-wrong {
+  border-color: #ff8f9a;
+  animation: puzzle-shake 0.3s ease;
+}
+
+@keyframes puzzle-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+html.is-mobile .trick-puzzle-panel {
+  width: min(100%, 880px);
+  padding: 12px 14px;
+}
+
+html.is-mobile .trick-puzzle-heading h2 {
+  font-size: 21px;
+}
+
+html.is-mobile .trick-puzzle-intro,
+html.is-mobile .trick-puzzle-feedback {
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .trick-puzzle-panel {
+    padding: 12px 12px 10px;
+  }
+
+  .trick-puzzle-heading h2 {
+    font-size: 21px;
+  }
+
+  .trick-puzzle-stage {
+    min-height: 0;
+    padding: 10px 0;
+  }
+
+  .puzzle-options {
+    grid-template-columns: 1fr;
+  }
+
+  .puzzle-spot {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .puzzle-boxes {
+    gap: 8px;
+  }
+
+  .puzzle-box {
+    min-height: 140px;
+    padding: 8px 6px;
+  }
+
+  .puzzle-box-label {
+    font-size: 17px;
+  }
+
+  .puzzle-box-inscription {
+    font-size: 12px;
+  }
+
+  .puzzle-memory-grid {
+    gap: 6px;
+  }
+
+  .puzzle-question {
+    font-size: 17px;
+  }
+}
+
+/* 手机横屏只有三百多像素高：把谜题收小一点，避免牌桌压到标题上。 */
+@media (max-height: 520px) {
+  .trick-puzzle-panel {
+    padding: 10px 12px 8px;
+  }
+
+  .trick-puzzle-heading h2 {
+    font-size: 19px;
+  }
+
+  .trick-puzzle-intro {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .trick-puzzle-meta {
+    margin-top: 6px;
+    padding: 5px 2px;
+  }
+
+  .trick-puzzle-stage {
+    flex: 0 0 auto;
+    min-height: 0;
+    gap: 8px;
+    padding: 6px 0;
+  }
+
+  .puzzle-question {
+    font-size: 16px;
+  }
+
+  .puzzle-memory-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    width: min(440px, 100%);
+    gap: 5px;
+  }
+
+  .puzzle-box {
+    min-height: 130px;
+  }
+
+  .puzzle-spot {
+    gap: 10px;
+  }
+
+  .puzzle-window {
+    padding: 6px;
+  }
+
+  .puzzle-window-label {
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+
+  .puzzle-window-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .puzzle-equations {
+    gap: 2px;
+  }
+
+  .puzzle-equation {
+    min-height: 24px;
+    padding: 0 4px;
+    gap: 6px;
+  }
+
+  .puzzle-equation.is-question {
+    padding-top: 2px;
+  }
+
+  .puzzle-scale {
+    width: min(300px, 92%);
+    padding-top: 8px;
+  }
+
+  .puzzle-scale::after {
+    top: 8px;
+    height: 58px;
+  }
+
+  .puzzle-scale-beam {
+    min-height: 64px;
+  }
+
+  .puzzle-pan {
+    min-height: 38px;
+    padding-top: 10px;
+  }
+
+  .puzzle-scale-controls {
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .puzzle-step-button {
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+  }
+
+  .puzzle-weigh {
+    min-height: 38px;
+    padding: 6px 14px;
+  }
+
+  .trick-puzzle-feedback {
+    margin-bottom: 6px;
+  }
+
+  .trick-puzzle-foot {
+    padding-top: 6px;
+  }
+}
+
 /* 角色面板里的糖果状态条 */
+.panel-pouch-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 5px 0 4px;
+  color: #8e7b99;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.panel-pouch-line b {
+  margin-left: auto;
+  color: #ffd6a0;
+  font-size: 14px;
+}
+
+.panel-pouch-line kbd {
+  opacity: 0.68;
+}
+
+.player-panel[data-collapse="compact"] .panel-pouch-line {
+  display: none;
+}
+
 .panel-effects {
   margin-bottom: 9px;
   padding-top: 7px;
@@ -3527,22 +4839,27 @@ html.is-mobile .goal-badge {
   display: none;
 }
 
+html.is-mobile .start-brand {
+  margin: 0 0 2px;
+  font-size: 11px;
+}
+
 html.is-mobile .overlay h2 {
-  margin: 0 0 5px;
+  margin: 0 0 3px;
   font-size: clamp(22px, 3.4vmin + 10px, 30px);
   letter-spacing: 0.08em;
 }
 
 html.is-mobile .overlay-copy {
-  margin-bottom: 9px;
+  margin-bottom: 6px;
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
 html.is-mobile .mode-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
   margin-top: 0;
 }
 
@@ -3550,8 +4867,8 @@ html.is-mobile .primary-button.mode-button,
 html.is-mobile .secondary-button.mode-button {
   width: 100%;
   min-width: 0;
-  min-height: 58px;
-  padding: 8px 12px;
+  min-height: 49px;
+  padding: 5px 10px;
   gap: 2px;
 }
 
@@ -3561,8 +4878,8 @@ html.is-mobile .mode-main {
 }
 
 html.is-mobile .mode-sub {
-  font-size: 10.5px;
-  line-height: 1.35;
+  font-size: 11px;
+  line-height: 1.38;
 }
 
 html.is-mobile .mode-badge {
@@ -3572,20 +4889,24 @@ html.is-mobile .mode-badge {
   font-size: 9px;
 }
 
-.mode-sub--mobile {
-  display: none;
+html.is-mobile .mode-button--trick {
+  grid-column: 1 / -1;
 }
 
-html.is-mobile .mode-sub--desktop {
-  display: none;
+html.is-mobile .pouch-grid {
+  gap: 6px;
 }
 
-html.is-mobile .mode-sub--mobile {
-  display: inline;
+html.is-mobile .pouch-card {
+  padding: 7px 8px;
 }
 
-html.is-mobile .mode-button--sneak {
-  opacity: 0.78;
+html.is-mobile .pouch-card p {
+  font-size: 11px;
+}
+
+html.is-mobile .mode-button--continue {
+  grid-column: 1 / -1;
 }
 
 .mobile-controls {
@@ -3598,10 +4919,15 @@ html.is-mobile .mini-controls:not(.mobile-controls) {
 
 html.is-mobile .mini-controls.mobile-controls {
   display: flex;
-  gap: 6px 14px;
-  margin-top: 9px;
+  gap: 5px 14px;
+  margin-top: 5px;
   color: #9c86a8;
-  font-size: 11.5px;
+  font-size: 12px;
+}
+
+html.is-mobile .save-reset-button {
+  margin-top: 4px;
+  font-size: 10.5px;
 }
 
 html.is-mobile .inventory-panel,
@@ -3634,6 +4960,10 @@ html.is-mobile .placement-tip,
 html.is-mobile .inventory-foot kbd,
 html.is-mobile .placement-tip kbd {
   font-size: 12px;
+}
+
+html.is-mobile .placement-tip {
+  display: none;
 }
 
 html.is-mobile .inventory-foot kbd,
@@ -3681,7 +5011,7 @@ html.is-mobile .touch-restart-button {
 html.is-mobile .player-panel {
   top: max(8px, env(safe-area-inset-top));
   right: max(8px, env(safe-area-inset-right));
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 html.is-mobile .player-panel[data-collapse="compact"] {
@@ -3716,11 +5046,11 @@ html.is-mobile .quest-track {
 }
 
 html.is-mobile .tutorial-coach {
-  top: max(8px, env(safe-area-inset-top));
+  top: max(54px, calc(env(safe-area-inset-top) + 46px));
   left: max(8px, env(safe-area-inset-left));
   width: calc(100% - 220px);
   padding: 9px 11px;
-  font-size: 13.5px;
+  font-size: 14px;
 }
 
 html.is-mobile .toast {
@@ -3728,7 +5058,7 @@ html.is-mobile .toast {
   left: max(8px, env(safe-area-inset-left));
   max-width: calc(100% - 220px);
   padding: 8px 11px;
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 html.is-mobile .screen.has-quest .toast {
@@ -3841,8 +5171,7 @@ html.is-mobile .interaction-prompt kbd {
   letter-spacing: 0.06em;
 }
 
-.touch-btn.is-down,
-.touch-btn:active {
+.touch-btn.is-down {
   background: rgba(255, 139, 42, 0.34);
   border-color: rgba(255, 208, 142, 0.86);
   box-shadow:
@@ -3871,8 +5200,11 @@ html.is-mobile .interaction-prompt kbd {
   opacity: 0.72;
 }
 
-.touch-btn--menu.is-down,
-.touch-btn--menu:active {
+.touch-btn[hidden] {
+  display: none;
+}
+
+.touch-btn--menu.is-down {
   opacity: 1;
 }
 
@@ -3925,6 +5257,56 @@ html.is-mobile .interaction-prompt kbd {
     font-size: 14px;
     line-height: 1.7;
   }
+}
+
+/* 皮鞋的话：屏幕下方居中的一句话气泡。 */
+.shoe-voice {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 7;
+  max-width: min(400px, calc(100% - 32px));
+  padding: 9px 14px;
+  color: #e8dcc8;
+  font-family: var(--mono);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+  text-align: left;
+  pointer-events: none;
+  background: rgba(13, 7, 19, 0.88);
+  border: 1px solid #493056;
+  border-left: 3px solid #7f5046;
+  border-radius: 3px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 6px);
+  transition: opacity 220ms ease, transform 220ms ease, visibility 220ms;
+}
+
+.shoe-voice.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.shoe-voice::before {
+  content: "鞋";
+  margin-right: 8px;
+  padding: 0 4px;
+  color: #b98d68;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  border: 1px solid #5a3f45;
+  border-radius: 2px;
+  vertical-align: 2px;
+}
+
+.is-mobile .shoe-voice {
+  bottom: calc(var(--touch-btn, 56px) * 2 + 26px);
+  max-width: calc(100% - 24px);
+  padding: 8px 12px;
+  font-size: 13px;
 }
 
 @keyframes rotate-nudge {

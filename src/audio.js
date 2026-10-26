@@ -22,7 +22,11 @@ export class AudioKit {
   }
 
   toggleMuted() {
-    this.muted = !this.muted;
+    return this.setMuted(!this.muted);
+  }
+
+  setMuted(muted) {
+    this.muted = Boolean(muted);
     if (this.master) {
       this.master.gain.setTargetAtTime(this.muted ? 0 : 0.42, this.ctx.currentTime, 0.01);
     }
@@ -76,6 +80,39 @@ export class AudioKit {
       duration: 0.11,
       type: 'sine',
       volume,
+    });
+  }
+
+  /** 指节敲木门：短、闷，两下叠在一起。 */
+  knock() {
+    this.tone({
+      startFreq: 230,
+      endFreq: 96,
+      duration: 0.055,
+      type: 'square',
+      volume: 0.055,
+    });
+    this.tone({
+      startFreq: 150,
+      endFreq: 70,
+      duration: 0.08,
+      type: 'sine',
+      volume: 0.045,
+      delay: 0.028,
+    });
+  }
+
+  /** 捣蛋成功：三颗很快的跳音。 */
+  trick() {
+    [0, 0.07, 0.14].forEach((delay, index) => {
+      this.tone({
+        startFreq: 520 + index * 160,
+        endFreq: 780 + index * 220,
+        duration: 0.12,
+        type: 'triangle',
+        volume: 0.07,
+        delay,
+      });
     });
   }
 
@@ -235,6 +272,44 @@ export class AudioKit {
       type: 'sine',
       volume: 0.03,
       delay: 0.1,
+    });
+  }
+
+  /** 惊恐预兆：两下低沉的心跳，不和任何拾取音撞色。 */
+  heartbeat() {
+    this.tone({
+      startFreq: 92,
+      endFreq: 48,
+      duration: 0.14,
+      type: 'sine',
+      volume: 0.07,
+    });
+    this.tone({
+      startFreq: 78,
+      endFreq: 42,
+      duration: 0.18,
+      type: 'sine',
+      volume: 0.055,
+      delay: 0.19,
+    });
+  }
+
+  /** 跟着呼吸按对一次：音高随次数往上走，听得见自己在慢慢平复。 */
+  breath(step = 1) {
+    this.tone({
+      startFreq: 420 + step * 60,
+      endFreq: 620 + step * 80,
+      duration: 0.22,
+      type: 'sine',
+      volume: 0.04,
+    });
+    this.tone({
+      startFreq: 210 + step * 30,
+      endFreq: 150,
+      duration: 0.3,
+      type: 'triangle',
+      volume: 0.02,
+      delay: 0.06,
     });
   }
 

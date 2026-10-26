@@ -9,3 +9,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.local
+
+# 打包产物与本地调试截图（不入库）
+*.zip
+_visualcheck/
+

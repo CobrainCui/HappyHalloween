@@ -3,7 +3,9 @@ const KEY_ACTIONS = new Map([
   ['ArrowRight', 'right'],
   ['ArrowUp', 'up'],
   ['ArrowDown', 'down'],
-  // 鬼鬼祟祟：鬼鬼用 WASD，和祟祟的方向键各走一套。
+  // 互动键也记进 keys：惊恐发作时按住 E 呼吸，不靠按键重复事件。
+  ['KeyE', 'interact'],
+  // 第三段：你用 WASD，回音用方向键，各走一套。
   ['KeyA', 'p1left'],
   ['KeyD', 'p1right'],
   ['KeyW', 'p1up'],

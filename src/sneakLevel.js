@@ -1,8 +1,8 @@
 /**
- * 把 sneak.js 里的赛道数据变成 Level 能读的地图。
+ * 把 sneak.js 里第三段的赛道数据变成 Level 能读的地图。
  *
- * 单独放在这里，让 Level 只多一条 build() 分支和一个数据字段，
- * 不去动其它线路的建图代码。
+ * 这一段属于「给老师送南瓜派」，所以不再单独成图：
+ * Level 的 buildMemorialSneak() 调它，再把病人记忆和追思路线的外壳接上。
  */
 import { PLAYER } from './config.js';
 import { SNEAK_STAGES } from './sneak.js';
@@ -172,7 +172,7 @@ export function buildSneakData(stage) {
       clock: watcher.phase ?? 0,
       angle: base,
       alert: false,
-      // 提着灯来回走的老守夜人。patrol 是 [起步格, 折返格]，
+      // 提着灯来回走的提灯人。patrol 是 [起步格, 折返格]，
       // 只铺在平地上，所以整段巡逻里脚下的高度不变。
       minX: patrol ? patrol[0] * T + T / 2 : null,
       maxX: patrol ? patrol[1] * T + T / 2 : null,
@@ -227,6 +227,7 @@ export function buildSneakData(stage) {
   const sneakHints = (spec.hints ?? []).map((hint) => ({
     x: hint.tileX * T,
     text: hint.text,
+    mobileText: hint.mobileText ?? null,
     duration: hint.duration ?? 3800,
   }));
 
@@ -234,7 +235,7 @@ export function buildSneakData(stage) {
     makeCheckpoint(
       tileX * T,
       groundAt(tileX) - PLAYER.HEIGHT,
-      `第 ${stage} 段 · 影子记号 ${index + 1}`,
+      `第 ${entry.stage} 段 · 影子记号 ${index + 1}`,
     ),
   );
 

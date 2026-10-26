@@ -1,10 +1,10 @@
 /**
- * 「百鬼夜行」——一条和南瓜小径、五盏灯都无关的新线路，
+ * 「魑魅魍魉」——一条和南瓜小径、四盏灯都无关的新线路，
  * 但仍然发生在万圣夜。
  *
  * 万圣节的晚上，雾见镇的南瓜灯一盏盏亮起来。子夜的第十三声钟敲过之后，
  * 镇上所有化装成鬼怪的孩子、屋檐下所有被刻成笑脸的影子，一起排成一支
- * 没有尽头的队伍——今年的百鬼夜行，要从山道一直走到钟楼顶的百鬼门。
+ * 没有尽头的队伍——今年的魑魅魍魉，要从山道一直走到钟楼顶的百鬼门。
  *
  * 提灯的孩子提着祖传的南瓜灯笼走在队伍最前面。灯一旦点亮就不能放下：
  * 它照到哪里，鬼就跟到哪里；提灯人停下，队伍就会忘记自己要去哪儿。
@@ -30,13 +30,13 @@
 
 export const PARADE_ROUTE = Object.freeze({
   id: 'parade',
-  name: '百鬼夜行',
+  name: '魑魅魍魉',
   subtitle: '万圣夜的无尽队伍',
   totalStages: 6,
   intro:
-    '第十三声钟敲过，镇上的南瓜灯和影子一起站了起来，排成没有尽头的队伍。你提着灯笼走在最前面：你走多快，身后的鬼就走多快。',
+    '第十三声钟响过，镇上的影子排成一队。你提着灯走在最前面。你走多快，后面的鬼就走多快。',
   finale:
-    '百鬼门打开了。身后的脚步声一个不少。你把灯笼挂在门楣上，影子们低头，然后散回山里、雾里、水里和南瓜田里。',
+    '百鬼门开了。所有人都到了。你把灯笼挂上门楣，影子们散了，回山里、雾里、水里和南瓜田。',
 });
 
 /**
@@ -60,7 +60,7 @@ export const PARADE_TRACKS = Object.freeze([
     currentScale: 1,
     lossRule: 'scatter',
     finale:
-      '百鬼门打开了。身后的脚步声一个不少。你把灯笼挂在门楣上，影子们低头，然后散回山里、雾里、水里和南瓜田里。',
+      '百鬼门开了。所有人都到了。你把灯笼挂上门楣，影子们散了，回山里、雾里、水里和南瓜田。',
   },
   {
     id: 'normal',
@@ -74,7 +74,7 @@ export const PARADE_TRACKS = Object.freeze([
     currentScale: 1.15,
     lossRule: 'scatter',
     finale:
-      '百鬼门打开了。影子比出发时更多，也比出发时更安静。你把灯笼举高，让最后一只脚也跨过门槛。',
+      '百鬼门开了。影子比出发时多，也比出发时安静。你把灯笼举高，等最后一只脚跨过门槛。',
   },
   {
     id: 'hard',
@@ -88,7 +88,7 @@ export const PARADE_TRACKS = Object.freeze([
     currentScale: 1.3,
     lossRule: 'sacrifice',
     finale:
-      '百鬼门开了。名册上有几个名字永远留在了夜路上；灯没有灭，剩下的人替他们走到了门前。',
+      '百鬼门开了。名册上有几个名字永远留在夜路上。灯没灭，剩下的人替他们走到了门前。',
   },
 ]);
 
@@ -132,7 +132,7 @@ export const YOKAI = Object.freeze({
     accent: '#ffb45e',
     traitLabel: '灯火',
     teamLabel: '引路',
-    trait: '普通人的脚步；灯照到哪里，队伍就跟到哪里。',
+    trait: '普通人的脚步。灯照到哪儿，队伍跟到哪儿。',
     line: '南瓜灯往哪儿照，路就往哪儿长。',
     traits: {},
   },
@@ -147,7 +147,7 @@ export const YOKAI = Object.freeze({
     traitLabel: '沉重',
     teamLabel: '开路',
     trait: '走得慢、跳得低，但能撞塌裂石壁，全队都能过去。',
-    line: '别盯着我脖子上的螺丝看。裂开的石头，我一肩膀就能顶开——顶开以后，糖分我一颗就行。',
+    line: '别盯我脖子上的螺丝。裂石我一肩膀就能顶开。顶开以后，糖分我一颗。',
     traits: {
       moveScale: 0.92,
       jumpScale: 0.96,
@@ -174,8 +174,8 @@ export const YOKAI = Object.freeze({
     accent: '#ddd2ef',
     traitLabel: '轻飘',
     teamLabel: '全队轻风',
-    trait: '自己跳得高、落得慢；同行时全队下落更轻。',
-    line: '别拽我的床单。风一大，糖纸就吹跑了——我得飘到屋檐上去追。',
+    trait: '自己跳得高、落得慢。同行时全队下落更轻。',
+    line: '别拽我的床单。风一大，糖纸会吹跑，我得飘上屋檐去追。',
     traits: {
       moveScale: 1.05,
       jumpScale: 1.0,
@@ -201,7 +201,7 @@ export const YOKAI = Object.freeze({
     accent: '#75c9a1',
     traitLabel: '水行',
     teamLabel: '全队划水',
-    trait: '水里更快、更稳；同行时全队划水更省力。',
+    trait: '水里更快、更稳。同行时全队划水更省力。',
     line: '水里我比岸上自在。糖掉进河里，我潜下去捞。',
     traits: {
       moveScale: 0.94,
@@ -230,7 +230,7 @@ export const YOKAI = Object.freeze({
     traitLabel: '二段跳',
     teamLabel: '全队二段跳',
     trait: '全队二段跳：起跳后松开 ↑，在空中再按一次。',
-    line: '先跳，松开，再按一次——我带着全队一起再蹬一下。最高那颗糖，留给我。',
+    line: '先跳，松开，再按一次。我带着全队再蹬一下。最高的那颗糖留给我。',
     traits: {
       moveScale: 1.0,
       jumpScale: 0.98,
@@ -283,7 +283,7 @@ export const YOKAI = Object.freeze({
     traitLabel: '碎步',
     teamLabel: '双子提速',
     trait: '腿短跑得快；两只骷髅都在时，全队提速。',
-    line: '我们俩算一个还是几个？——糖要两份，门里也要算两个。',
+    line: '我们俩算一个还是两个？糖要两份，进门也要算两个。',
     traits: {
       moveScale: 1.1,
       jumpScale: 1.04,
@@ -359,7 +359,7 @@ export const YOKAI = Object.freeze({
     traitLabel: '滑翔',
     teamLabel: '全队滑翔',
     trait: '全队滑翔：下落时按住 ↑，借扫帚的风。',
-    line: '先跳，再按住 ↑——风会把整支队伍一起兜住。别催，扫帚要先跟风商量一下。',
+    line: '先跳，再按住 ↑。风会把整队兜住。别催，扫帚要先跟风商量。',
     traits: {
       moveScale: 1.02,
       jumpScale: 1.0,
@@ -431,7 +431,7 @@ export const PARADE_CHAPTERS = Object.freeze([
     subtitle: '山道 · 沉重的客人',
     objective: '带着科学怪人走到半山的第一座南瓜鸟居',
     intro:
-      '第一段是上山路。石阶被雨水冲得高低不平，路边的石鼓还留着上一位提灯人的掌印。',
+      '第一段是上山路。石阶被雨冲得高低不平。路边石鼓上还留着上一位提灯人的手印。',
     body: '科学怪人走得慢，但裂石只认他的肩膀。',
     backdrop: {
       skyTop: '#12060d',
@@ -455,8 +455,8 @@ export const PARADE_CHAPTERS = Object.freeze([
     subtitle: '雾巷 · 轻飘的客人',
     objective: '穿过雾町的屋顶和巷子，走到二之南瓜鸟居',
     intro:
-      '雾町的屋檐一层压着一层，纸灯笼挂在半空，照不亮脚下的路。',
-    body: '床单幽灵会被风托上屋顶；走到屋檐尽头，她会自己飘下来。',
+      '雾町的屋檐一层压一层。纸灯笼挂在半空，照不亮脚下。',
+    body: '床单幽灵会被风托上屋顶。走到屋檐尽头，她会自己飘下来。',
     backdrop: {
       skyTop: '#0b0a14',
       skyMid: '#1b1830',
@@ -479,8 +479,8 @@ export const PARADE_CHAPTERS = Object.freeze([
     subtitle: '雨河 · 水里的客人',
     objective: '渡过两条雨川，走到水边的三之南瓜鸟居',
     intro:
-      '雨川把山路截成两半，水面上漂着别人没送走的南瓜灯。',
-    body: '贴近河床走更稳；废桥要潜水钻过，气泡柱会把人托回水面。',
+      '雨川把山路截成两段。水面上漂着没人送走的南瓜灯。',
+    body: '贴着河床走更稳。废桥要潜水钻过去，气泡柱会把人托回水面。',
     backdrop: {
       skyTop: '#050d12',
       skyMid: '#0c1c26',
@@ -503,8 +503,8 @@ export const PARADE_CHAPTERS = Object.freeze([
     subtitle: '废寺 · 高处的客人',
     objective: '带蝙蝠和木乃伊走过废寺积水，到四之鸟居',
     intro:
-      '废寺的门槛边倒挂着蝙蝠，石棺里靠着木乃伊。',
-    body: '二段跳与绷带兜底；裂石留给科学怪人。',
+      '废寺门槛边倒挂着蝙蝠，石棺里靠着木乃伊。',
+    body: '二段跳和绷带兜底。裂石留给科学怪人。',
     backdrop: {
       skyTop: '#10040a',
       skyMid: '#270915',
@@ -527,7 +527,7 @@ export const PARADE_CHAPTERS = Object.freeze([
     subtitle: '墓园 · 所有脚一起走',
     objective: '带骷髅兄弟和狼人穿过墓园，到五之鸟居',
     intro:
-      '雾从墓穴里漫出来，两只骷髅和狼人在石鼓边等着。',
+      '雾从墓穴里冒出来。两只骷髅和狼人在石鼓边等着。',
     body: '骷髅凑齐提速，狼人带全队双击冲刺。',
     backdrop: {
       skyTop: '#0b0710',
@@ -551,8 +551,8 @@ export const PARADE_CHAPTERS = Object.freeze([
     subtitle: '钟楼 · 最后一程',
     objective: '带所有同行者登上钟楼顶的百鬼门（南瓜门）',
     intro:
-      '钟楼的风灌下来，女巫在最高一级，黑猫蹲在井沿。',
-    body: '全队滑翔、蹬墙；下层长梯是备用路。',
+      '钟楼风很大。女巫在最高一级，黑猫蹲在井沿。',
+    body: '全队滑翔、蹬墙。下层长梯是备用路。',
     backdrop: {
       skyTop: '#080b16',
       skyMid: '#141c33',

@@ -7,11 +7,12 @@ const T = VIEW.TILE;
  *
  * 尺寸与 renderer.drawPumpkin 的画法对齐：宽 14、高 12，
  * 位置用碰撞盒的左上角记录，底边正好坐在摆放格的地面上。
- * 南瓜之间只在「身体明显交叠」时才挡住横移，叠在一起的两颗
- * （上下相接、竖直方向没有交叠）因此可以被推着分开，上面的会自己掉下来。
+ * 并排贴在一起的几颗南瓜会像一排木箱那样被一起推走：推力顺着
+ * 队伍往后传，直到某一颗顶到墙或别的南瓜。叠在一起的两颗
+ * （上下相接、竖直方向没有交叠）不算一排，下面的被推走时上面的会自己掉下来。
  *
  * 一个世界里可以有多名玩家：每位玩家最多抱一颗南瓜，用 pumpkin.carrier 记录。
- * 普通线路只有主角；鬼鬼祟祟里两个小鬼都能推、抱、抛。
+ * 普通线路只有主角；第三段里你和回音都能推、抱、抛。
  */
 export const PUMPKIN = Object.freeze({
   width: 14,
@@ -20,6 +21,10 @@ export const PUMPKIN = Object.freeze({
   maxFall: PHYSICS.maxFall,
   groundFriction: 1400,
   airDrag: 30,
+  // 南瓜是空心的杰克灯笼，掉进水里后会慢慢沉下去。
+  waterGravity: PHYSICS.gravity * 0.3,
+  waterMaxFall: 70,
+  waterDrag: 480,
   pickupRadius: 32,
   // 没有可叠的目标时，抛起主要是竖直方向，只带一点点向前的分量；
   // 站在另一颗南瓜旁边抛时，会在 toss() 里对准它轻轻放下。
@@ -28,6 +33,9 @@ export const PUMPKIN = Object.freeze({
 });
 
 const overlapX = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x;
+
+// 竖直方向至少要交叠这么多，才算并排、能互相顶着走；叠在一起的两颗交叠量为 0。
+const ROW_OVERLAP = 4;
 
 function approach(value, target, amount) {
   if (value < target) return Math.min(value + amount, target);
@@ -49,8 +57,15 @@ export class PumpkinWorld {
       vx: 0,
       vy: 0,
       variant: spawn.variant ?? 0,
+      // 第二段集合门用它认领自己的元素；其它线路的南瓜是 null。
+      tag: spawn.tag ?? null,
+      look: spawn.look ?? null,
+      // 第二段元素的内部归属：a / b / both / none。不画在元素身上。
+      membership: spawn.membership ?? null,
       onGround: true,
       carrier: null,
+      // 集合门每帧写在这里的归属标记，渲染层用来判断放对了没有。
+      setMarks: null,
     }));
     this.stats = { pushes: 0, pickups: 0, throws: 0, stacks: 0 };
   }
@@ -104,9 +119,21 @@ export class PumpkinWorld {
     const wasSupported = this.isSupported(pumpkin);
     pumpkin.onGround = wasSupported;
 
-    const friction = wasSupported ? PUMPKIN.groundFriction : PUMPKIN.airDrag;
+    // 南瓜中心是否泡在水里：在水里就用水的重力和阻力。
+    const inWater = this.level.getWaterAt?.(
+      pumpkin.x + pumpkin.w / 2,
+      pumpkin.y + pumpkin.h / 2,
+    );
+    const gravity = inWater ? PUMPKIN.waterGravity : PUMPKIN.gravity;
+    const maxFall = inWater ? PUMPKIN.waterMaxFall : PUMPKIN.maxFall;
+    const friction = wasSupported
+      ? PUMPKIN.groundFriction
+      : inWater
+        ? PUMPKIN.waterDrag
+        : PUMPKIN.airDrag;
+
     pumpkin.vx = approach(pumpkin.vx, 0, friction * dt);
-    pumpkin.vy = Math.min(pumpkin.vy + PUMPKIN.gravity * dt, PUMPKIN.maxFall);
+    pumpkin.vy = Math.min(pumpkin.vy + gravity * dt, maxFall);
 
     if (pumpkin.vx !== 0) {
       const dx = pumpkin.vx * dt;
@@ -185,6 +212,124 @@ export class PumpkinWorld {
     return pumpkin.x - startX;
   }
 
+  /**
+   * 顺着推的方向，把前面排成一排的南瓜收集起来。
+   * 只收推力够得着的：贴着的（间距 0）全部算进来，隔着几像素的
+   * 按离开头的距离依次算，超过这次推力的就不管了。
+   * 竖直方向明显交叠才算同一排：叠在上面那颗不算，它该掉下来。
+   * 返回 row（从被推的那颗往后排）和每颗要先走多远才轮到它（gaps）。
+   */
+  collectRow(start, dir, distance) {
+    const row = [start];
+    const gaps = [0];
+    let head = start;
+    let prefix = 0;
+    for (;;) {
+      let next = null;
+      let nextGap = Infinity;
+      for (const other of this.pumpkins) {
+        if (other.carrier || row.includes(other)) continue;
+        const vOverlap =
+          Math.min(head.y + head.h, other.y + other.h) -
+          Math.max(head.y, other.y);
+        if (vOverlap <= ROW_OVERLAP) continue;
+        const gap =
+          dir > 0
+            ? other.x - (head.x + head.w)
+            : head.x - (other.x + other.w);
+        if (gap < -0.5 || gap >= nextGap) continue;
+        next = other;
+        nextGap = gap;
+      }
+      if (!next) break;
+      const offset = prefix + Math.max(0, nextGap);
+      if (offset >= distance) break;
+      prefix = offset;
+      row.push(next);
+      gaps.push(prefix);
+      head = next;
+    }
+    return { row, gaps };
+  }
+
+  /**
+   * 这一颗在推的方向上还能走多远：先撞到墙、或者先撞到别的南瓜就停。
+   * ignore 里的南瓜（同一排、会一起走的那几颗）不算障碍。
+   */
+  roomAhead(pumpkin, dir, ignore) {
+    let room = Infinity;
+    const rowTop = Math.floor((pumpkin.y + 1) / T);
+    const rowBottom = Math.floor((pumpkin.y + pumpkin.h - 1) / T);
+
+    // 一次推力最多一两格，扫四格足够；正好落在格子边界时从边界外那一格开始扫。
+    if (dir > 0) {
+      const edge = pumpkin.x + pumpkin.w;
+      const firstCol = Math.floor(edge / T);
+      for (let row = rowTop; row <= rowBottom; row += 1) {
+        for (let col = firstCol; col < firstCol + 4; col += 1) {
+          if (!this.level.isSolid(col, row)) continue;
+          room = Math.min(room, col * T - edge);
+          break;
+        }
+      }
+    } else {
+      const edge = pumpkin.x;
+      const firstCol = Math.ceil(edge / T) - 1;
+      for (let row = rowTop; row <= rowBottom; row += 1) {
+        for (let col = firstCol; col > firstCol - 4; col -= 1) {
+          if (!this.level.isSolid(col, row)) continue;
+          room = Math.min(room, edge - (col + 1) * T);
+          break;
+        }
+      }
+    }
+
+    for (const other of this.pumpkins) {
+      if (other.carrier || ignore.has(other)) continue;
+      const vOverlap =
+        Math.min(pumpkin.y + pumpkin.h, other.y + other.h) -
+        Math.max(pumpkin.y, other.y);
+      if (vOverlap <= ROW_OVERLAP) continue;
+      if (dir > 0) {
+        if (other.x <= pumpkin.x) continue;
+        room = Math.min(room, other.x - (pumpkin.x + pumpkin.w));
+      } else {
+        if (other.x >= pumpkin.x) continue;
+        room = Math.min(room, pumpkin.x - (other.x + other.w));
+      }
+    }
+
+    return room;
+  }
+
+  /**
+   * 推一排南瓜：后面那颗顶前面那颗一起走，直到某一颗顶到墙或别的南瓜。
+   * 和只挪一颗时的区别就在这儿——并排的南瓜不再互相顶死，
+   * 推力会顺着队伍往后传，所以「南瓜多了就推不动」不会发生。
+   * 返回被推的那颗实际移动的距离，剩下的由调用方让玩家停下。
+   */
+  pushRow(start, dir, distance) {
+    if (distance <= 0) return 0;
+    const { row, gaps } = this.collectRow(start, dir, distance);
+    const ignore = new Set(row);
+
+    // 整排能走多远：每颗自己的余量加上它要先追上的距离，取最小值。
+    let moved = distance;
+    for (let i = 0; i < row.length; i += 1) {
+      moved = Math.min(moved, this.roomAhead(row[i], dir, ignore) + gaps[i]);
+    }
+    moved = Math.max(0, moved);
+    if (moved <= 0) return 0;
+
+    for (let i = 0; i < row.length; i += 1) {
+      const step = moved - gaps[i];
+      if (step <= 0) continue;
+      row[i].x += dir * step;
+      row[i].vx = 0;
+    }
+    return moved;
+  }
+
   /** 返回 'tile' / 'pumpkin' 表示落地，null 表示还在空中。 */
   moveY(pumpkin, dy, prevBottom) {
     pumpkin.y += dy;
@@ -233,7 +378,8 @@ export class PumpkinWorld {
 
   /**
    * 玩家与南瓜的接触：从上方落到南瓜上会被它接住；
-   * 从侧面撞上去则把南瓜推开，推到墙或另一颗南瓜跟前时自己也停下。
+   * 从侧面撞上去则把南瓜推开，并排的一排会一起走，
+   * 直到队尾顶到墙或别的南瓜，自己才跟着停下。
    */
   resolvePlayer(player) {
     for (const pumpkin of this.pumpkins) {
@@ -267,7 +413,7 @@ export class PumpkinWorld {
           : pumpkin.x + pumpkin.w - box.x;
       if (penetration <= 0) continue;
 
-      const moved = Math.abs(this.moveX(pumpkin, dir * penetration));
+      const moved = this.pushRow(pumpkin, dir, penetration);
       if (moved > 0.01) this.stats.pushes += moved;
       const remaining = penetration - moved;
       if (remaining > 0.01) {
@@ -298,7 +444,7 @@ export class PumpkinWorld {
    *   - 单人：手里有就抛，手里没有就抱起身边的南瓜；
    *   - 双人：先让身边有空南瓜、且自己没抱东西的人去抱；
    *     两个人都没得抱时，再让抱着南瓜的人抛出。
-   * 鬼鬼祟祟里两个人各有自己的互动键，通常会直接指定角色，只有兜底时才走这里。
+   * 第三段里两个人各有自己的互动键，通常会直接指定角色，只有兜底时才走这里。
    */
   pickPlayer(players) {
     const list = (Array.isArray(players) ? players : [players]).filter(Boolean);
@@ -402,7 +548,7 @@ export class PumpkinWorld {
         kind: 'pumpkin',
         key,
         available: true,
-        text: `抱起南瓜 · 再按 ${key} 抛出`,
+        text: '抱起南瓜 · 再按一次抛出',
       };
     }
     return null;

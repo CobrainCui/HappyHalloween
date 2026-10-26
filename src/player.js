@@ -1,7 +1,32 @@
 import { FIELD, PHYSICS, PLAYER, PALETTE, VIEW } from './config.js';
 import { neutralEffectMods } from './candyEffects.js';
 import { drawYokaiSprite } from './yokai.js';
-import { drawSneakGhost } from './sneakActor.js';
+import { ECHO_LOOK } from './sneakActor.js';
+
+/**
+ * 提灯人身体的配色。回音用自己的一套（见 sneakActor.js），
+ * 形状完全共用，所以两处改动要一起看。
+ */
+const PILGRIM_COLORS = {
+  ink: PALETTE.ink,
+  water: '#8fe1de',
+  glow: '255, 152, 58',
+  leg: '#1a0e20',
+  shoe: '#2e1a16',
+  shoeShine: '#8a6045',
+  cloak: PALETTE.cloak,
+  cloakLight: PALETTE.cloakLight,
+  cloakHem: '#1b0f28',
+  lantern: '#53312f',
+  candle: PALETTE.candle,
+  candleCore: '#fff0b3',
+  pumpkinDark: PALETTE.pumpkinDark,
+  pumpkin: PALETTE.pumpkin,
+  pumpkinLight: PALETTE.pumpkinLight,
+  face: '#1b0d18',
+  hat: '#1e102c',
+  hatBand: '#3c2352',
+};
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -17,9 +42,8 @@ export class Player {
     this.variant = variant;
     this.yokaiId = variant?.id ?? 'lantern';
     this.traits = variant?.traits ?? {};
-    // 「鬼鬼祟祟」的两只小鬼：外观、配色与暴露度。
+    // 第三段的「回音」：外观与暴露度。
     this.appearance = 'pumpkin';
-    this.ghostVariant = 0;
     this.crouchScale = null;
     this.exposure = 0;
     this.hidden = false;
@@ -98,7 +122,7 @@ export class Player {
     this.exposure = 0;
     this.hidden = false;
     this.seen = false;
-    // 「鬼鬼祟祟」：站在谁头上 / 头上站着谁。由 sneakMode 每帧维护。
+    // 第三段：站在谁头上 / 头上站着谁。由 sneakMode 每帧维护。
     this.standingOn = null;
     this.carrying = null;
   }
@@ -131,7 +155,7 @@ export class Player {
     if (this.inWater && !wasInWater) this.onWaterEnter?.(this.centerX, water.y, this.vy);
     else if (!this.inWater && wasInWater) this.onWaterExit?.(this.centerX, this.feetY, this.vy);
     const traits = this.traits ?? {};
-    // 百鬼夜行的队伍支援：同伴把本事分给整支队伍。
+    // 魑魅魍魉的队伍支援：同伴把本事分给整支队伍。
     const support = this.teamSupport ?? {};
 
     if (this.onGround) this.extraJumpsUsed = 0;
@@ -168,12 +192,13 @@ export class Player {
 
     // 狼人「双击冲刺」：在地面上快速双击 ← / →，整支队伍一起向前扑一段。
     // 蝙蝠也在队里时，冲刺可以在空中使用（组合技「月下连扑」）。
-    if (support.dash) {
+    // 冲刺糖把同一套动作临时借给任何一条线路。
+    if (support.dash || this.effectMods.dash) {
       const tapRight = input.consumePress('right');
       const tapLeft = input.consumePress('left');
       const tapDir = tapRight ? 1 : tapLeft ? -1 : 0;
       if (tapDir !== 0) {
-        const canDash = this.onGround || support.airDash;
+        const canDash = this.onGround || support.airDash || this.effectMods.airDash;
         if (
           canDash &&
           !this.crouching &&
@@ -197,15 +222,16 @@ export class Player {
     }
 
     // 黑猫「猫步」：在空中贴着墙时，可以再从墙上蹬一下。
+    // 蹬墙糖让没有猫的线路也能短暂做到这件事。
     this.wallSide = 0;
-    if (support.wallJump && !this.onGround && !water) {
+    if ((support.wallJump || this.effectMods.wallJump) && !this.onGround && !water) {
       const probeY = this.y + this.h * 0.5;
       if (level.isSolidAtPixel(this.x - 1, probeY)) this.wallSide = -1;
       else if (level.isSolidAtPixel(this.x + this.w + 1, probeY)) this.wallSide = 1;
     }
 
     // 水平移动。鞋子越合脚，抓地和加速越自然，但提升非常克制。
-    // 没有穿鞋的线路（教程、百鬼夜行、鬼鬼祟祟）按 1 倍算，不受合脚度影响。
+    // 没有穿鞋的线路（教程、魑魅魍魉）按 1 倍算，不受合脚度影响。
     // 糖果状态会整体缩放移动速度与摩擦；「走神」时方向输入暂时失效，
     // 「对立违抗」时 ← 与 → 的效果对调。
     // 同行者还各有自己的体型：科学怪人慢，床单幽灵轻，沼泽怪在水里快。
@@ -299,7 +325,7 @@ export class Player {
       // 它不消耗二段跳的次数，所以猫和蝙蝠同时在队里时，可以墙跳后再二段跳。
       let wallJumped = false;
       if (
-        support.wallJump &&
+        (support.wallJump || mods.wallJump) &&
         this.jumpBuffer > 0 &&
         !mods.lockJump &&
         !water &&
@@ -322,8 +348,12 @@ export class Player {
       }
 
       // 二段跳：蝙蝠同行时，整支队伍都能在空中再蹬一次。
-      // 触发方式是「起跳后松开 ↑，在空中再按一次 ↑」。
-      const extraJumps = Math.max(traits.extraJumps ?? 0, support.extraJumps ?? 0);
+      // 触发方式是「起跳后松开 ↑，在空中再按一次 ↑」。二段跳糖单独给一次。
+      const extraJumps = Math.max(
+        traits.extraJumps ?? 0,
+        support.extraJumps ?? 0,
+        mods.extraJumps ?? 0,
+      );
       if (
         this.jumpBuffer > 0 &&
         !mods.lockJump &&
@@ -348,9 +378,14 @@ export class Player {
         (mods.gravityScale ?? 1) *
         (traits.gravityScale ?? 1) *
         (support.floatScale ?? 1);
-      let maxFall = PHYSICS.maxFall * (traits.maxFallScale ?? 1) * (support.floatScale ?? 1);
+      let maxFall =
+        PHYSICS.maxFall *
+        (traits.maxFallScale ?? 1) *
+        (support.floatScale ?? 1) *
+        (mods.maxFallScale ?? 1);
       // 滑翔：女巫自己最强；女巫在队里时，其他人也能借一点扫帚的风。
-      const glideTier = traits.glide ? 2 : support.glide ? 1 : 0;
+      // 羽毛糖给一次普通滑翔。
+      const glideTier = traits.glide ? 2 : support.glide || mods.glide ? 1 : 0;
       const gliding =
         glideTier > 0 &&
         !water &&
@@ -378,9 +413,23 @@ export class Player {
         gravity *= 0.26;
         maxFall = Math.min(maxFall, 76);
         const nearSurface = this.centerY <= water.y + 8;
+        const bank = nearSurface && !mods.lockJump
+          ? this.findLowBank(level, axis, water)
+          : 0;
         if (this.jumpBuffer > 0 && !mods.lockJump && nearSurface) {
           // 水面跃出：比陆地上的起跳更干脆，用来翻上湿滑的河岸。
           this.vy = -PHYSICS.jumpSpeed * 1.04 * (traits.jumpScale ?? 1);
+          this.jumpBuffer = 0;
+          this.extraJumpsUsed = Math.max(1, this.extraJumpsUsed);
+          this.autoJumping = false;
+          this.onJump?.(this.centerX, this.feetY, false);
+        } else if (bank !== 0 && this.vy > -60) {
+          // 贴着低岸：水面和岸顶几乎齐平，水里的身体永远比岸边低一截，
+          // 光按住 ↑ 和方向键只会在岸边原地上下浮。这里把「贴住岸边」
+          // 本身当成一次水面跃出，保证掉进雨川的人一定爬得上来。
+          this.vy = -PHYSICS.jumpSpeed * 1.04 * (traits.jumpScale ?? 1);
+          this.vx = bank * Math.max(Math.abs(this.vx), PHYSICS.moveSpeed * 0.9);
+          this.facing = bank;
           this.jumpBuffer = 0;
           this.extraJumpsUsed = Math.max(1, this.extraJumpsUsed);
           this.autoJumping = false;
@@ -607,6 +656,31 @@ export class Player {
     this.vy = clamp(this.vy, -500, PHYSICS.maxFall);
   }
 
+  /**
+   * 找一找贴着身体的低岸：前方一格是实体、岸顶就在水面这一层或下一层、
+   * 头顶还留得下身体。返回按住的方向（-1 / 0 / 1）。
+   *
+   * 雨川的水面和岸顶基本齐平，人在水里时脚总比岸面低几格像素，
+   * 单靠划水永远迈不上去，所以水面跃出之外还要这一条兜底。
+   * 更高的石壁不借力，免得凭空跃上高台。
+   */
+  findLowBank(level, axis, water) {
+    if (!axis) return 0;
+    const T = VIEW.TILE;
+    const probeX = axis > 0 ? this.x + this.w + 1 : this.x - 1;
+    const col = Math.floor(probeX / T);
+    const rowTop = Math.floor(this.y / T);
+    const rowBottom = Math.floor((this.y + this.h - 0.001) / T);
+    for (let row = rowTop; row <= rowBottom; row += 1) {
+      if (!level.isSolid(col, row)) continue;
+      // 只认水面这一层和下一层的岸顶；再高就不是「爬出去」，是借力上高台。
+      if (row * T > water.y + T) return 0;
+      if (level.isSolid(col, row - 1) || level.isSolid(col, row - 2)) return 0;
+      return axis;
+    }
+    return 0;
+  }
+
   moveHorizontal(dx, level) {
     if (dx === 0) return;
     const T = VIEW.TILE;
@@ -697,13 +771,7 @@ export class Player {
     const sx = Math.round(this.centerX - cameraX);
     const sy = Math.round(this.feetY - cameraY);
 
-    // 鬼鬼祟祟：两只半透明的小鬼，潜行时会压扁、变淡。
-    if (this.appearance === 'ghost') {
-      drawSneakGhost(ctx, this, time, sx, sy);
-      return;
-    }
-
-    // 百鬼夜行的同行者：每一副身体有自己的画法，但共用同一套影子与状态。
+    // 魑魅魍魉的同行者：每一副身体有自己的画法，但共用同一套影子与状态。
     if (this.variant) {
       drawYokaiSprite(
         ctx,
@@ -725,6 +793,18 @@ export class Player {
       return;
     }
 
+    // 「回音」不是另一个人，也不是小鬼：它就是另一个你。
+    // 所以两个人共用下面这一套提灯人的画法，只有配色和整体透明度不同。
+    this.drawPilgrim(ctx, sx, sy, time, this.appearance === 'ghost' ? ECHO_LOOK : null);
+  }
+
+  /**
+   * 一个提灯人的身体。look 为空时是主角本来的颜色；
+   * 传进回音的 look 时，同样的像素换一层被月光洗淡的配色，再整体压成半透明。
+   */
+  drawPilgrim(ctx, sx, sy, time, look = null) {
+    const colors = look?.colors ?? PILGRIM_COLORS;
+    const alpha = look ? look.alpha(this, time) : 1;
     const moving = this.onGround && Math.abs(this.vx) > 10;
     const airborne = !this.onGround || this.hovering || this.inWater;
     const swing = Math.sin(this.walkPhase);
@@ -732,25 +812,27 @@ export class Player {
     const upperOffset = this.crouching ? 3 : bob;
 
     // 脚下的软阴影
-    ctx.globalAlpha = airborne ? 0.08 : 0.24;
-    ctx.fillStyle = PALETTE.ink;
+    ctx.globalAlpha = (airborne ? 0.08 : 0.24) * alpha;
+    ctx.fillStyle = colors.ink;
     ctx.fillRect(sx - 5, sy - 1, 10, 2);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = alpha;
 
     // 水纹：脚下的一圈浅色涟漪，和陆地上的影子区分开。
     if (this.inWater) {
-      ctx.globalAlpha = 0.28 + Math.sin(time * 4.2) * 0.06;
-      ctx.fillStyle = '#8fe1de';
+      ctx.globalAlpha = (0.28 + Math.sin(time * 4.2) * 0.06) * alpha;
+      ctx.fillStyle = colors.water;
       ctx.fillRect(sx - 8, sy - 1, 16, 1);
       ctx.fillRect(sx - 5, sy + 2, 10, 1);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = alpha;
     }
 
-    // 南瓜头的暖光
+    // 南瓜头的光（回音是同一盏灯透出来、被月光滤过的那一层）
+    const glowRgb = look?.glow ?? colors.glow;
+    const glowScale = (look?.glowScale ?? 1) * alpha;
     const glow = ctx.createRadialGradient(sx, sy - 14, 1, sx, sy - 14, 25);
-    glow.addColorStop(0, 'rgba(255, 152, 58, 0.18)');
-    glow.addColorStop(0.55, 'rgba(255, 115, 35, 0.07)');
-    glow.addColorStop(1, 'rgba(255, 100, 20, 0)');
+    glow.addColorStop(0, `rgba(${glowRgb}, ${0.18 * glowScale})`);
+    glow.addColorStop(0.55, `rgba(${glowRgb}, ${0.07 * glowScale})`);
+    glow.addColorStop(1, `rgba(${glowRgb}, 0)`);
     ctx.fillStyle = glow;
     ctx.fillRect(sx - 25, sy - 39, 50, 50);
 
@@ -768,7 +850,9 @@ export class Player {
     }
 
     ctx.save();
-    ctx.translate(sx, sy);
+    // 站在对方头顶时整个人往后退 8px：两张脸都露出来，
+    // 不再叠成一团看不出谁踩谁。物理位置不变，只是画的位置错开。
+    ctx.translate(sx + (this.standingOn ? -8 * this.facing : 0), sy);
     // 水里整个人是浮着的：轻轻上下漂，身体也会慢慢晃。
     if (this.inWater) {
       ctx.translate(0, Math.round(Math.sin(time * 3.1)));
@@ -776,9 +860,9 @@ export class Player {
     }
     ctx.scale(this.facing, 1);
 
-    // 腿：走路时前后交替，腾空时收起。脚上是一双崭新的皮鞋。
+    // 腿：走路时前后交替，腾空时收起。
     const legOffset = moving ? Math.round(swing * 1.5) : 0;
-    ctx.fillStyle = '#1a0e20';
+    ctx.fillStyle = colors.leg;
     if (airborne) {
       ctx.fillRect(-5, -4, 2, 3);
       ctx.fillRect(2, -4, 2, 3);
@@ -790,32 +874,34 @@ export class Player {
       ctx.fillRect(2 - legOffset, -4, 2, 4);
     }
 
-    // 皮鞋：暗棕鞋面 + 一点鞋头反光
-    ctx.fillStyle = '#2e1a16';
-    if (airborne) {
-      ctx.fillRect(-6, -2, 4, 2);
-      ctx.fillRect(2, -2, 4, 2);
-    } else if (this.crouching) {
-      ctx.fillRect(-6, -1, 4, 1);
-      ctx.fillRect(1, -1, 4, 1);
-    } else {
-      ctx.fillRect(-5 + legOffset, -1, 4, 1);
-      ctx.fillRect(2 - legOffset, -1, 4, 1);
-    }
-    ctx.fillStyle = '#8a6045';
-    if (airborne) {
-      ctx.fillRect(-6, -2, 1, 1);
-      ctx.fillRect(2, -2, 1, 1);
-    } else {
-      ctx.fillRect(-5 + legOffset, -1, 1, 1);
-      ctx.fillRect(2 - legOffset, -1, 1, 1);
+    // 皮鞋：暗棕鞋面 + 一点鞋头反光。回音光着脚——它只是跟着你的脚步。
+    if (!look?.barefoot) {
+      ctx.fillStyle = colors.shoe;
+      if (airborne) {
+        ctx.fillRect(-6, -2, 4, 2);
+        ctx.fillRect(2, -2, 4, 2);
+      } else if (this.crouching) {
+        ctx.fillRect(-6, -1, 4, 1);
+        ctx.fillRect(1, -1, 4, 1);
+      } else {
+        ctx.fillRect(-5 + legOffset, -1, 4, 1);
+        ctx.fillRect(2 - legOffset, -1, 4, 1);
+      }
+      ctx.fillStyle = colors.shoeShine;
+      if (airborne) {
+        ctx.fillRect(-6, -2, 1, 1);
+        ctx.fillRect(2, -2, 1, 1);
+      } else {
+        ctx.fillRect(-5 + legOffset, -1, 1, 1);
+        ctx.fillRect(2 - legOffset, -1, 1, 1);
+      }
     }
 
     ctx.save();
     ctx.translate(0, upperOffset);
 
     // 斗篷
-    ctx.fillStyle = PALETTE.cloak;
+    ctx.fillStyle = colors.cloak;
     ctx.fillRect(-5, -13, 10, 2);
     if (airborne) {
       ctx.fillRect(-8, -11, 16, 3);
@@ -824,78 +910,78 @@ export class Player {
       ctx.fillRect(-6, -11, 12, 4);
       ctx.fillRect(-5, -7, 10, 3);
     }
-    ctx.fillStyle = PALETTE.cloakLight;
+    ctx.fillStyle = colors.cloakLight;
     ctx.fillRect(-4, -11, 2, 5);
     ctx.fillRect(-3, -6, 2, 2);
-    ctx.fillStyle = '#1b0f28';
+    ctx.fillStyle = colors.cloakHem;
     ctx.fillRect(-5, -4, 10, 1);
 
     // 手臂和提灯
     const lanternLift = airborne ? -1 : moving ? Math.round(Math.sin(this.walkPhase + 1) * 1) : 0;
-    ctx.fillStyle = PALETTE.cloak;
+    ctx.fillStyle = colors.cloak;
     ctx.fillRect(5, -9 + lanternLift, 3, 2);
 
     ctx.save();
     ctx.translate(7, -7 + lanternLift);
-    ctx.fillStyle = '#53312f';
+    ctx.fillStyle = colors.lantern;
     ctx.fillRect(0, -2, 4, 1);
     ctx.fillRect(0, 1, 4, 1);
     ctx.fillRect(0, -2, 1, 4);
     ctx.fillRect(3, -2, 1, 4);
-    ctx.fillStyle = PALETTE.candle;
+    ctx.fillStyle = colors.candle;
     ctx.fillRect(1, -1, 2, 2);
-    ctx.fillStyle = '#fff0b3';
+    ctx.fillStyle = colors.candleCore;
     ctx.fillRect(1, -1, 1, 1);
     ctx.restore();
 
     // 南瓜头
-    ctx.fillStyle = PALETTE.pumpkinDark;
+    ctx.fillStyle = colors.pumpkinDark;
     ctx.fillRect(-3, -21, 6, 1);
     ctx.fillRect(-4, -20, 8, 1);
     ctx.fillRect(-5, -19, 10, 7);
     ctx.fillRect(-4, -12, 8, 1);
 
-    ctx.fillStyle = PALETTE.pumpkin;
+    ctx.fillStyle = colors.pumpkin;
     ctx.fillRect(-3, -20, 6, 1);
     ctx.fillRect(-4, -19, 8, 1);
     ctx.fillRect(-5, -18, 9, 6);
     ctx.fillRect(-4, -12, 8, 1);
 
-    ctx.fillStyle = PALETTE.pumpkinLight;
+    ctx.fillStyle = colors.pumpkinLight;
     ctx.fillRect(-3, -19, 4, 1);
     ctx.fillRect(-4, -18, 2, 2);
-    ctx.fillStyle = PALETTE.pumpkinDark;
+    ctx.fillStyle = colors.pumpkinDark;
     ctx.fillRect(-4, -16, 1, 4);
     ctx.fillRect(3, -16, 1, 4);
 
     // 脸
-    ctx.fillStyle = '#1b0d18';
+    ctx.fillStyle = colors.face;
     ctx.fillRect(-4, -17, 2, 1);
     ctx.fillRect(-3, -16, 1, 1);
     ctx.fillRect(2, -17, 2, 1);
     ctx.fillRect(2, -16, 1, 1);
     ctx.fillRect(-2, -14, 4, 1);
     ctx.fillRect(-1, -13, 2, 1);
-    ctx.fillStyle = PALETTE.candle;
-    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = colors.candle;
+    ctx.globalAlpha = 0.8 * alpha;
     ctx.fillRect(-3, -16, 1, 1);
     ctx.fillRect(3, -16, 1, 1);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = alpha;
 
     // 歪歪的尖顶帽
-    ctx.fillStyle = '#1e102c';
+    ctx.fillStyle = colors.hat;
     ctx.fillRect(-7, -22, 14, 2);
     ctx.fillRect(-4, -24, 8, 2);
     ctx.fillRect(-3, -25, 7, 1);
     ctx.fillRect(-2, -26, 5, 1);
     ctx.fillRect(-1, -27, 3, 1);
     ctx.fillRect(-3, -28, 2, 1);
-    ctx.fillStyle = '#3c2352';
+    ctx.fillStyle = colors.hatBand;
     ctx.fillRect(-7, -22, 14, 1);
     ctx.fillRect(-3, -24, 4, 1);
-    ctx.fillStyle = PALETTE.pumpkin;
+    ctx.fillStyle = colors.pumpkin;
     ctx.fillRect(-4, -23, 8, 1);
-    ctx.fillStyle = PALETTE.pumpkinLight;
+    ctx.fillStyle = colors.pumpkinLight;
     ctx.fillRect(-4, -23, 3, 1);
 
     this.drawCostume(ctx, time);
@@ -903,37 +989,38 @@ export class Player {
     // 电荷标记：两簇很轻的蓝色电弧
     if (this.charge !== 0) {
       const pulse = 0.45 + Math.sin(time * 11) * 0.25;
-      ctx.globalAlpha = pulse;
+      ctx.globalAlpha = pulse * alpha;
       ctx.fillStyle = this.charge > 0 ? '#ffd36e' : '#86e7ff';
       ctx.fillRect(-7, -10, 1, 1);
       ctx.fillRect(6, -8, 1, 1);
       ctx.fillRect(-6, -3, 1, 1);
       ctx.fillRect(4, -13, 1, 1);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = alpha;
     }
 
     // 借女巫的扫帚风滑翔时，身边也会拖出几道短风线。
     if (this.isGliding) {
-      ctx.globalAlpha = 0.3;
+      ctx.globalAlpha = 0.3 * alpha;
       ctx.fillStyle = '#c8fff7';
       ctx.fillRect(-10, -18, 5, 1);
       ctx.fillRect(6, -13, 5, 1);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = alpha;
     }
 
     // 水下的气泡：从斗篷和南瓜帽旁边往上冒
     if (this.inWater) {
       const drift = Math.round(Math.sin(time * 4.2) * 2);
-      ctx.globalAlpha = 0.55;
+      ctx.globalAlpha = 0.55 * alpha;
       ctx.fillStyle = '#bdf6ef';
       ctx.fillRect(5 + drift, -25, 1, 1);
       ctx.fillRect(-6 - drift, -19, 2, 1);
       ctx.fillRect(3, -15 + drift, 1, 1);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = alpha;
     }
 
     ctx.restore();
     ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   /**

@@ -30,8 +30,14 @@ export class TouchControls {
       this.bindActionButton(button);
     }
 
-    this.bindTapButton(root.querySelector('#touchInteractButton'), handlers.onInteract);
+    this.bindTapButton(
+      root.querySelector('#touchInteractButton'),
+      handlers.onInteract,
+      // 互动键允许长按：惊恐发作时可以一直按住呼吸。
+      { allowLongHold: true },
+    );
     this.bindTapButton(root.querySelector('#touchBagButton'), handlers.onBag);
+    this.bindTapButton(root.querySelector('#touchPouchButton'), handlers.onPouch);
     this.bindTapButton(root.querySelector('#touchPauseButton'), handlers.onPause);
 
     // 长按虚拟键不该弹出系统菜单。
@@ -47,7 +53,11 @@ export class TouchControls {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
       pointers.add(event.pointerId);
-      button.setPointerCapture?.(event.pointerId);
+      try {
+        button.setPointerCapture?.(event.pointerId);
+      } catch {
+        // 指针已经失效时继续按住即可，松开仍会走 pointerup。
+      }
       button.classList.add('is-down');
       this.input.press(action);
     };
@@ -71,7 +81,7 @@ export class TouchControls {
     });
   }
 
-  bindTapButton(button, handler) {
+  bindTapButton(button, handler, options = {}) {
     if (!button || typeof handler !== 'function') return;
     let downAt = 0;
 
@@ -79,7 +89,11 @@ export class TouchControls {
       if (!this.active) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
-      button.setPointerCapture?.(event.pointerId);
+      try {
+        button.setPointerCapture?.(event.pointerId);
+      } catch {
+        // 同上：拿不到捕获也不影响这一下点按。
+      }
       button.classList.add('is-down');
       downAt = performance.now();
     });
@@ -95,7 +109,7 @@ export class TouchControls {
         event.clientY >= rect.top &&
         event.clientY <= rect.bottom;
       if (!inside) return;
-      if (performance.now() - downAt > 900) return;
+      if (!options.allowLongHold && performance.now() - downAt > 900) return;
       handler();
     });
 

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#08050d" />
     <meta
       name="description"
-      content="南瓜小径：一款万圣节像素风网页横版小游戏。提灯穿过月光森林，走上五段墓园夜路「五盏灯」；最后一程沉入地下，在电磁长夜里收集骨头、选择电荷、校准磁场并越过岩浆。另有一条百鬼夜行线路：用一套方向键同时带着越走越长的队伍走到钟楼顶的百鬼门，一个都不能少。双人同屏的「鬼鬼祟祟」里，两只小鬼还能叠罗汉、拉影子线。"
+      content="南瓜小径：一款万圣节像素风网页横版小游戏。新手教程；给老师送南瓜派，四段墓园夜路，把一盒南瓜派送到老师墓前，第三段是双人同屏潜行；魑魅魍魉，一套方向键带着整支鬼队伍走到钟楼顶。另有一条糖纸街副本 Trick or Treat。"
     />
     <title>南瓜小径 · Pumpkin Hollow</title>
     <script>
@@ -39,7 +39,7 @@
         </div>
         <div class="status-chip" title="当前模式与主题">
           <span class="status-dot" aria-hidden="true"></span>
-          <span id="topStatusText">教程 · 追思小径 · 百鬼夜行 · 鬼鬼祟祟</span>
+          <span id="topStatusText">三条夜路 · 一个糖纸街副本</span>
         </div>
       </header>
 
@@ -65,8 +65,8 @@
                   type="button"
                   aria-expanded="true"
                   aria-controls="panelContent"
-                  aria-label="折叠成简省信息版"
-                  title="折叠成简省信息版"
+                  aria-label="折叠面板"
+                  title="折叠面板"
                 >
                   <span class="panel-collapse-mark" id="panelCollapseMark" aria-hidden="true">简</span>
                   <span class="panel-collapse-label" id="panelCollapseLabel" aria-hidden="true">旅人手记</span>
@@ -87,6 +87,14 @@
                   <div class="panel-memorial-lights">
                     <span>已点的灯</span>
                     <b id="memorialLights">0</b>
+                  </div>
+                  <div class="panel-memorial-lights" id="memorialGateRow" hidden>
+                    <span>集合门</span>
+                    <b id="memorialGates">0/3</b>
+                  </div>
+                  <div class="panel-memorial-lights" id="memorialShoeRow" hidden>
+                    <span>身后</span>
+                    <b id="memorialShoes">—</b>
                   </div>
                 </div>
 
@@ -110,14 +118,30 @@
                   </div>
                 </div>
 
+                <div class="panel-memorial" id="trickInfo" hidden>
+                  <div class="panel-memorial-row">
+                    <span>帮忙</span>
+                    <b id="trickDoors">0 / 10</b>
+                  </div>
+                  <div class="panel-memorial-row">
+                    <span>糖袋</span>
+                    <b id="trickPouch">0</b>
+                  </div>
+                  <p class="panel-memorial-body" id="trickBody">敲门看看是谁；帮忙拿这一户的糖，或者抢了就跑。</p>
+                  <div class="panel-memorial-lights">
+                    <span>捣蛋</span>
+                    <b id="trickTricks">0</b>
+                  </div>
+                </div>
+
                 <div class="panel-sneak" id="sneakInfo" hidden>
                   <div class="sneak-row" id="sneakRowA">
-                    <span class="sneak-name sneak-name--a">鬼鬼</span>
+                    <span class="sneak-name sneak-name--a">你</span>
                     <div class="sneak-meter"><i id="sneakBarA"></i></div>
                     <b id="sneakStateA">安静</b>
                   </div>
                   <div class="sneak-row" id="sneakRowB">
-                    <span class="sneak-name sneak-name--b">祟祟</span>
+                    <span class="sneak-name sneak-name--b">回音</span>
                     <div class="sneak-meter"><i id="sneakBarB"></i></div>
                     <b id="sneakStateB">安静</b>
                   </div>
@@ -153,13 +177,19 @@
                   <span id="panelChargeText">未带电</span>
                 </div>
 
+                <div class="panel-pouch-line" id="panelPouchLine">
+                  <span>糖袋</span>
+                  <b id="panelPouchCount">0</b>
+                  <kbd>Q</kbd>
+                </div>
+
                 <div class="panel-effects" id="panelEffects" hidden>
                   <span class="panel-effects-label">糖果状态</span>
                   <div class="effect-chips" id="effectChips"></div>
                 </div>
 
                 <div class="panel-fit-line">
-                  <span>皮鞋状态</span>
+                  <span>合脚度</span>
                   <b id="panelShoeLabel">崭新</b>
                 </div>
                 <div class="panel-bar panel-bar--fit"><i id="panelFitBar"></i></div>
@@ -203,8 +233,8 @@
               </div>
 
               <div class="sneak-legend" id="sneakLegend" hidden aria-hidden="true">
-                <span class="sneak-legend-item"><i></i>鬼鬼 <kbd>A</kbd><kbd>D</kbd><kbd>W</kbd><kbd>S</kbd> · 抱南瓜 <kbd>E</kbd></span>
-                <span class="sneak-legend-item sneak-legend-item--b"><i></i>祟祟 <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> · 抱南瓜 <kbd>/</kbd></span>
+                <span class="sneak-legend-item"><i></i>你 <kbd>A</kbd><kbd>D</kbd><kbd>W</kbd><kbd>S</kbd> · 抱南瓜 <kbd>E</kbd></span>
+                <span class="sneak-legend-item sneak-legend-item--b"><i></i>回音 <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> · 抱南瓜 <kbd>/</kbd></span>
                 <span class="sneak-legend-item sneak-legend-item--combo"><kbd>Space</kbd> 拉线 · 跳上对方头顶 · 蹲下+跳 弹射 · 南瓜当台阶</span>
               </div>
 
@@ -234,6 +264,8 @@
 
               <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+              <div class="shoe-voice" id="shoeVoice" aria-live="polite"></div>
+
               <div class="touch-controls" id="touchControls" hidden aria-label="触屏操作">
                 <div class="touch-pad touch-pad--move" role="group" aria-label="移动">
                   <button class="touch-btn touch-btn--down" type="button" data-touch-action="down" aria-label="蹲下或下落">↓</button>
@@ -242,6 +274,7 @@
                 </div>
                 <div class="touch-menu">
                   <button class="touch-btn touch-btn--menu" id="touchBagButton" type="button" aria-label="打开背包">背包</button>
+                  <button class="touch-btn touch-btn--menu" id="touchPouchButton" type="button" aria-label="打开糖袋">糖袋</button>
                   <button class="touch-btn touch-btn--menu" id="touchPauseButton" type="button" aria-label="暂停">暂停</button>
                 </div>
                 <div class="touch-pad touch-pad--action" role="group" aria-label="动作">
@@ -273,50 +306,52 @@
                     </svg>
                   </div>
 
-                  <p class="overlay-kicker">The forest is different tonight</p>
-                  <h2>提灯前行</h2>
-                  <p class="overlay-copy">
-                    沿着月光穿过南瓜小径。<br />
-                    鞋是新的，脚下的路也是。
-                  </p>
-                  <div class="goal-badge">新手教程 × 五盏灯 × 百鬼夜行 × 鬼鬼祟祟</div>
+                  <p class="start-brand">Pumpkin Hollow · 万圣夜</p>
+                  <h2>提灯走夜路</h2>
+                  <p class="overlay-copy">鞋是新的。走得越久，它越合你的脚。</p>
 
                   <div class="mode-actions">
+                    <button class="primary-button mode-button mode-button--continue" id="continueButton" type="button" hidden>
+                      <span class="mode-badge">继续</span>
+                      <span class="mode-main" id="continueLabel">继续夜路</span>
+                      <span class="mode-sub" id="continueDetail">回到上次的落脚点</span>
+                    </button>
                     <button class="primary-button mode-button" id="startTutorialButton" type="button">
                       <span class="mode-badge">推荐</span>
                       <span class="mode-main">新手教程</span>
-                      <span class="mode-sub">约 2 分钟 · 走路、跳跃、南瓜与背包</span>
+                      <span class="mode-sub">约 2 分钟 · 走路与南瓜</span>
                     </button>
                     <button class="secondary-button mode-button mode-button--memorial" id="startMemorialButton" type="button">
                       <span class="mode-badge">正式线路</span>
-                      <span class="mode-main">追思小径</span>
-                      <span class="mode-sub">五盏灯 · 最后一程是电磁长夜</span>
+                      <span class="mode-main">给老师送南瓜派</span>
+                      <span class="mode-sub">Sir loved pumpkin pie · 四段夜路</span>
                     </button>
                     <button class="secondary-button mode-button mode-button--parade" id="startParadeButton" type="button">
                       <span class="mode-badge">三条赛道</span>
-                      <span class="mode-main">百鬼夜行</span>
-                      <span class="mode-sub">简单 / 普通 / 困难 · 同行者一个都不能少</span>
+                      <span class="mode-main">魑魅魍魉</span>
+                      <span class="mode-sub">十一位同行者 · 一个都不能少</span>
                     </button>
-                    <button class="secondary-button mode-button mode-button--sneak" id="startSneakButton" type="button">
-                      <span class="mode-badge">双人同屏</span>
-                      <span class="mode-main">鬼鬼祟祟</span>
-                      <span class="mode-sub mode-sub--desktop">鬼鬼 WASD + E · 祟祟 方向键 + / · 五段潜行到屋顶</span>
-                      <span class="mode-sub mode-sub--mobile">电脑端双人同屏 · 手机上点按查看说明</span>
+                    <button class="secondary-button mode-button mode-button--trick" id="startTrickButton" type="button">
+                      <span class="mode-badge">副本</span>
+                      <span class="mode-main">Trick or Treat</span>
+                      <span class="mode-sub">糖纸街十户人家 · 帮忙或捣蛋</span>
                     </button>
                   </div>
 
                   <div class="mini-controls" aria-label="操作提示">
-                    <span><kbd>←</kbd><kbd>→</kbd> 移动</span>
-                    <span><kbd>↑</kbd> 跳跃</span>
-                    <span><kbd>↓</kbd> 蹲下 / 下穿</span>
-                    <span><kbd>Tab</kbd> 背包 / 名册</span>
-                    <span><kbd>E</kbd> 互动 / 抱南瓜</span>
+                    <span><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> 移动 / 跳跃 / 下穿</span>
+                    <span><kbd>E</kbd> 互动</span>
+                    <span><kbd>Tab</kbd> 背包</span>
+                    <span><kbd>Q</kbd> 糖袋</span>
                   </div>
                   <div class="mini-controls mobile-controls" aria-label="触屏操作提示">
                     <span>左侧 ← → 移动 · ↓ 下穿</span>
                     <span>右侧 ↑ 跳跃 · 互动 抱南瓜</span>
-                    <span>底部中间 背包 / 暂停</span>
+                    <span>底部 背包 / 糖袋 / 暂停</span>
                   </div>
+                  <button class="save-reset-button" id="clearSaveButton" type="button" title="只清除游戏进度，糖袋会保留" hidden>
+                    清除本地存档
+                  </button>
                 </div>
               </div>
 
@@ -324,13 +359,13 @@
                 <div class="inventory-panel track-panel">
                   <div class="inventory-head">
                     <div>
-                      <p class="overlay-kicker">Three roads through the same night</p>
+                      <p class="overlay-kicker">Three roads to the bell tower</p>
                       <h2>选一条夜路</h2>
                     </div>
                     <button class="icon-button" id="closeTrackButton" type="button" aria-label="返回起始页">×</button>
                   </div>
                   <p class="roster-copy">
-                    三条赛道都通往钟楼顶。简单是原来的六段夜路；普通与困难更长、落脚点更少。困难里，每次中瘴气都要留下一人。
+                    三条路都到钟楼顶。简单是原来的六段；普通和困难更长，落脚点更少。困难里每中一次瘴气，就要留下一人。
                   </p>
                   <div class="track-grid" id="trackGrid"></div>
                   <div class="inventory-foot">
@@ -344,7 +379,7 @@
                 <div class="inventory-panel">
                   <div class="inventory-head">
                     <div>
-                      <p class="overlay-kicker">Pockets, bones &amp; candy</p>
+                      <p class="overlay-kicker">Bones, candy, costumes</p>
                       <h2>背包</h2>
                     </div>
                     <button class="icon-button" id="closeBackpackButton" type="button" aria-label="关闭背包">×</button>
@@ -383,7 +418,7 @@
                       <span class="placement-tip">按 1–4 选择</span>
                     </div>
                     <div class="placement-items" id="placementItems"></div>
-                    <p class="placement-note">不同骨头会得到不同回应。</p>
+                    <p class="placement-note">放不同的骨头，结果不一样。</p>
                   </section>
 
                   <section class="wardrobe-panel" aria-label="万圣节衣橱">
@@ -405,7 +440,7 @@
                     </div>
                     <ul class="candy-catalogue" id="candyCatalogue"></ul>
                     <p class="candy-note">
-                      糖果捡到就会吃下：同种糖叠加持续时间，不同种的糖同时生效。状态名取自真实的诊断分类，只是临时的游戏机制，不是诊断，也不代表真实的患病体验。
+                      糖捡到就吃掉。同一种糖叠加时间，不同糖同时生效。状态名来自真实诊断分类，只是游戏机制，不是诊断。
                     </p>
                   </section>
 
@@ -417,17 +452,85 @@
                 </div>
               </div>
 
+              <div class="overlay inventory-overlay pouch-overlay" id="pouchScreen" hidden>
+                <div class="inventory-panel pouch-panel">
+                  <div class="inventory-head">
+                    <div>
+                      <p class="overlay-kicker">A pocketful of little tricks</p>
+                      <h2>糖袋</h2>
+                    </div>
+                    <button class="icon-button" id="closePouchButton" type="button" aria-label="关闭糖袋">×</button>
+                  </div>
+                  <p class="roster-copy">
+                    糖纸街的糖是普通的增益糖，收在背包的糖袋里，哪条路都能吃。按数字键，或点一下「吃一颗」。
+                  </p>
+                  <div class="pouch-grid" id="pouchGrid"></div>
+                  <div class="inventory-foot">
+                    <span>糖袋 <b id="pouchTotal">0</b> 颗 · 全线路通用</span>
+                    <span><kbd>Q</kbd> 关闭</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="overlay inventory-overlay trick-door-overlay" id="trickDoorScreen" hidden>
+                <div class="trick-door-panel">
+                  <div class="trick-door-head">
+                    <canvas id="trickDoorPortrait" width="112" height="128" aria-hidden="true"></canvas>
+                    <div class="trick-door-copy">
+                      <p class="overlay-kicker" id="trickDoorKind">女巫 · 第 1 户</p>
+                      <h2 id="trickDoorName">莫尔「女巫」</h2>
+                      <p class="trick-door-line" id="trickDoorLine"></p>
+                    </div>
+                    <button class="icon-button" id="closeTrickDoorButton" type="button" aria-label="先不进去">×</button>
+                  </div>
+                  <div class="trick-door-task">
+                    <p class="inventory-label">这户的糖</p>
+                    <div class="trick-door-candy" id="trickDoorCandy"></div>
+                    <p class="trick-door-task-text" id="trickDoorTask"></p>
+                    <p class="trick-door-trick" id="trickDoorTrick"></p>
+                  </div>
+                  <div class="trick-door-actions">
+                    <button class="primary-button" id="trickHelpButton" type="button">帮忙</button>
+                    <button class="secondary-button" id="trickTrickButton" type="button">捣蛋 · 抢糖就跑</button>
+                    <button class="text-button" id="trickLaterButton" type="button">先不进去</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="overlay inventory-overlay trick-puzzle-overlay" id="trickPuzzleScreen" hidden>
+                <div class="trick-puzzle-panel">
+                  <div class="trick-puzzle-head">
+                    <div class="trick-puzzle-heading">
+                      <p class="overlay-kicker" id="trickPuzzleKicker">第 3 户 · 骷髅</p>
+                      <h2 id="trickPuzzleTitle">骨牌上的数</h2>
+                      <p class="trick-puzzle-intro" id="trickPuzzleIntro"></p>
+                    </div>
+                    <button class="icon-button" id="closeTrickPuzzleButton" type="button" aria-label="先离开这扇门">×</button>
+                  </div>
+                  <div class="trick-puzzle-meta">
+                    <span id="trickPuzzleStep">第 1 / 3 题</span>
+                    <span id="trickPuzzleMistakes">答错 0 次</span>
+                  </div>
+                  <div class="trick-puzzle-stage" id="trickPuzzleStage"></div>
+                  <p class="trick-puzzle-feedback" id="trickPuzzleFeedback"></p>
+                  <div class="trick-puzzle-foot">
+                    <span>谜题留在门上，随时可以回来。</span>
+                    <button class="text-button" id="trickPuzzleLeaveButton" type="button">先离开</button>
+                  </div>
+                </div>
+              </div>
+
               <div class="overlay inventory-overlay roster-overlay" id="rosterScreen" hidden>
                 <div class="inventory-panel roster-panel">
                   <div class="inventory-head">
                     <div>
-                      <p class="overlay-kicker">Hyakki yakō · the night parade</p>
+                      <p class="overlay-kicker">The night parade roster</p>
                       <h2>百鬼名册</h2>
                     </div>
                     <button class="icon-button" id="closeRosterButton" type="button" aria-label="关闭名册">×</button>
                   </div>
                   <p class="roster-copy">
-                    灯照到哪里，队伍就跟到哪里。灰着的名字还没遇见——走到石鼓前按 <kbd>E</kbd>，请他们同行。困难里留下的名字会单独标出。
+                    灯照到哪儿，队伍跟到哪儿。灰名字还没遇到，去石鼓前按 E 请他们跟上。困难里留下的名字会另行标出。
                   </p>
                   <div class="roster-supports" id="rosterSupports"></div>
                   <div class="roster-grid" id="rosterGrid"></div>
@@ -442,25 +545,25 @@
                 <div class="inventory-panel sacrifice-panel">
                   <div class="inventory-head">
                     <div>
-                      <p class="overlay-kicker">The night asks for one name</p>
+                      <p class="overlay-kicker">One name must stay behind</p>
                       <h2>留下一位同行者</h2>
                     </div>
                   </div>
                   <p class="roster-copy" id="sacrificeCopy">
-                    瘴气冲散了队伍。留下一人；支援也会失效。
+                    瘴气冲散了队伍。留下一人，他的支援也会失效。
                   </p>
                   <div class="sacrifice-grid" id="sacrificeGrid"></div>
                   <div class="inventory-foot">
-                    <span>还剩 <b id="sacrificeCount">0</b> 位 · 数字键选择</span>
-                    <span>这一夜不会倒带</span>
+                    <span>还剩 <b id="sacrificeCount">0</b> 位 · 点选一位</span>
+                    <span>本局不能反悔</span>
                   </div>
                 </div>
               </div>
 
               <div class="overlay pause-overlay" id="pauseScreen" hidden>
                 <div class="pause-panel">
-                  <p class="overlay-kicker">The night holds its breath</p>
-                  <h2>长夜暂时停住了</h2>
+                  <p class="overlay-kicker">Paused</p>
+                  <h2>暂停</h2>
                   <p class="overlay-copy">灯还亮着。准备好就继续。</p>
                   <button class="primary-button" id="resumeButton" type="button">
                     <span>继续前行</span>
@@ -475,6 +578,7 @@
                   <div class="pause-tips">
                     <span><kbd>Esc</kbd> 继续</span>
                     <span><kbd>Tab</kbd> 背包</span>
+                    <span><kbd>Q</kbd> 糖袋</span>
                     <span><kbd>R</kbd> 重新开始</span>
                     <span><kbd>F</kbd> 全屏</span>
                   </div>
@@ -483,8 +587,8 @@
 
               <div class="overlay pause-overlay" id="defeatScreen" hidden>
                 <div class="pause-panel defeat-panel">
-                  <p class="overlay-kicker">The lantern burns alone</p>
-                  <h2>灯还亮着，队伍散了</h2>
+                  <p class="overlay-kicker">No one left</p>
+                  <h2>队伍散了</h2>
                   <p class="overlay-copy" id="defeatCopy">
                     没有可以留下的人了。提灯童子一个人站在落脚点。
                   </p>
@@ -500,9 +604,9 @@
 
               <div class="overlay complete-overlay" id="completeScreen" hidden>
                 <div class="complete-panel">
-                  <p class="overlay-kicker" id="completeKicker">Chapter complete</p>
-                  <h2 id="completeTitle">这一段旅程结束了</h2>
-                  <p class="overlay-copy" id="completeCopy">前面的路会在之后接上。</p>
+                  <p class="overlay-kicker" id="completeKicker">Stage complete</p>
+                  <h2 id="completeTitle">这一段走完了</h2>
+                  <p class="overlay-copy" id="completeCopy">后面的路以后再走。</p>
                   <div class="complete-stats">
                     <div id="statTime"><span>时间</span><b id="completeTime">00:00</b></div>
                     <div id="statBones"><span>骨头</span><b id="completeBones">0/0</b></div>
@@ -511,11 +615,17 @@
                     <div id="statCostumes"><span>时装</span><b id="completeCostumes">0/3</b></div>
                     <div id="statMemories" hidden><span>点亮的记忆</span><b id="completeMemories">0/0</b></div>
                     <div id="statStages" hidden><span>走过的段落</span><b id="completeStages">0/0</b></div>
+                    <div id="statShoes" hidden><span>身后的皮鞋</span><b id="completeShoes">0 双</b></div>
                     <div id="statParty" hidden><span>同行者</span><b id="completeParty">0/7</b></div>
                     <div id="statScatters" hidden><span>被冲散</span><b id="completeScatters">0</b></div>
                     <div id="statLost" hidden><span>留在夜里</span><b id="completeLost">0</b></div>
                     <div id="statSpotted" hidden><span>被发现</span><b id="completeSpotted">0</b></div>
                     <div id="statFalls" hidden><span>失足</span><b id="completeFalls">0</b></div>
+                    <div id="statDoors" hidden><span>帮忙</span><b id="completeDoors">0/10</b></div>
+                    <div id="statTricks" hidden><span>捣蛋</span><b id="completeTricks">0</b></div>
+                    <div id="statPouch" hidden><span>糖袋里</span><b id="completePouch">0</b></div>
+                    <div id="statSkipped" hidden><span>路过</span><b id="completeSkipped">0</b></div>
+                    <div id="statTrickCandies" hidden><span>这一趟的糖</span><b id="completeTrickCandies">0</b></div>
                     <div id="statFit"><span>合脚度</span><b id="completeFit">38%</b></div>
                   </div>
                   <div class="complete-actions">
@@ -536,8 +646,9 @@
             <span class="control-hint"><span class="key-pair"><kbd>←</kbd><kbd>→</kbd></span> 移动 / 调速</span>
             <span class="control-hint"><kbd>↑</kbd> 跳跃</span>
             <span class="control-hint"><kbd>↓</kbd> 蹲下 / 下落</span>
-            <span class="control-hint"><kbd>E</kbd> 互动 / 抱南瓜</span>
+            <span class="control-hint"><kbd>E</kbd> 互动 / 敲门 / 抱南瓜</span>
             <span class="control-hint"><kbd>Tab</kbd> 背包 / 名册</span>
+            <span class="control-hint"><kbd>Q</kbd> 糖袋</span>
           </div>
           <div class="control-list control-list--secondary">
             <span class="control-hint"><kbd>Esc</kbd> 暂停</span>
@@ -550,11 +661,11 @@
 
       <div class="page-note">
         <span>Keyboard adventure · build 0.9</span>
-        <span>教程 + 五盏灯 + 百鬼夜行（三条难度赛道 · 十一位同行者）+ 鬼鬼祟祟（双人同屏潜行）+ 三套时装 + 十种糖果状态</span>
+        <span>三条夜路 · 一个糖纸街副本 · 键盘或触屏</span>
       </div>
     </main>
 
-    <div class="rotate-prompt" id="rotatePrompt" role="dialog" aria-live="polite" aria-label="请横屏游玩">
+    <div class="rotate-prompt" id="rotatePrompt" role="dialog" aria-modal="true" aria-live="polite" aria-label="请横屏游玩">
       <div class="rotate-card">
         <span class="rotate-mark" aria-hidden="true">↻</span>
         <h2>请把手机横过来</h2>

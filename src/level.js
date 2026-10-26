@@ -1,18 +1,19 @@
 import { ELECTRON, FIELD, PLAYER, VIEW } from './config.js';
-import { isBone, isCandy } from './collectibles.js';
+import { getItemDef, isBone, isCandy } from './collectibles.js';
 import {
   MEMORIAL_CHAPTERS,
   MEMORIAL_ROUTE,
   memorialStageFromTheme,
 } from './memorial.js';
-import { SNEAK_BACKDROP, SNEAK_ROUTE, SNEAK_STAGES } from './sneak.js';
 import { buildSneakData } from './sneakLevel.js';
+import { mappingTargets } from './setTheory.js';
 import {
   PARADE_CHAPTERS,
   PARADE_ROUTE,
   getParadeTrack,
   paradeStageFromTheme,
 } from './parade.js';
+import { TRICK_HOUSES, TRICK_RACE, TRICK_ROUTE } from './trickOrTreat.js';
 
 const T = VIEW.TILE;
 const HEIGHT = 18;
@@ -28,9 +29,9 @@ export const THEMES = Object.freeze([
     difficulty: 0,
     style: 'forest',
     mood: 'forest',
-    objective: '学会走路、跳跃、下穿、拾取、南瓜与背包',
-    brief: '没有危险。沿着月光熟悉移动、背包，以及地上的南瓜。',
-    startTip: '欢迎来到南瓜小径。慢慢走，不着急。',
+    objective: '学会走路、跳跃、下穿、拾取、南瓜和背包',
+    brief: '没有危险。路上熟悉移动、背包和南瓜。',
+    startTip: '欢迎来到南瓜小径。慢慢走就行。',
   },
   {
     id: 'merged',
@@ -40,12 +41,12 @@ export const THEMES = Object.freeze([
     difficulty: 3,
     style: 'cavern',
     mood: 'ritual',
-    objective: '先与孤立电子共处，再用速度选择器越过熔岩长井',
-    brief: '一座把静电场、速度选择器和右手骨机关连在一起的地下长厅。',
-    startTip: '身边的两颗铜球会给你不同的电荷。先选一种，再往深处走。',
+    objective: '靠近孤立电子，再用速度选择器越过熔岩长井',
+    brief: '地下的长厅，有静电场、速度选择器和右手骨机关。',
+    startTip: '两颗铜球给你不同的电荷。先选一种，再往里走。',
   },
-  // 追思线路「五盏灯」：前四段是墓园夜路；第五段沉入地下，
-  // 直接使用「电磁长夜」的完整赛道。
+  // 追思线路「四盏灯」：前两段是墓园夜路；第三段是双人潜行；
+  // 第四段沉入地下，走一条只保留铜球与电子场的简易电磁赛道。
   ...MEMORIAL_CHAPTERS.map((chapter) => ({
     id: chapter.levelId,
     mode: 'memorial',
@@ -54,13 +55,15 @@ export const THEMES = Object.freeze([
     name: MEMORIAL_ROUTE.name,
     chapter: `${chapter.stageLabel} · ${chapter.patient}`,
     difficulty: 1,
-    style: chapter.stage === 5 ? 'cavern' : 'forest',
-    mood: 'memorial',
+    style: chapter.kind === 'dysthymia' ? 'cavern' : 'forest',
+    // 第三段沿用潜行场景的绘制：影子区、提灯人、石板门与影子桥。
+    mood: chapter.mood ?? 'memorial',
     objective: chapter.objective,
     brief: chapter.intro,
     startTip: chapter.body,
+    backdrop: chapter.backdrop,
   })),
-  // 百鬼夜行：六段夜路，一段比一段长，同行者一段比一段多。
+  // 魑魅魍魉：六段夜路，一段比一段长，同行者一段比一段多。
   ...PARADE_CHAPTERS.map((chapter) => ({
     id: chapter.levelId,
     mode: 'parade',
@@ -77,23 +80,66 @@ export const THEMES = Object.freeze([
     backdrop: chapter.backdrop,
     weather: chapter.weather,
   })),
-  // 鬼鬼祟祟：双人同屏潜行，独立于其他线路。
-  ...SNEAK_STAGES.map((stage) => ({
-    id: stage.levelId,
-    mode: 'sneak',
-    route: SNEAK_ROUTE.id,
-    stage: stage.stage,
-    name: SNEAK_ROUTE.name,
-    chapter: `第 ${stage.stage} 段 · ${stage.name}`,
-    difficulty: stage.stage,
+  // Trick or Treat：一条没有危险的糖纸街，十户人家各守一颗增益糖。
+  {
+    id: 'trick',
+    mode: 'trick',
+    stage: 1,
+    name: TRICK_ROUTE.place,
+    chapter: '副本 · Trick or Treat',
+    difficulty: 1,
     style: 'forest',
-    mood: 'sneak',
-    objective: stage.objective,
-    brief: stage.intro,
-    startTip: stage.objective,
-    // 后三段各有自己的天色：暖黄的晾糖场、紫灰的画像长廊、将亮未亮的屋顶。
-    backdrop: stage.backdrop ?? SNEAK_BACKDROP,
-  })),
+    mood: 'forest',
+    objective: '走完整条街；想帮谁就帮谁，街尾随时能走',
+    brief: '十户人家各守一颗糖。帮忙，或者捣蛋。',
+    startTip: TRICK_ROUTE.intro,
+  },
+  // 女巫的房间：集合庭院。原来是追思小径第二段的赛道。
+  {
+    id: 'trick-witch',
+    mode: 'trick',
+    room: 'witch',
+    stage: 1,
+    name: '莫尔的庭院',
+    chapter: 'Trick or Treat · 集合庭院',
+    difficulty: 2,
+    style: 'forest',
+    mood: 'memorial',
+    objective: '按门顶的 A、B 把东西分进对应格子，让那道石门沉下去',
+    brief: '女巫的庭院只有一道石门：六颗东西，按门顶的 A、B 各归各位。',
+    startTip: '把每颗东西推进它归属的那一格。门顶写着 A、B 里有什么。',
+    backdrop: MEMORIAL_CHAPTERS[1]?.backdrop ?? null,
+  },
+  // 男巫的地窖：电磁长夜。原来是追思小径第四段的赛道。
+  {
+    id: 'trick-warlock',
+    mode: 'trick',
+    room: 'warlock',
+    stage: 1,
+    name: '奥兹的地窖',
+    chapter: 'Trick or Treat · 电磁长夜',
+    difficulty: 3,
+    style: 'cavern',
+    mood: 'ritual',
+    objective: '穿过电子厅和两口熔岩井，走到地窖最深处的门',
+    brief: '地下的长厅，有静电场、速度选择器和右手骨机关。',
+    startTip: '两颗铜球给你不同的电荷。先选一种，再往里走。',
+  },
+  // 捣蛋后的后巷竞速：抢了糖就跑，跑到街尾的栅门才拿得到。
+  {
+    id: 'trick-race',
+    mode: 'trick',
+    race: true,
+    stage: 1,
+    name: TRICK_RACE.place,
+    chapter: 'Trick or Treat · 抢了就跑',
+    difficulty: 2,
+    style: 'forest',
+    mood: 'forest',
+    objective: '跑到街尾的栅门，别被身后的人追上',
+    brief: '屋后的巷子。木箱、屋顶断口和糖浆滑道，一条纯竞速赛道。',
+    startTip: TRICK_RACE.intro,
+  },
 ]);
 
 export const PLAYABLE_THEMES = THEMES.filter(
@@ -101,122 +147,395 @@ export const PLAYABLE_THEMES = THEMES.filter(
     theme.mode === 'journey' ||
     theme.mode === 'memorial' ||
     theme.mode === 'parade' ||
-    theme.mode === 'sneak',
+    theme.mode === 'trick',
 );
 
 const THEME_BY_ID = new Map(THEMES.map((theme) => [theme.id, theme]));
 
 /**
- * 前四段墓园小径的静态布局。数字单位都是地图格。
- * 地面始终连续，没有任何即死危险；只有高低差与可选木板。
- * 第五段不使用这张表：它在 build() 里交给 buildMerged(5) 的电磁长夜赛道。
+ * 追思小径前两段的地图规格。数字单位都是地图格。
+ * 地面始终连续，只有高低差与可选木板。
+ *
+ * 第二段是一座「集合庭院」：分格门认交集，中间夹一道 A → B 的接龙。
+ * 每颗元素是一个完整的东西（骨头、幽灵、眼睛、蜡烛、手、骷髅），
+ * 身上不挂标签；门楣左侧的成员板放大图标并写出名字。
+ * 地面四格写着具体运算：A−B / A∩B / B−A / A∪B 加一横；归属对应才计数。
+ * 这里只读图，不做算术。
+ *
+ * 第三段不再用这套规格：它是一条双人潜行的墓园夜路，由 buildMemorialSneak()
+ * 单独建；第四段是一条简易的电磁赛道，由 buildMemorialElectromagnetic() 建，见下面。
  */
 const MEMORIAL_STAGE_SPECS = [
   {
-    // 第一段明显比其余几段长：从南瓜车到第一扇门将近 120 格。
-    // 每 5 秒一次的检查、10 秒倒计时，走不出这么远的路——
-    // 玩家最后一段必然是在超时报警里走完的，这正是这一段的记忆。
-    width: 122,
+    // 第一段很短：南瓜车到高墙只有五十来格，墙后几格就是出去的门。
+    // 这一段的所有阻力都压在墙上——一个人跳不过去，必须把南瓜叠高。
+    width: 64,
     blocks: [
       [15, 15, 3, 1],
       [33, 15, 2, 1],
       [41, 15, 4, 1],
       // 路口的高墙：一个人跳不过去（4 格），得把南瓜推到墙边、
       // 抛起一颗叠好，踩着南瓜翻过去。墙前留了三颗南瓜。
+      // 翻过墙就是第一段的出口门，没有后半段路。
       [54, 12, 2, 5],
-      [62, 14, 3, 2],
-      [72, 15, 5, 1],
-      [86, 14, 4, 2],
-      [96, 15, 3, 1],
-      [104, 15, 2, 1],
-      [112, 15, 4, 1],
     ],
     planks: [
       [22, 14, 4],
       [38, 14, 3],
-      [60, 13, 4],
-      [78, 13, 4],
-      [90, 14, 4],
-      [100, 12, 3],
-      [108, 13, 4],
     ],
-    lamps: [7, 20, 36, 43, 54, 60, 68, 84, 94, 102, 118],
-    trees: [29, 45, 58, 80, 110],
+    lamps: [7, 20, 36, 43, 49],
+    trees: [29, 45, 58],
     // 第一段开场：玩家乘南瓜车到这里，下车后才开始被操控。
     carriage: { tile: 2 },
-    graves: [10, 18, 27, 39, 45, 56, 66, 76, 88, 98, 106, 116],
-    fences: [[24, 3], [64, 3], [92, 2]],
+    graves: [10, 18, 27, 39, 45, 56],
+    fences: [[24, 3]],
     // 高墙前的南瓜是过关用的：50 号推到墙边，47 号抱起来抛上去叠高。
-    pumpkins: [12, 34, 44, 47, 50, 68, 80, 98, 105, 113],
-    skullPiles: [16, 40, 60, 76, 94, 111],
-    memories: [{ tile: 70 }],
-    checkpoint: 64,
-    goal: 118,
+    pumpkins: [12, 34, 44, 47, 50],
+    skullPiles: [16, 40],
+    memories: [{ tile: 52 }],
+    // 时装零件：不放在地上。旧床单在高墙顶上，假胡子、腿骨在单向木板
+    // 上方——先跳上木板，再普通跳一下就能够到，不依赖叠南瓜。
+    pickups: [
+      { id: 'sheet', type: 'sheet', tile: 54, height: 2 },
+      { id: 'beard', type: 'beard', tile: 39, height: 5 },
+      { id: 'femur', type: 'femur', tile: 23, height: 5 },
+    ],
+    checkpoint: 50,
+    checkpointLabel: '第 1 段 · 高墙下',
+    goal: 60,
   },
   {
-    width: 56,
+    // 第二段 · 阿岚的第一座集合庭院。
+    // 两道门：交集、接龙映射。门本身是一堵六格高的石墙，
+    // 上方一直封到夜空，不能叠南瓜翻过去。
+    //
+    // 这一段按「身体部件」来理解集合：骷髅和幽灵都有眼睛，单独的眼球
+    // 就同时属于两边；骨头是骷髅的一部分，骷髅在哪一边，骨头就跟着在哪一边。
+    // 第二道门是 A → B 的接龙：门楣只画前两段，其余留问号；
+    // 玩家把地上三件东西放到各自对应的小台下。
+    // 每颗元素都是一个完整的东西（骷髅、幽灵、眼睛、骨头、手、蜡烛），
+    // 身上不挂标签；门楣左侧的成员板放大图标并写出名字。
+    width: 98,
     blocks: [
-      [10, 15, 3, 1],
-      [17, 14, 3, 2],
-      [28, 15, 4, 1],
-      [37, 15, 2, 1],
-      [44, 14, 3, 2],
-      [50, 15, 2, 1],
+      [30, 15, 2, 1],
+      [59, 15, 2, 1],
+      [89, 15, 2, 1],
     ],
-    planks: [[23, 13, 4], [34, 13, 4], [48, 12, 3]],
-    lamps: [6, 21, 31, 42, 54],
-    trees: [4, 14, 34, 52],
-    graves: [8, 15, 26, 33, 40, 47],
-    fences: [[20, 2]],
-    pumpkins: [12, 30, 45],
-    skullPiles: [7, 36],
-    memories: [{ tile: 30 }],
-    checkpoint: 34,
-    goal: 53,
-  },
-  {
-    width: 58,
-    blocks: [
-      [12, 15, 4, 1],
-      [20, 15, 6, 1],
-      // 许奶奶这一段走得很轻、很慢，所有台阶都压到一格高。
-      [30, 15, 4, 1],
-      [38, 15, 3, 1],
-      [46, 15, 5, 1],
-    ],
-    planks: [[16, 14, 3], [34, 14, 4], [42, 14, 3]],
-    lamps: [6, 24, 36, 50],
-    trees: [3, 28, 56],
-    graves: [9, 15, 23, 32, 41, 48, 54],
-    fences: [[26, 4]],
-    pumpkins: [18, 39, 52],
-    skullPiles: [11, 44],
-    memories: [{ tile: 33 }],
-    checkpoint: 36,
-    goal: 55,
-  },
-  {
-    width: 60,
-    blocks: [
-      [10, 15, 5, 1],
-      [16, 14, 6, 2],
-      [24, 13, 5, 1],
-      [32, 15, 4, 1],
-      [39, 14, 5, 2],
-      [48, 15, 3, 1],
-    ],
-    planks: [[27, 12, 3], [45, 12, 3]],
-    lamps: [7, 20, 29, 42, 54],
-    trees: [4, 22, 37, 58],
-    graves: [12, 19, 26, 35, 44, 51, 57],
-    fences: [[31, 3]],
-    pumpkins: [14, 36, 50],
-    skullPiles: [15, 40],
+    planks: [[29, 14, 2], [58, 14, 2], [88, 14, 2]],
+    lamps: [3, 29, 33, 59, 63, 88, 90],
+    trees: [30, 58, 65, 90],
+    graves: [31, 60, 64, 88],
+    fences: [[29, 2], [59, 2], [89, 2]],
+    // 第二段是阿岚的第一座集合庭院；糖纸街女巫房间复用同一套规则，但只留一道门。
+    // 普通南瓜只放在庭院外的空地上：格子旁边留干净，免得分不清哪颗是门里的元素。
+    pumpkins: [30, 70],
+    skullPiles: [30, 60, 64, 88],
     memories: [{ tile: 31 }],
-    checkpoint: 34,
-    goal: 57,
+    checkpoint: 31,
+    goal: 94,
+    // 背景里淡淡浮着的几组大圆：阿岚笔记上的图，印在紫褐色的雾里。
+    setRings: [
+      { x: 180, y: 150, r: 46, gap: 30 },
+      { x: 620, y: 144, r: 52, gap: 34 },
+      { x: 1180, y: 152, r: 44, gap: 28 },
+    ],
+    setGates: [
+      {
+        // 交集：A = {骷髅, 骨头, 眼睛}，B = {幽灵, 眼睛}。眼睛同时在两边；
+        // 骨头是骷髅的一部分，跟着骷髅只在 A 里。
+        tile: 25,
+        expr: 'intersect',
+        tag: 'memorial-2-set-1',
+        trayStart: 12,
+        trayWidth: 2,
+        trayGap: 1,
+        hint: '交集：门顶写着 A 是骷髅、骨头和眼睛，B 是幽灵和眼睛。眼睛两边都在；骨头跟着骷髅，只在 A 里。',
+        success: '门开了。眼睛同时属于骷髅和幽灵；骨头跟着骷髅，站在 A 这边。',
+        elements: [
+          { tile: 4, look: 'skull', membership: 'a' },
+          { tile: 6, look: 'ghost', membership: 'b' },
+          { tile: 8, look: 'eye', membership: 'both' },
+          { tile: 10, look: 'bone', membership: 'a' },
+        ],
+      },
+      {
+        // 接龙映射：A 里的每样东西都接到它后面的那一样，最后一样接回第一样。
+        // 门楣只画前两段（骷髅→幽灵、幽灵→蜡烛），最后一段留问号；
+        // 地上放的是 B 里的三件东西，分别放到它们前面那一样的小台下。
+        tile: 55,
+        expr: 'mapping',
+        kind: 'mapping',
+        tag: 'memorial-2-set-2',
+        trayStart: 42,
+        trayWidth: 2,
+        trayGap: 1,
+        chain: ['skull', 'ghost', 'candle'],
+        // 只画前两段，最后一段要玩家自己补。
+        shownLinks: 2,
+        hint: '门顶是一条接龙：骷髅→幽灵，幽灵→蜡烛。每样东西都接在它后面的那一样，蜡烛后面就回到骷髅。把地上的幽灵、蜡烛、骷髅放到对应的小台下。',
+        success: '门开了。骷髅→幽灵→蜡烛→骷髅，首尾接成一个圈。',
+        elements: [
+          // 地上的是 B 里的东西：幽灵是骷髅的像，蜡烛是幽灵的像，骷髅是蜡烛的像。
+          // 该去哪个小台由 chain 推出，不在这里另写一份答案。
+          { tile: 33, look: 'ghost' },
+          { tile: 36, look: 'candle' },
+          { tile: 39, look: 'skull' },
+        ],
+      },
+    ],
+    // 第二段的时装零件都在半空：眼睛、头骨在两座石门后的矮石台上，
+    // 普通跳一下就能够到；左手骨和咒语书在后半段，左手骨必须带二段跳糖。
+    pickups: [
+      { id: 'eyeHoles', type: 'eyeHoles', tile: 30, height: 4 },
+      { id: 'skull', type: 'skull', tile: 59, height: 4 },
+      { id: 'leftHand', type: 'leftHand', tile: 76, height: 5, requiresBuff: 'doubleJump' },
+      { id: 'spellbook', type: 'spellbook', tile: 89, height: 4 },
+    ],
   },
 ];
+
+
+/**
+ * 糖纸街女巫莫尔的集合庭院。
+ *
+ * 和追思小径的庭院用同一套规则，但只留一道门：
+ *   交集。六颗东西，按门顶的 A、B 各归各位。
+ * 石头门后面不远就是回街上的出口，做完就能走。
+ */
+const WITCH_SET_SPEC = {
+  width: 56,
+  blocks: [],
+  planks: [],
+  lamps: [3, 26, 38, 48],
+  trees: [12],
+  graves: [8, 44],
+  fences: [[18, 2]],
+  pumpkins: [],
+  skullPiles: [20, 42],
+  memories: [],
+  pickups: [],
+  solaces: [],
+  checkpoint: 40,
+  checkpointLabel: '女巫庭院 · 石门后',
+  goal: 50,
+  setRings: [
+    { x: 160, y: 150, r: 46, gap: 30 },
+    { x: 620, y: 144, r: 52, gap: 34 },
+  ],
+  setGates: [
+    {
+      // 交集：A = {骷髅, 骨头, 眼睛, 手}，B = {幽灵, 眼睛, 手}。
+      // 眼睛和手同时在两边；骨头是骷髅的一部分，跟着骷髅只在 A 里。
+      tile: 34,
+      expr: 'intersect',
+      tag: 'witch-set-1',
+      trayStart: 22,
+      trayWidth: 2,
+      trayGap: 1,
+      hint: '交集：门顶 A 是骷髅、骨头、眼睛和手，B 是幽灵、眼睛和手。眼睛和手两边都在；骨头跟着骷髅，只在 A 里；蜡烛两边都不在。',
+      success: '门开了。眼睛和手同时在 A 和 B 里；骨头跟着骷髅。',
+      elements: [
+        { tile: 6, look: 'skull', membership: 'a' },
+        { tile: 8, look: 'ghost', membership: 'b' },
+        { tile: 10, look: 'eye', membership: 'both' },
+        { tile: 12, look: 'hand', membership: 'both' },
+        { tile: 14, look: 'bone', membership: 'a' },
+        { tile: 16, look: 'candle', membership: 'none' },
+      ],
+    },
+  ],
+};
+
+/**
+ * 门楣成员板上每样东西的显示顺序。骨头永远紧跟在骷髅后面：
+ * 它不是一个不相干的第三样东西，而是骷髅这个集合的一部分。
+ */
+const MEMBER_ORDER = Object.freeze(['skull', 'bone', 'rib', 'ghost', 'eye', 'hand', 'candle']);
+
+function sortMembers(members) {
+  const rank = (member) => {
+    const index = MEMBER_ORDER.indexOf(member.look);
+    return index < 0 ? MEMBER_ORDER.length : index;
+  };
+  return members.slice().sort((left, right) => rank(left) - rank(right));
+}
+
+/** 集合门要在地面上标亮哪几个格子：这几个格子合起来就是这一门的「结果」。 */
+function memorialTargetTrays(expr, twoSets) {
+  if (!twoSets) return expr === 'complement' ? ['notA'] : ['a'];
+  if (expr === 'intersect') return ['both'];
+  if (expr === 'difference') return ['a'];
+  if (expr === 'complement') return ['b', 'none'];
+  return [];
+}
+
+/** 地面格子的颜色：A 金、B 蓝、交集紫，补集灰；映射门的三个小台统一用 B 的蓝。 */
+function setTrayTint(id, mapping) {
+  if (mapping) return '110, 170, 220';
+  if (id === 'a') return '232, 190, 90';
+  if (id === 'b') return '110, 170, 220';
+  if (id === 'both') return '190, 150, 230';
+  return '150, 140, 170';
+}
+
+/**
+ * 接龙门的接龙必须是一圈不重复的东西，地上的每颗元素也得在圈里。
+ * 把这两件事在造关卡时一次校验掉，运行时就不用再猜 membership 对不对。
+ */
+function mappingChainFor(spec, elements) {
+  const chain = (spec.chain ?? []).slice();
+  const label = spec.tag ?? `tile ${spec.tile}`;
+  if (chain.length < 2) {
+    throw new Error(`Mapping gate ${label}: chain needs at least two looks`);
+  }
+  if (new Set(chain).size !== chain.length) {
+    throw new Error(`Mapping gate ${label}: chain has duplicate looks`);
+  }
+
+  const targets = mappingTargets(chain);
+  for (const element of elements) {
+    if (!element.look || !targets[element.look]) {
+      throw new Error(
+        `Mapping gate ${label}: element "${element.look ?? '?'}" is not in the chain`,
+      );
+    }
+  }
+  return { chain, targets };
+}
+
+/**
+ * 造一道集合门。分格门和接龙门共用同一副骨架：
+ *   - 石头墙身 + 一直封到夜空的符障，墙脚前是一排地面小台；
+ *   - 每颗元素身上不挂标签，由门自己算出它该去哪个小台。
+ *
+ * 两种门只差在「该去哪」：
+ *   - sort：membership 是集合归属，按 expr 落到 A−B / A∩B / B−A / 补集；
+ *   - mapping：chain 是 A 的接龙顺序，B 里的东西归到它前面那一样的小台。
+ * 接龙门的地面元素不写 membership，答案全部从 chain 推出来。
+ */
+function makeSetGate(rows, stage, index, spec) {
+  const col = spec.tile;
+  const topRow = GROUND_ROW - 6;
+  paint(rows, col, topRow, 3, 6, 'B');
+  paint(rows, col, 0, 3, topRow, 'g');
+
+  const tiles = [];
+  for (let row = 0; row < GROUND_ROW; row += 1) {
+    for (let c = col; c < col + 3; c += 1) {
+      tiles.push({ col: c, row, char: rows[row][c] });
+    }
+  }
+
+  const kind = spec.kind ?? 'sort';
+  const mapping = kind === 'mapping';
+  const twoSets = mapping ? null : (spec.twoSets ?? spec.expr !== 'complement');
+  const elements = (spec.elements ?? []).map((element) => ({ ...element }));
+
+  // 骨头是骷髅的一部分：分格门里骷髅归哪一边，骨头就跟着归哪一边。
+  // 接龙门按接龙位置算，不走 membership。
+  if (!mapping) {
+    const skull = elements.find((element) => element.look === 'skull');
+    if (skull?.membership) {
+      for (const element of elements) {
+        if (element.look === 'bone') element.membership = skull.membership;
+      }
+    }
+  }
+
+  const mappingRule = mapping ? mappingChainFor(spec, elements) : null;
+  if (mappingRule) {
+    for (const element of elements) {
+      // membership 只作为调试信息保留；判定时仍以 chain 为准。
+      element.membership = mappingRule.targets[element.look];
+    }
+  }
+
+  // 地面小台：两集合四格，单集合两格，接龙门是 A 里的每一样一个台。
+  const trayIds = mapping
+    ? mappingRule.chain
+    : twoSets
+      ? ['a', 'both', 'b', 'none']
+      : ['a', 'notA'];
+  const trayWidth = spec.trayWidth ?? 2;
+  const trayGap = spec.trayGap ?? 1;
+  const trayStart = spec.trayStart ?? col - trayIds.length * (trayWidth + trayGap) - 2;
+  const targets = mapping ? trayIds : memorialTargetTrays(spec.expr, twoSets);
+  const trays = trayIds.map((id, trayIndex) => ({
+    id,
+    x: (trayStart + trayIndex * (trayWidth + trayGap)) * T,
+    w: trayWidth * T,
+    y: GROUND_Y,
+    tint: setTrayTint(id, mapping),
+    target: targets.includes(id),
+  }));
+
+  const aMembers = mapping
+    ? null
+    : sortMembers(
+        elements.filter(
+          (element) => element.membership === 'a' || element.membership === 'both',
+        ),
+      );
+  const bMembers = mapping
+    ? null
+    : sortMembers(
+        elements.filter(
+          (element) => element.membership === 'b' || element.membership === 'both',
+        ),
+      );
+  const notAMembers = mapping
+    ? null
+    : sortMembers(
+        elements.filter(
+          (element) => element.membership !== 'a' && element.membership !== 'both',
+        ),
+      );
+
+  const gate = {
+    id: `memorial-${stage}-set-${index}`,
+    kind,
+    expr: spec.expr,
+    tag: spec.tag,
+    hint: spec.hint ?? '',
+    success: spec.success ?? '',
+    // 映射门：接龙顺序、门楣先画几段，以及每颗 B 东西该去的小台。
+    chain: mappingRule?.chain ?? null,
+    shownLinks: mappingRule
+      ? Math.max(
+          1,
+          Math.min(
+            mappingRule.chain.length - 1,
+            spec.shownLinks ?? mappingRule.chain.length - 1,
+          ),
+        )
+      : null,
+    mappingTargets: mappingRule?.targets ?? null,
+    x: col * T,
+    centerX: (col + 1) * T + T / 2,
+    y: GROUND_Y,
+    top: topRow * T,
+    w: 3 * T,
+    h: 6 * T,
+    twoSets,
+    trays,
+    aMembers,
+    bMembers,
+    notAMembers,
+    pumpkinCount: elements.length,
+    placed: 0,
+    total: 0,
+    tiles,
+    solved: false,
+    open: false,
+    hinted: false,
+    // 全部分对后，整扇门先缓缓沉进地里，沉完才撤碰撞。
+    sinking: false,
+    sinkT: 0,
+    sinkDuration: 2.4,
+  };
+
+  return { gate, elements };
+}
 
 function makeGrid(width, height) {
   return Array.from({ length: height }, () => Array(width).fill('.'));
@@ -234,8 +553,16 @@ function makeCheckpoint(x, y, label) {
   return { x, y: y ?? (GROUND_Y - PLAYER.HEIGHT), label };
 }
 
-function makePickup(id, type, x, y) {
-  return { id, type, x, y, phase: (id.length * 1.7) % 6.28 };
+function makePickup(id, type, x, y, options = {}) {
+  return {
+    id,
+    type,
+    x,
+    y,
+    phase: (id.length * 1.7) % 6.28,
+    // 少数最难的零件要带着对应增益糖才拿得到；见 collectibles / buffCandies。
+    requiresBuff: options.requiresBuff ?? null,
+  };
 }
 
 /** 从地图顶部往下找第一块实心面，返回它的上沿像素 y。 */
@@ -248,7 +575,7 @@ function surfaceAt(rows, width, height, tileX) {
   return height * T;
 }
 
-/** 百鬼夜行的石鼓：按 E 请一位（或两位）客人加入队伍。 */
+/** 魑魅魍魉的石鼓：按 E 请一位（或两位）客人加入队伍。 */
 function makeMaskDevice(id, x, y, yokaiIds, prompt) {
   return {
     id,
@@ -454,6 +781,7 @@ export class Level {
     this.objective = theme.objective;
     this.route = theme.route ?? null;
     this.stage = theme.stage ?? 0;
+    this.room = theme.room ?? null;
     this.paradeTrack = theme.mode === 'parade'
       ? getParadeTrack(options.paradeTrack)
       : null;
@@ -463,7 +791,7 @@ export class Level {
     this.paradeChapter = theme.mode === 'parade'
       ? PARADE_CHAPTERS[this.stage - 1] ?? null
       : null;
-    // 追思路、百鬼夜行和鬼鬼祟祟各自有天色；渲染层统一读 backdrop。
+    // 追思路、魑魅魍魉和第三段潜行各自有天色；渲染层统一读 backdrop。
     this.backdrop = theme.backdrop ??
       (theme.mode === 'parade'
         ? this.paradeChapter?.backdrop ?? null
@@ -486,7 +814,7 @@ export class Level {
     // 每一格都是可变的，科学怪人撞塌的“C”会直接改成“.”。
     this.tiles = data.rows.map((row) => row.slice());
     // 地上的南瓜是可推动、可抛起、可叠高的实体，不再交给静态装饰层。
-    // 百鬼夜行里的「南瓜灯」（jackOLantern）用的是同一套南瓜画法，也一起变成实体。
+    // 魑魅魍魉里的「南瓜灯」（jackOLantern）用的是同一套南瓜画法，也一起变成实体。
     // 这里把摆放点从 decorations 里摘出来，交给 Game 的 PumpkinWorld 管理。
     const allDecorations = data.decorations ?? [];
     const isPumpkin = (decoration) =>
@@ -497,6 +825,11 @@ export class Level {
         x: decoration.x,
         y: decoration.y,
         variant: decoration.variant ?? 0,
+        // 第二段的集合门靠这个 tag 认领自己的元素；look 决定它长什么样，
+        // membership 是内部用的归属（a / b / both / none），不再画在元素身上。
+        tag: decoration.tag ?? null,
+        look: decoration.look ?? null,
+        membership: decoration.membership ?? null,
       }));
     this.decorations = allDecorations.filter((decoration) => !isPumpkin(decoration));
     this.pickups = data.pickups;
@@ -507,10 +840,23 @@ export class Level {
     this.checkpoints = data.checkpoints;
     this.tutorialSteps = data.tutorialSteps ?? [];
     this.memorials = data.memorials ?? [];
+    // 第四段电磁长夜里沿途的旧灯：走到跟前会短暂「透亮」。
+    this.solaces = data.solaces ?? [];
+    // 第二段的集合门：地面四格、门墙格子与这一局的开关状态。
+    this.setGates = data.setGates ?? [];
+    // 糖纸街的任务地标：八户不同的门，以及狼人的屋顶追月。
+    this.trickTasks = data.trickTasks ?? [];
+    // 捣蛋后的后巷竞速：追兵起点、糖浆加速带、晾衣绳与全程长度。
+    this.race = data.race ?? null;
+    // 正在下沉的集合门留下的空格子：画地形时跳过，由 setDraw 单独画下沉的石门。
+    this.sinkingCells = new Set();
     this.waterZones = data.waterZones ?? [];
     this.updrafts = data.updrafts ?? [];
     this.party = data.party ?? null;
-    // 鬼鬼祟祟：双人出生点、石板门 / 影子桥、影子区与教学提示。
+    // 第三段：双人出生点、石板门 / 影子桥、影子区与教学提示。
+    // 这一段现在长在追思路线的第三段里，所以用 sneak 标记区分，
+    // 不能只看 mode——mode 仍然是 memorial。
+    this.sneak = Boolean(data.sneak) || this.mood === 'sneak';
     this.spawn2 = data.spawn2 ?? {
       x: this.spawn.x + 24,
       y: this.spawn.y,
@@ -522,11 +868,19 @@ export class Level {
 
   build(themeId) {
     if (themeId === 'tutorial') return this.buildTutorial();
+    if (themeId === 'trick') return this.buildTrickOrTreat();
+    if (themeId === 'trick-race') return this.buildTrickRace();
+    if (themeId === 'trick-witch') return this.buildTrickRoom('witch');
+    if (themeId === 'trick-warlock') return this.buildTrickRoom('warlock');
     if (themeId === 'merged') return this.buildMerged();
-    // 第五段追思路：不再走五盏灯的平地布局，而是整条电磁长夜赛道。
-    if (themeId === 'memorial-5') return this.buildMerged(5);
     if (themeId.startsWith('memorial-')) {
-      return this.buildMemorial(memorialStageFromTheme(themeId));
+      const stage = memorialStageFromTheme(themeId);
+      // 第二段是第一座集合庭院；第三段是双人潜行；
+      // 第四段是周叔地下的简易电磁赛道。
+      // 糖纸街的女巫房间复用同一套集合门，但只留一道。
+      if (stage === 3) return this.buildMemorialSneak();
+      if (stage === 4) return this.buildMemorialElectromagnetic();
+      return this.buildMemorial(stage, { withSetGates: true, pickups: true });
     }
     if (themeId.startsWith('parade-')) {
       return this.buildParade(paradeStageFromTheme(themeId));
@@ -629,55 +983,469 @@ export class Level {
       tutorialSteps: [
         {
           id: 'move',
-          text: '用 ← → 在月光下走一走。',
-          cheer: '就是这样，脚步很稳。',
+          text: '用 ← → 走一走。',
+          cheer: '好，就这样走。',
         },
         {
           id: 'jump',
           text: '按 ↑ 跳一下。按住不放，会跳得更高。',
-          cheer: '漂亮！身体比南瓜还轻。',
+          cheer: '好，跳起来了。',
         },
         {
           id: 'drop',
-          text: '跳上木板，再按住 ↓ 落下来。空中按 ↓ 会落得更快。',
-          cheer: '上下都听你的。',
+          text: '站上木板，按住 ↓ 落下来。空中按 ↓ 会落得更快。',
+          cheer: '好，能上能下。',
         },
         {
           id: 'collect',
-          text: '走近发光的骨头，它会自己进背包。骨头能拼成骷髅时装。',
-          cheer: '捡到了。背包会记住你走过的路。',
+          text: '走近发光的骨头，它会自己进背包。攒够骨头能拼成骷髅时装。',
+          cheer: '捡到了。',
         },
         {
           id: 'pumpkin',
-          text: '南瓜可以推。走到它旁边，用身体把它顶开。',
-          cheer: '对，南瓜推得动，也不怕摔。',
+          text: '南瓜能推。走过去用身体顶它。',
+          cheer: '对，就这样推。',
         },
         {
           id: 'pumpkin-toss',
           text: '抱起南瓜，再抛出去。',
-          cheer: '抛起来了。推、抛、叠高，南瓜都随你。',
+          cheer: '抛出去了。南瓜能推、能抛，也能叠。',
         },
         {
           id: 'pumpkin-stack',
           text: '墙比人高。把南瓜抛到另一颗头顶叠好，踩着翻过去。',
-          cheer: '叠好了。两颗南瓜，就够翻过一个人翻不过去的墙。',
+          cheer: '叠好了。踩着南瓜翻过去。',
         },
         {
           id: 'candy',
-          text: '陌生人给的糖，小朋友不能乱吃。可惜我是大学生。',
-          cheer: '吃都吃了，看看接下来身体会怎么反应。',
+          text: '地上的糖捡到就吃。吃下会短暂改变身体。',
+          cheer: '吃下了。看看身体怎么变。',
         },
         {
           id: 'backpack',
           text: '打开背包：骨头、衣橱和糖果罐都在这儿。',
-          cheer: '很好。骨头、时装和糖果都在这里。',
+          cheer: '好。骨头、时装和糖果都在这里。',
         },
         {
           id: 'finish',
-          text: '小径尽头有一扇光门。慢慢走过去。',
+          text: '小径尽头有一扇光门。走过去。',
           cheer: '',
         },
       ],
+    };
+  }
+
+  /**
+   * Trick or Treat · 糖纸街。
+   *
+   * 十户万圣夜人家沿街排开。每户门口有一扇 candyDoor：
+   * 敲门后由 Game 打开人物对话，选择「帮忙」做任务，或「捣蛋」抢了糖跑进后巷。
+   * 女巫和男巫的任务是整间房（集合庭院 / 电磁长夜），
+   * 其余八户各自守一扇不同的门：找规律、脑筋急转弯、知识问答、翻牌配对、
+   * 找不同、天平推理、真假话，以及狼人的屋顶追月闯关。
+   * 街尾的出口永远开着，没做完也可以走。
+   */
+  buildTrickOrTreat() {
+    const width = 118;
+    const rows = makeGrid(width, HEIGHT);
+    paint(rows, 0, GROUND_ROW, width, 2, '#');
+
+    // 门与门之间的一级矮台阶：能跳过去，也能踩着南瓜翻。
+    for (const tile of [14, 24, 34, 44, 54, 64, 74, 84, 94, 104]) {
+      paint(rows, tile, GROUND_ROW - 1, 2, 1, 'B');
+    }
+    // 几段可选的高处木板，走上去能看见街对面的屋顶。
+    for (const [x, y, w] of [
+      [26, 12, 4],
+      [86, 12, 4],
+    ]) {
+      paint(rows, x, y, w, 1, 'P');
+    }
+    // 狼人「追月亮」：五级屋顶从街面一路升上去，每一级都放一个月亮记号。
+    // 每级抬高两格、横向隔两格，落脚点只有两格宽；月亮落下前要按顺序踩完。
+    const chasePlatforms = [
+      [42, GROUND_ROW - 2, 2],
+      [46, GROUND_ROW - 4, 2],
+      [50, GROUND_ROW - 6, 2],
+      [54, GROUND_ROW - 8, 2],
+      [58, GROUND_ROW - 10, 3],
+    ];
+    for (const [x, y, w] of chasePlatforms) paint(rows, x, y, w, 1, 'P');
+
+    const groundAt = (tileX) => surfaceAt(rows, width, HEIGHT, tileX);
+    const groundYAt = (tileX) => groundAt(tileX);
+
+    const decorations = [
+      { type: 'sign', x: 3 * T, y: groundYAt(3), variant: 1, layer: 'front' },
+      { type: 'sign', x: 108 * T, y: groundYAt(108), variant: 0, layer: 'front' },
+      { type: 'candyBucket', x: 5 * T, y: groundYAt(5), layer: 'front' },
+      { type: 'candyBucket', x: 55 * T, y: groundYAt(55), layer: 'front' },
+      { type: 'candyBucket', x: 105 * T, y: groundYAt(105), layer: 'front' },
+      // 树和栅栏在门与门之间，给街道一点纵深。
+      ...[4, 16, 28, 40, 52, 64, 76, 88, 100, 112].map((tileX) => ({
+        type: 'tree',
+        x: tileX * T,
+        y: groundYAt(tileX),
+        scale: 0.78 + (tileX % 3) * 0.12,
+        layer: 'back',
+      })),
+      { type: 'fence', x: 12 * T, y: groundYAt(12), length: 3, layer: 'front' },
+      { type: 'fence', x: 48 * T, y: groundYAt(48), length: 3, layer: 'front' },
+      { type: 'fence', x: 78 * T, y: groundYAt(78), length: 3, layer: 'front' },
+      ...[12, 32, 52, 72, 92, 108].map((tileX) => ({
+        type: 'lamp',
+        x: tileX * T,
+        y: groundYAt(tileX),
+        layer: 'front',
+      })),
+      { type: 'mushroom', x: 36 * T, y: groundYAt(36), layer: 'front' },
+      { type: 'mushroom', x: 66 * T, y: groundYAt(66), layer: 'front' },
+      { type: 'mushroom', x: 96 * T, y: groundYAt(96), layer: 'front' },
+      // 街上的南瓜可以推、抱、叠；门前多放几颗，能垫脚，也能在追月前试跳。
+      ...[6, 31, 46, 71, 91, 106].map((tileX, index) => ({
+        type: 'pumpkin',
+        x: tileX * T,
+        y: groundYAt(tileX),
+        variant: index % 3,
+        layer: 'front',
+      })),
+      ...[
+        [34, 35, 36],
+        [44, 45],
+        [55, 56, 57],
+        [64, 65, 66],
+        [74, 75, 76],
+        [80, 81, 82],
+        [84, 85, 88, 94],
+        [104, 105],
+      ].flatMap((tiles, group) =>
+        tiles.map((tileX) => ({
+          type: 'pumpkin',
+          x: tileX * T,
+          y: groundYAt(tileX),
+          variant: (tileX + group) % 3,
+          layer: 'front',
+        })),
+      ),
+    ];
+
+    const trickTasks = [];
+
+    for (const house of TRICK_HOUSES) {
+      const task = house.task;
+      if (task.type !== 'chase') continue;
+      const marks = Math.min(task.marks ?? 5, chasePlatforms.length);
+      const zones = chasePlatforms.slice(0, marks).map(([x, row, w], index) => ({
+        index,
+        x: (x + w / 2) * T - T,
+        y: (row - 1) * T,
+        w: 2 * T,
+        h: T * 1.4,
+      }));
+      trickTasks.push({
+        id: `trick-task-${house.id}`,
+        houseId: house.id,
+        kind: 'chase',
+        need: marks,
+        accent: house.accent,
+        zones,
+        timeLimit: task.timeLimit ?? 30,
+        timeLeft: task.timeLimit ?? 30,
+        markIndex: 0,
+        running: false,
+        progress: 0,
+        start: {
+          x: (chasePlatforms[0][0] - 2) * T,
+          y: GROUND_Y - PLAYER.HEIGHT,
+        },
+      });
+    }
+
+    const devices = TRICK_HOUSES.map((house) => ({
+      id: `trick-door-${house.id}`,
+      type: 'candyDoor',
+      x: house.tile * T,
+      y: GROUND_Y,
+      radius: 48,
+      houseId: house.id,
+      houseIndex: house.index,
+      accent: house.accent,
+      buffType: house.candyType,
+      buffName: house.candyName,
+      buffTag: house.candyTag,
+      done: false,
+      helped: false,
+      tricked: false,
+      active: false,
+      flash: 0,
+    }));
+
+    return {
+      width,
+      height: HEIGHT,
+      rows,
+      spawn: { x: 2 * T + 3, y: GROUND_Y - PLAYER.HEIGHT },
+      // 街尾的出口永远开着；没拿完也可以走。
+      goalX: 112 * T,
+      decorations,
+      pickups: [],
+      devices,
+      trickTasks,
+      fieldZones: [],
+      electrons: [],
+      hazards: [],
+      checkpoints: [],
+      waterZones: [],
+      tutorialSteps: [],
+    };
+  }
+
+  /**
+   * 女巫 / 男巫的房间。两间都复用原来的追思小径赛道：
+   *   witch  —— 集合庭院（一道集合门，比追思第二段更短）
+   *   warlock —— 电磁长夜（电子厅和熔岩井）
+   * 房间里加一扇回街上的后门；任务完成或随时离开都走它。
+   */
+  buildTrickRoom(room) {
+    if (room === 'witch') {
+      const data = this.buildMemorial(2, {
+        spec: WITCH_SET_SPEC,
+        withSetGates: true,
+        memorials: false,
+        pickups: false,
+      });
+      data.devices.push({
+        id: 'trick-exit-witch',
+        type: 'trickExit',
+        x: 1 * T,
+        y: data.spawn.y + PLAYER.HEIGHT,
+        radius: 42,
+      });
+      data.trickTasks = [];
+      return data;
+    }
+
+    if (room === 'warlock') {
+      const data = this.buildMerged();
+      const floorY = 41 * T;
+      // 任务房间不再放时装零件；只留骨槽要用的右手骨和路上的糖。
+      data.pickups = data.pickups.filter((pickup) => {
+        const def = getItemDef(pickup.type);
+        if (def.category === 'part') return false;
+        if (def.category === 'bone') return pickup.type === 'rightHand';
+        return true;
+      });
+      data.devices.push({
+        id: 'trick-exit-warlock',
+        type: 'trickExit',
+        x: 2 * T,
+        y: floorY,
+        radius: 42,
+      });
+      data.trickTasks = [];
+      return data;
+    }
+
+    throw new Error(`No trick room ${room}`);
+  }
+
+  /**
+   * 捣蛋后的「抢了就跑」：糖纸街屋后的后巷。
+   *
+   * 这是一条纯竞速赛道，没有谜题、没有即死缺口，唯一的失败是被追上。
+   * 全程从 0 到 160 格，地面连续；木箱都只有一到两格高，普通跳就能过。
+   * 两段屋顶是可选的快线：上面没有木箱和南瓜，但断口要跳准；
+   * 落在巷子里不会死，只是把时间还回去。
+   *
+   *   0–12    后门起跑：一段平路，冲出门口
+   *   12–34   晾衣绳巷：第一段屋顶 / 巷子分岔
+   *   34–52   晒糖场：长直道和第一块糖浆
+   *   52–88   屋顶与巷子：三截屋顶、两处断口，巷子里是木箱和南瓜
+   *   88–112  糖浆滑道：两块加速带，中间一段下沉的巷底
+   *   112–140 后段屋顶：更长的断口，落下就要从巷子重新追
+   *   140–160 最后直道：两道矮箱，街尾栅门的光柱已经看得见
+   */
+  buildTrickRace() {
+    const width = TRICK_RACE.lengthTiles;
+    const rows = makeGrid(width, HEIGHT);
+    paint(rows, 0, GROUND_ROW, width, 2, '#');
+    // 糖浆滑道中段的下沉巷底：地面低一格，跳进去再跳出来。
+    // 只让节奏顿一下，不掉命，也不会把南瓜或追兵卡住。
+    for (let x = 104; x <= 108; x += 1) rows[GROUND_ROW][x] = '.';
+
+    // 巷子里的木箱、矮箱和上屋顶的台阶。最高的只有两格，
+    // 普通跳都能过去；它们只负责打断节奏，不负责拦住人。
+    const crates = [
+      [8, GROUND_ROW - 1, 1],
+      [14, GROUND_ROW - 1, 2],
+      [16, GROUND_ROW - 2, 1],
+      [21, GROUND_ROW - 1, 1],
+      [28, GROUND_ROW - 1, 1],
+      [37, GROUND_ROW - 1, 1],
+      [46, GROUND_ROW - 1, 2],
+      [48, GROUND_ROW - 2, 2],
+      [52, GROUND_ROW - 1, 1],
+      [53, GROUND_ROW - 2, 1],
+      [60, GROUND_ROW - 1, 1],
+      [68, GROUND_ROW - 1, 1],
+      [76, GROUND_ROW - 2, 2],
+      [89, GROUND_ROW - 1, 1],
+      [94, GROUND_ROW - 2, 2],
+      [99, GROUND_ROW - 1, 1],
+      [106, GROUND_ROW - 1, 1],
+      [110, GROUND_ROW - 1, 2],
+      [116, GROUND_ROW - 1, 1],
+      [117, GROUND_ROW - 2, 1],
+      [124, GROUND_ROW - 1, 2],
+      [132, GROUND_ROW - 2, 2],
+      [144, GROUND_ROW - 1, 1],
+      [150, GROUND_ROW - 1, 2],
+    ];
+    for (const [x, y, w] of crates) {
+      // 贴着地面的木箱可以是一格或两格高；两格的顶在 row14，
+      // 普通跳刚好够到，不会变成翻不过去的墙。
+      paint(rows, x, y, w, GROUND_ROW - y, 'B');
+    }
+
+    // 屋顶快线：单向木板，从下面能跳上去，按 ↓ 可以落回巷子。
+    // 断口 2–3 格；落回地面不死，只是丢掉的高度要重新跑回来。
+    const roofs = [
+      [18, 12, 6],
+      [26, 12, 6],
+      [54, 12, 7],
+      [63, 12, 8],
+      [73, 12, 8],
+      [81, 13, 4],
+      [85, 14, 4],
+      [118, 12, 7],
+      [128, 12, 7],
+      [138, 12, 3],
+    ];
+    for (const [x, y, w] of roofs) paint(rows, x, y, w, 1, 'P');
+    // 屋顶上的烟囱：跳一下，不跳就会被撞停。
+    paint(rows, 66, 11, 1, 1, 'B');
+    paint(rows, 121, 11, 1, 1, 'B');
+
+    const groundAt = (tileX) => surfaceAt(rows, width, HEIGHT, tileX);
+    const groundYAt = (tileX) => groundAt(tileX);
+
+    // 巷子里的南瓜是活的：可以推开、抱走，也可以直接跳过去。
+    // 它们放在屋顶快线的正下方，逼玩家在「快但险」和「稳但挤」之间选一条。
+    const pumpkins = [
+      [21, 25, 29],
+      [58, 64, 70, 78],
+      [90, 91, 102, 111],
+      [120, 126, 134, 139],
+      [145, 148],
+    ].flat();
+
+    const decorations = [
+      { type: 'sign', x: 5 * T, y: groundYAt(5), variant: 1, layer: 'front' },
+      { type: 'sign', x: 36 * T, y: groundYAt(36), variant: 0, layer: 'front' },
+      { type: 'sign', x: 88 * T, y: groundYAt(88), variant: 1, layer: 'front' },
+      { type: 'sign', x: 142 * T, y: groundYAt(142), variant: 0, layer: 'front' },
+      ...[12, 33, 50, 71, 90, 112, 136, 154].map((tileX) => ({
+        type: 'tree',
+        x: tileX * T,
+        y: groundYAt(tileX),
+        scale: 0.74 + (tileX % 3) * 0.1,
+        layer: 'back',
+      })),
+      { type: 'fence', x: 10 * T, y: groundYAt(10), length: 2, layer: 'front' },
+      { type: 'fence', x: 34 * T, y: groundYAt(34), length: 2, layer: 'front' },
+      { type: 'fence', x: 82 * T, y: groundYAt(82), length: 3, layer: 'front' },
+      { type: 'fence', x: 140 * T, y: groundYAt(140), length: 2, layer: 'front' },
+      ...[6, 24, 42, 58, 74, 92, 108, 126, 142, 156].map((tileX) => ({
+        type: 'lamp',
+        x: tileX * T,
+        y: groundYAt(tileX),
+        layer: 'front',
+      })),
+      ...[15, 39, 69, 95, 133, 155].map((tileX) => ({
+        type: 'candyBucket',
+        x: tileX * T,
+        y: groundYAt(tileX),
+        layer: 'front',
+      })),
+      ...[27, 61, 93, 129].map((tileX) => ({
+        type: 'mushroom',
+        x: tileX * T,
+        y: groundYAt(tileX),
+        layer: 'front',
+      })),
+      ...pumpkins.map((tileX, index) => ({
+        type: 'pumpkin',
+        x: tileX * T,
+        y: groundYAt(tileX),
+        variant: (tileX + index) % 3,
+        layer: 'front',
+      })),
+    ];
+
+    const spawn = {
+      x: TRICK_RACE.spawnTile * T + 3,
+      y: GROUND_Y - PLAYER.HEIGHT,
+    };
+    const goalX = TRICK_RACE.goalTile * T;
+
+    // 糖浆加速带：踩上去会往前冲一小段。三段分别放在长直道、
+    // 下沉巷底和最后冲刺前，让竞速有三次「拉开距离」的机会。
+    const speedZones = [
+      { x: 40 * T, y: GROUND_Y - 10, w: 5 * T, h: 12, boost: 1.15, label: '糖浆' },
+      { x: 96 * T, y: GROUND_Y - 10, w: 6 * T, h: 12, boost: 1.25, label: '糖浆' },
+      { x: 152 * T, y: GROUND_Y - 10, w: 4 * T, h: 12, boost: 1.1, label: '糖浆' },
+    ];
+
+    // 晾衣绳：纯装饰，给后巷一点纵深。线从这头拉到那头。
+    const laundry = [
+      { x: 12 * T, y: 9.5 * T, w: 15 * T },
+      { x: 30 * T, y: 10 * T, w: 12 * T },
+      { x: 55 * T, y: 8.5 * T, w: 18 * T },
+      { x: 118 * T, y: 8.5 * T, w: 16 * T },
+    ];
+
+    // 三次简短的路况提示：分岔、糖浆、最后直道。每趟只提示一次。
+    const hints = [
+      { at: 12 * T, text: '屋顶是快线：没有木箱，但断口要跳准。', shown: false },
+      { at: 36 * T, text: '前面有糖浆。踩上去会冲一段。', shown: false },
+      { at: 138 * T, text: '最后一段。栅门就在前面。', shown: false },
+    ];
+
+    return {
+      width,
+      height: HEIGHT,
+      rows,
+      spawn,
+      goalX,
+      decorations,
+      pickups: [],
+      devices: [
+        {
+          id: 'trick-race-backdoor',
+          type: 'trickRaceExit',
+          x: 2 * T,
+          y: GROUND_Y,
+          radius: 44,
+        },
+      ],
+      trickTasks: [],
+      fieldZones: [],
+      electrons: [],
+      hazards: [],
+      checkpoints: [],
+      waterZones: [],
+      tutorialSteps: [],
+      race: {
+        id: TRICK_RACE.id,
+        spawn,
+        goalX,
+        chaserStartX: spawn.x - TRICK_RACE.startGap,
+        grace: TRICK_RACE.grace,
+        speedZones,
+        laundry,
+        hints,
+        accent: '#ffcf72',
+      },
     };
   }
 
@@ -802,86 +1570,10 @@ export class Level {
     ];
 
     const pickups = [
-      // 起始厅：只有旧床单是直接放在地上的时装零件，给玩家一个入门样本。
-      // 糖果变得稀少：起始厅只留一颗，其余沿旅程稀疏分布。
-      makePickup('merged-rib-01', 'rib', 5 * T, floorY - 11),
-      makePickup('merged-candy-01', 'candyCorn', 40, floorY - 11),
-      makePickup('merged-rib-04', 'rib', 56, floorY - 11),
-      makePickup('merged-femur-01', 'femur', 10 * T, floorY - 11),
-      makePickup('merged-sheet-01', 'sheet', 104, floorY - 11),
-      makePickup('merged-skull-01', 'skull', 13 * T, floorY - 11),
-      makePickup('merged-beard-01', 'beard', 184, 620),
-      makePickup('merged-hand-06', 'rightHand', 256, floorY - 11),
-      makePickup('merged-hand-01', 'rightHand', 17 * T, floorY - 11),
-      makePickup('merged-rib-02', 'rib', 18 * T, floorY - 11),
-
-      // 下层路线：骨头仍是地面参照物，稀有零件浮在窄平台之间的裂隙上方。
-      makePickup('merged-rib-low', 'rib', 352, 39 * T - 11),
-      makePickup('merged-skull-low', 'skull', 464, 39 * T - 11),
-      makePickup('merged-candy-low-01', 'sourGummy', 560, 39 * T - 11),
-      makePickup('merged-hand-low-01', 'rightHand', 576, 39 * T - 11),
-      // 跳跳糖浮在窄平台之间的裂隙上方：要靠电子的推力才够得到。
-      makePickup('merged-candy-low-02', 'poppingCandy', 616, 590),
-      makePickup('merged-rib-low-02', 'rib', 688, 39 * T - 11),
-      // 右侧骨槽台留给第二对铜球，这颗右手骨挪到下层最后一块窄平台上。
-      makePickup('merged-hand-low-02', 'rightHand', 700, 39 * T - 11),
-      // 稀有：跳过低层平台间隙时才会碰到，失手会掉进裂隙。
-      makePickup('merged-cloak-low', 'starCloak', 440, 580),
-      makePickup('merged-eyes-low', 'eyeHoles', 520, 590),
-      // 旧床单的第二份：比地面高 35px，需要一次完整的跳跃。
-      makePickup('merged-sheet-02', 'sheet', 680, 580),
-
-      // 上层路线：稀有零件都浮在高台与高台之间的空档里。糖果不再铺在这条线上。
-      makePickup('merged-rib-high', 'rib', 392, 37 * T - 11),
-      makePickup('merged-hand-high-01', 'rightHand', 424, 37 * T - 11),
-      makePickup('merged-beard-high', 'beard', 408, 550),
-      makePickup('merged-skull-high', 'skull', 480, 34 * T - 11),
-      makePickup('merged-book-high', 'spellbook', 456, 510),
-      makePickup('merged-rib-high-02', 'rib', 536, 32 * T - 11),
-      makePickup('merged-left-high', 'leftHand', 512, 470),
-      makePickup('merged-wand-high', 'wand', 552, 470),
-      makePickup('merged-hand-high-02', 'rightHand', 600, 30 * T - 11),
-      makePickup('merged-cloak-high', 'starCloak', 632, 432),
-      makePickup('merged-rib-high-03', 'rib', 664, 28 * T - 11),
-      makePickup('merged-hand-high-03', 'rightHand', 728, 26 * T - 11),
-      // 最高处的破尖帽：要在最高一块平台上起跳才够得着。
-      makePickup('merged-hat-high', 'wizardHat', 744, 370),
-
-      // 右侧落脚点：骨头在地面，零件浮在需要起跳的高度。
-      makePickup('merged-rib-03', 'rib', 52 * T, floorY - 11),
-      makePickup('merged-candy-02', 'lollipop', 816, floorY - 11),
-      // 太妃糖要跳一下才够得到，和书页的高度差不多。
-      makePickup('merged-candy-03', 'toffee', 860, 600),
-      makePickup('merged-book-01', 'spellbook', 816, 600),
-      makePickup('merged-skull-02', 'skull', 896, floorY - 11),
-
-      // 岛 B 新增了第三对铜球，地面只留一块右手骨，避免和铜球叠在一起。
-      makePickup('merged-hand-03', 'rightHand', 1236, floorY - 11),
-      makePickup('merged-left-01', 'leftHand', 1220, 620),
-      // 棉花糖放在第三对铜球之后：吃下就能试着飞过下一口井。
-      makePickup('merged-candy-06', 'marshmallow', 1345, floorY - 11),
-
-      // 终点岛上的右手骨：消耗品要保证够用，沿岛面铺开。
-      makePickup('merged-hand-05', 'rightHand', 1688, floorY - 11),
-      makePickup('merged-rib-05', 'rib', 1708, floorY - 11),
-      makePickup('merged-eyes-02', 'eyeHoles', 1724, 620),
-      makePickup('merged-candy-04', 'chocolate', 1738, floorY - 11),
-      makePickup('merged-hand-04', 'rightHand', 1760, floorY - 11),
-      makePickup('merged-femur-02', 'femur', 1782, floorY - 11),
-      // 终点岛的两颗糖离得很近：连着吃下，两种状态会短暂叠在一起。
-      makePickup('merged-candy-05', 'licorice', 1806, floorY - 11),
-
-      // 两口井里的悬浮零件：平衡速度维持得住，才够得到。
-      makePickup('merged-left-field-a', 'leftHand', 1048, 610),
-      // 井里也各藏一颗糖：牛轧糖在第一口井，薄荷糖在第二口井。
-      makePickup('merged-candy-field-01', 'nougat', 1100, 620),
-      makePickup('merged-candy-field-02', 'mint', 1520, 620),
-      makePickup('merged-left-field-b', 'leftHand', 1592, 620),
-      makePickup('merged-wand-field', 'wand', 1632, 615),
-      // 骨火井移除后，破尖帽挪进逆流井，保证每种零件仍有两处可捡。
-      makePickup('merged-hat-field', 'wizardHat', 1450, 615),
-
-      makePickup('merged-skull-03', 'skull', 1800, 620),
+      // 男巫地窖只留两口骨槽必需的右手骨；时装零件已经回到追思小径，
+      // 心理疾病糖不作为路上的拾取物出现。
+      makePickup('warlock-hand-a', 'rightHand', 256, floorY - 11),
+      makePickup('warlock-hand-b', 'rightHand', 1236, floorY - 11),
     ];
 
     const devices = [
@@ -996,13 +1688,14 @@ export class Level {
     ];
 
     const memorials = [];
+    const solaces = [];
     if (memorialStage) {
       const chapter = MEMORIAL_CHAPTERS[memorialStage - 1];
       if (chapter) {
-        // 第五段的两盏灯：入口处想起周叔，终点岛上是家里人的墓。
+        // 第四段的两盏灯：入口处想起周叔，终点岛上是老师的墓。
         const entries = [
           { x: 7.5 * T, patient: chapter.patient, line: chapter.memory },
-          { x: (islandEnd.x + 4) * T, patient: '家里人', line: MEMORIAL_ROUTE.finale },
+          { x: (islandEnd.x + 4) * T, patient: '老师', line: MEMORIAL_ROUTE.finale },
         ];
         entries.forEach((entry, index) => {
           const id = `memorial-${memorialStage}-memory-${index + 1}`;
@@ -1029,6 +1722,28 @@ export class Level {
             layer: 'front',
           });
         });
+
+        // 第四段的四盏旧灯：都摆在结实的落脚点上。走到跟前会自动点起，
+        // 给一段「透亮」——颜色回来、脚步变轻，灯灭之后重量还回来。
+        if (chapter.kind === 'dysthymia') {
+          const solaceSpecs = [
+            { x: 17.5 * T, line: '旧灯还亮着。这一步轻了一点。' },
+            { x: 49 * T, line: '灯芯还有温度。颜色回来了一会儿。' },
+            { x: 80.5 * T, line: '有人在这里等过。脚下没那么沉了。' },
+            { x: 111 * T, line: '最后一段了。灯照着，慢慢走。' },
+          ];
+          solaceSpecs.forEach((spec, index) => {
+            const id = `memorial-${memorialStage}-solace-${index + 1}`;
+            solaces.push({ id, x: spec.x, y: floorY, line: spec.line });
+            decorations.push({
+              type: 'solace',
+              solaceId: id,
+              x: spec.x,
+              y: floorY,
+              layer: 'front',
+            });
+          });
+        }
       }
     }
 
@@ -1044,6 +1759,7 @@ export class Level {
       fieldZones,
       electrons,
       memorials,
+      solaces,
       hazards: [
         { type: 'lava', x: wellA.x * T, y: 684, w: (islandEnd.x - wellA.x) * T, h: 84 },
         // 电子大厅中段是深裂隙，不能沿地面通过。
@@ -1069,18 +1785,21 @@ export class Level {
   }
 
   /**
-   * 「五盏灯」前四段的墓园夜路。
+   * 「四盏灯」第一、二段的墓园夜路。
    *
-   * 每段都是一张短而平缓的地图：地面连续，没有岩浆和深坑，
+   * 每段都是一张平缓的地图：地面连续，没有岩浆和深坑，
    * 只有几级矮石阶和可选的单向木板。真正的阻力来自这一段的记忆——
    * 玩家会短暂带上那位病人可被观察到的行为特点。
-   * 段与段之间用一扇墓园门连接，走到门边就进入下一段。
-   * 第五段不走这里，而是由 buildMerged(5) 接管整条电磁长夜赛道。
+   * 第二段有一座集合庭院；糖纸街的女巫房间复用同一套门，但只留一道。
+   * 第四段的下沉电磁赛道见 buildMemorialElectromagnetic()。
    */
-  buildMemorial(stage) {
+  buildMemorial(stage, options = {}) {
     const chapter = MEMORIAL_CHAPTERS[stage - 1];
-    const spec = MEMORIAL_STAGE_SPECS[stage - 1];
+    const spec = options.spec ?? MEMORIAL_STAGE_SPECS[stage - 1];
     if (!chapter || !spec) throw new Error(`No memorial stage ${stage}`);
+    const withSetGates = options.withSetGates ?? false;
+    const includeMemorials = options.memorials ?? true;
+    const includePickups = options.pickups ?? true;
 
     const width = spec.width;
     const rows = makeGrid(width, HEIGHT);
@@ -1163,35 +1882,97 @@ export class Level {
       });
     }
 
+    if (withSetGates) {
+      for (const ring of spec.setRings ?? []) {
+        decorations.push({
+          type: 'setRing',
+          x: ring.x,
+          y: ring.y,
+          r: ring.r,
+          gap: ring.gap,
+          layer: 'back',
+        });
+      }
+    }
+
+    // 追思小径第二段和糖纸街女巫房间的集合门。墙身是实体石头，
+    // 头顶再封一层看不见的符障，所以除了把每颗元素放进对应的格子，
+    // 没有别的路可以翻过去。
+    const setGates = [];
+    if (withSetGates) {
+      for (const gateSpec of spec.setGates ?? []) {
+        const { gate, elements } = makeSetGate(
+          rows,
+          stage,
+          setGates.length + 1,
+          gateSpec,
+        );
+        setGates.push(gate);
+
+        // 这一段的元素都属于某一道门。tag 让门只认自己那一组，
+        // 玩家把别的元素搬来搬去不会误开门。
+        elements.forEach((element, elementIndex) => {
+          const tileX = element.tile;
+          decorations.push({
+            type: 'pumpkin',
+            x: tileX * T + T / 2,
+            y: groundAt(tileX) - (element.lift ?? 0) * T,
+            variant: (elementIndex + tileX) % 3,
+            look: element.look ?? 'skull',
+            membership: element.membership ?? 'none',
+            layer: 'front',
+            tag: gateSpec.tag,
+          });
+        });
+      }
+    }
+
     const memorials = [];
-    const memorySpecs = spec.memories ?? [];
-    memorySpecs.forEach((memory, index) => {
-      const id = `memorial-${stage}-memory-${index + 1}`;
-      const x = memory.tile * T;
-      const surface = groundAt(memory.tile);
-      memorials.push({
-        id,
-        x,
-        y: surface,
-        patient: memory.family ? '家里人' : chapter.patient,
-        line: memory.family ? MEMORIAL_ROUTE.finale : chapter.memory,
+    if (includeMemorials) {
+      const memorySpecs = spec.memories ?? [];
+      memorySpecs.forEach((memory, index) => {
+        const id = `memorial-${stage}-memory-${index + 1}`;
+        const x = memory.tile * T;
+        const surface = groundAt(memory.tile);
+        memorials.push({
+          id,
+          x,
+          y: surface,
+          patient: memory.family ? '老师' : chapter.patient,
+          line: memory.family ? MEMORIAL_ROUTE.finale : chapter.memory,
+        });
+        decorations.push({
+          type: 'memory',
+          id,
+          lightId: id,
+          x,
+          y: surface,
+          layer: 'front',
+        });
+        decorations.push({
+          type: 'candle',
+          lightId: id,
+          x: x + T,
+          y: surface,
+          layer: 'front',
+        });
       });
+    }
+
+    const solaces = [];
+    for (const [index, solaceSpec] of (spec.solaces ?? []).entries()) {
+      const id = `memorial-${stage}-solace-${index + 1}`;
+      const x = solaceSpec.tile * T;
+      const y = groundAt(solaceSpec.tile);
+      solaces.push({ id, x, y, line: solaceSpec.line ?? '旧灯还亮着。' });
       decorations.push({
-        type: 'memory',
-        id,
-        lightId: id,
+        type: 'solace',
+        solaceId: id,
         x,
-        y: surface,
+        y,
         layer: 'front',
       });
-      decorations.push({
-        type: 'candle',
-        lightId: id,
-        x: x + T,
-        y: surface,
-        layer: 'front',
-      });
-    });
+    }
 
     const devices = [];
     if (spec.carriage) {
@@ -1212,7 +1993,16 @@ export class Level {
       spawn: { x: 2 * T + 3, y: groundAt(2) - PLAYER.HEIGHT },
       goalX: spec.goal * T,
       decorations,
-      pickups: [],
+      // 时装零件按「格 + 离地高度」摆放：前两段没有背包，捡到就直接进收藏。
+      pickups: (includePickups ? spec.pickups ?? [] : []).map((pickup) =>
+        makePickup(
+          `memorial-${stage}-${pickup.id}`,
+          pickup.type,
+          pickup.tile * T + T / 2,
+          groundAt(pickup.tile) - (pickup.height ?? 1) * T,
+          { requiresBuff: pickup.requiresBuff },
+        ),
+      ),
       devices,
       fieldZones: [],
       electrons: [],
@@ -1221,16 +2011,354 @@ export class Level {
         makeCheckpoint(
           spec.checkpoint * T,
           groundAt(spec.checkpoint) - PLAYER.HEIGHT,
-          `第 ${stage} 段 · 半途的灯`,
+          spec.checkpointLabel ?? `第 ${stage} 段 · 半途的灯`,
         ),
       ],
       memorials,
+      solaces,
+      setGates,
       tutorialSteps: [],
     };
   }
 
   /**
-   * 「百鬼夜行」的六段夜路。
+   * 追思小径第三段 · 另一双脚步。
+   *
+   * 原来的「鬼鬼祟祟」缩成这一段：两名玩家分别控制「你」和「回音」，
+   * 走在万圣夜的墓园外墙。提灯人提着灯来回走，影子区可以藏身；
+   * 两块石板同时压住才开门，影子桥认石板，两个人都到门口才算过。
+   *
+   * 地图数据仍在 sneak.js / sneakLevel.js，这里只把它接进追思路线：
+   * 加上阿遥的记忆、蜡烛，并且把这一段标成 sneak，交给 sneakMode 更新。
+   */
+  buildMemorialSneak() {
+    const chapter = MEMORIAL_CHAPTERS[2];
+    const data = buildSneakData(1);
+
+    // 记忆和蜡烛要贴着地面放。sneakLevel 已经按同一套地面规则建过图，
+    // 这里从 rows 里找一次支撑面，免得把记忆悬在半空。
+    const surfaceAt = (tileX) => {
+      const col = Math.max(0, Math.min(data.width - 1, tileX));
+      for (let row = 0; row < data.height; row += 1) {
+        const tile = data.rows[row][col];
+        if (tile === '#' || tile === 'B' || tile === 'G' || tile === 'S') return row * T;
+      }
+      return data.height * T;
+    };
+
+    const memoryTile = 8;
+    const memoryId = 'memorial-3-memory-1';
+    const memoryX = memoryTile * T;
+    const memoryY = surfaceAt(memoryTile);
+    data.memorials = [
+      {
+        id: memoryId,
+        x: memoryX,
+        y: memoryY,
+        patient: chapter?.patient ?? '阿遥',
+        line: chapter?.memory ?? '',
+      },
+    ];
+    data.decorations.push({
+      type: 'memory',
+      id: memoryId,
+      lightId: memoryId,
+      x: memoryX,
+      y: memoryY,
+      layer: 'front',
+    });
+    data.decorations.push({
+      type: 'candle',
+      lightId: memoryId,
+      x: memoryX + T,
+      y: memoryY,
+      layer: 'front',
+    });
+
+    // 这一段没有旧灯、集合门和拾取物；它的阻力全在提灯人和石板上。
+    data.solaces = [];
+    data.setGates = [];
+    data.pickups = [];
+    data.sneak = true;
+    return data;
+  }
+
+  /**
+   * 追思小径第四段 · 简易电磁赛道。
+   *
+   * 周叔的档案室在地下。这一段只留下电磁长夜最核心的一件东西：
+   * 铜球给的电荷，和悬在裂隙里的电子。没有熔岩井、骨槽、速度选择器，
+   * 也不需要右手骨——那些都留在糖纸街男巫奥兹的地窖。
+   *
+   * 两道裂隙各认一种电荷：
+   *   - 第一道：电子悬在裂隙下方，负电荷被推上去，借力越过；
+   *   - 第二道：电子悬在裂隙上方，正电荷被拉过去，借力越过。
+   * 再往后是一条被小岛分成两跳的宽裂隙：第一跳仍是负电，跳上岛以后
+   * 用岛上的铜球换成正电，再借对岸上方的电子跳过第二跳。
+   * 三道之间都有铜球，可以随时换电荷。走错电荷不会死，
+   * 只会掉回上一个落脚点，电荷还留着。
+   *
+   * 周叔的负重、四盏旧灯和两处记忆照旧。走完就是老师的墓。
+   */
+  buildMemorialElectromagnetic() {
+    const chapter = MEMORIAL_CHAPTERS[3];
+    const width = 116;
+    const height = 30;
+    const floorRow = 20;
+    const floorY = floorRow * T;
+    const rows = makeGrid(width, height);
+
+    // 前两道裂隙各是一跳；后面再添一段更长的电：一条宽裂隙被中间的小岛
+    // 分成两跳，玩家要先跳上小岛、换一次电荷，再跳过去。
+    const gapA = { x: 30, w: 5 };
+    const gapB = { x: 66, w: 5 };
+    const gapC1 = { x: 76, w: 5 };
+    const gapC2 = { x: 87, w: 5 };
+    for (const [start, end] of [
+      [0, gapA.x],
+      [gapA.x + gapA.w, gapB.x],
+      [gapB.x + gapB.w, gapC1.x],
+      [gapC1.x + gapC1.w, gapC2.x],
+      [gapC2.x + gapC2.w, width],
+    ]) {
+      paint(rows, start, floorRow, end - start, 10, '#');
+    }
+
+    // 几块一脚就能跳上去的矮石台，让负重下的路有一点起伏。
+    for (const [x, y, w, h] of [
+      [12, floorRow - 2, 3, 2],
+      [44, floorRow - 1, 3, 1],
+      [101, floorRow - 1, 3, 1],
+    ]) {
+      paint(rows, x, y, w, h, 'B');
+    }
+
+    const groundAt = (tileX) => surfaceAt(rows, width, height, tileX);
+
+    const decorations = [
+      { type: 'rune', x: 4 * T, y: groundAt(4), layer: 'front' },
+      { type: 'sign', x: 27 * T, y: groundAt(27), layer: 'front' },
+      { type: 'sign', x: 63 * T, y: groundAt(63), layer: 'front' },
+      { type: 'sign', x: 73 * T, y: groundAt(73), layer: 'front' },
+      { type: 'sign', x: 86 * T, y: groundAt(86), layer: 'front' },
+      { type: 'crystal', x: 6 * T, y: groundAt(6), scale: 0.9, layer: 'front' },
+      { type: 'crystal', x: 21 * T, y: groundAt(21), scale: 0.75, layer: 'front' },
+      { type: 'crystal', x: 42 * T, y: groundAt(42), scale: 0.9, layer: 'front' },
+      { type: 'crystal', x: 57 * T, y: groundAt(57), scale: 0.8, layer: 'front' },
+      { type: 'crystal', x: 93 * T, y: groundAt(93), scale: 1.0, layer: 'front' },
+      { type: 'crystal', x: 96 * T, y: groundAt(96), scale: 0.85, layer: 'front' },
+      { type: 'crystal', x: 104 * T, y: groundAt(104), scale: 1.05, layer: 'front' },
+      { type: 'stalagmite', x: 15 * T, y: groundAt(15), scale: 0.8, layer: 'back' },
+      { type: 'stalagmite', x: 47 * T, y: groundAt(47), scale: 0.9, layer: 'back' },
+      { type: 'stalagmite', x: 95 * T, y: groundAt(95), scale: 0.8, layer: 'back' },
+      { type: 'stalactite', x: 12 * T, y: 104, scale: 0.9, layer: 'back' },
+      { type: 'stalactite', x: 33 * T, y: 104, scale: 1.2, layer: 'back' },
+      { type: 'stalactite', x: 52 * T, y: 104, scale: 0.9, layer: 'back' },
+      { type: 'stalactite', x: 69 * T, y: 104, scale: 1.2, layer: 'back' },
+      { type: 'stalactite', x: 84 * T, y: 104, scale: 0.8, layer: 'back' },
+      { type: 'stalactite', x: 106 * T, y: 104, scale: 1.0, layer: 'back' },
+      { type: 'chain', x: 22 * T, y: 104, length: 6, layer: 'back' },
+      { type: 'chain', x: 50 * T, y: 104, length: 5, layer: 'back' },
+      { type: 'chain', x: 76 * T, y: 104, length: 6, layer: 'back' },
+      { type: 'chain', x: 100 * T, y: 104, length: 4, layer: 'back' },
+      { type: 'skullPile', x: 18 * T, y: groundAt(18), layer: 'front' },
+      { type: 'skullPile', x: 38 * T, y: groundAt(38), layer: 'front' },
+      { type: 'skullPile', x: 55 * T, y: groundAt(55), layer: 'front' },
+      { type: 'skullPile', x: 74 * T, y: groundAt(74), layer: 'front' },
+      { type: 'skullPile', x: 94 * T, y: groundAt(94), layer: 'front' },
+      { type: 'pumpkin', x: 9 * T, y: groundAt(9), variant: 0, layer: 'front' },
+      { type: 'pumpkin', x: 25 * T, y: groundAt(25), variant: 1, layer: 'front' },
+      { type: 'pumpkin', x: 58 * T, y: groundAt(58), variant: 2, layer: 'front' },
+      { type: 'pumpkin', x: 73 * T, y: groundAt(73), variant: 1, layer: 'front' },
+      { type: 'pumpkin', x: 99 * T, y: groundAt(99), variant: 0, layer: 'front' },
+    ];
+
+    const memorials = [];
+    const memoryEntries = [
+      { tile: 8, patient: chapter?.patient ?? '周叔', line: chapter?.memory ?? '' },
+      { tile: 108, patient: '老师', line: MEMORIAL_ROUTE.finale },
+    ];
+    for (const [index, entry] of memoryEntries.entries()) {
+      const id = `memorial-4-memory-${index + 1}`;
+      const x = entry.tile * T;
+      const y = groundAt(entry.tile);
+      memorials.push({ id, x, y, patient: entry.patient, line: entry.line });
+      decorations.push({ type: 'memory', id, lightId: id, x, y, layer: 'front' });
+      decorations.push({ type: 'candle', lightId: id, x: x + T, y, layer: 'front' });
+    }
+
+    const solaces = [];
+    const solaceSpecs = [
+      { tile: 5, line: '旧灯还亮着。这一步轻了一点。' },
+      { tile: 24, line: '灯芯还有温度。下面的电子会把负电托起来。' },
+      { tile: 60, line: '有人在这里等过。上面的电子会把正电拉过去；过了它，记得换回负电。' },
+      { tile: 96, line: '最后一段了。灯照着，慢慢走。' },
+    ];
+    for (const [index, spec] of solaceSpecs.entries()) {
+      const id = `memorial-4-solace-${index + 1}`;
+      const x = spec.tile * T;
+      const y = groundAt(spec.tile);
+      solaces.push({ id, x, y, line: spec.line });
+      decorations.push({ type: 'solace', solaceId: id, x, y, layer: 'front' });
+    }
+
+    return {
+      width,
+      height,
+      rows,
+      spawn: { x: 2 * T + 3, y: groundAt(2) - PLAYER.HEIGHT },
+      goalX: 112 * T,
+      decorations,
+      pickups: [
+        makePickup('memorial-4-rib', 'rib', 8 * T, groundAt(8) - 3 * T),
+        makePickup('memorial-4-starCloak', 'starCloak', 40 * T, groundAt(40) - 6 * T, {
+          requiresBuff: 'spring',
+        }),
+        makePickup('memorial-4-wand', 'wand', 94 * T, groundAt(94) - 9 * T, {
+          requiresBuff: 'flight',
+        }),
+        makePickup('memorial-4-wizardHat', 'wizardHat', 98 * T, groundAt(98) - 3 * T, {
+          requiresBuff: 'dash',
+        }),
+      ],
+      devices: [
+        // 第一对铜球：负电过第一道裂隙。
+        {
+          id: 'memorial-4-charger-positive-a',
+          type: 'charger',
+          charge: 1,
+          x: 20 * T,
+          y: floorY,
+          radius: 44,
+        },
+        {
+          id: 'memorial-4-charger-negative-a',
+          type: 'charger',
+          charge: -1,
+          x: 22 * T,
+          y: floorY,
+          radius: 44,
+        },
+        // 第二对铜球：过了第一道裂隙后换成正电，过第二道。
+        {
+          id: 'memorial-4-charger-positive-b',
+          type: 'charger',
+          charge: 1,
+          x: 50 * T,
+          y: floorY,
+          radius: 44,
+        },
+        {
+          id: 'memorial-4-charger-negative-b',
+          type: 'charger',
+          charge: -1,
+          x: 52 * T,
+          y: floorY,
+          radius: 44,
+        },
+        // 第三对铜球：过了第二道裂隙后，换回负电去跳宽裂隙的第一跳。
+        {
+          id: 'memorial-4-charger-positive-c',
+          type: 'charger',
+          charge: 1,
+          x: 72 * T,
+          y: floorY,
+          radius: 44,
+        },
+        {
+          id: 'memorial-4-charger-negative-c',
+          type: 'charger',
+          charge: -1,
+          x: 74 * T,
+          y: floorY,
+          radius: 44,
+        },
+        // 宽裂隙中间的小岛：跳上岛以后换成正电，再跳第二跳。
+        // 正电球放在靠第二跳的一侧，落地后不用走回头路。
+        {
+          id: 'memorial-4-charger-negative-d',
+          type: 'charger',
+          charge: -1,
+          x: 82 * T,
+          y: floorY,
+          radius: 44,
+        },
+        {
+          id: 'memorial-4-charger-positive-d',
+          type: 'charger',
+          charge: 1,
+          x: 85 * T,
+          y: floorY,
+          radius: 44,
+        },
+      ],
+      fieldZones: [],
+      electrons: [
+        // 第一道裂隙：电子悬在坑里，负电荷被它向上推开。
+        {
+          id: 'memorial-4-electron-low',
+          x: 31.5 * T,
+          y: 370,
+          radius: 200,
+          strength: 2600,
+          scale: 1.2,
+          phase: 0.9,
+        },
+        // 第二道裂隙：电子悬在对岸更高的地方。它的场只够到跳跃的最高处，
+        // 所以落地后不会再把人往回拽；正电荷会在最高点被它拉住、继续往前带。
+        {
+          id: 'memorial-4-electron-high',
+          x: 70 * T,
+          y: 170,
+          radius: 150,
+          strength: 13000,
+          scale: 1.2,
+          phase: 2.2,
+        },
+        // 宽裂隙的第一跳：电子在坑里托住负电。这一段负重更沉，
+        // 所以场比前面两道裂隙更强、更宽一点。
+        {
+          id: 'memorial-4-electron-c1',
+          x: 77.5 * T,
+          y: 370,
+          radius: 210,
+          strength: 3000,
+          scale: 1.2,
+          phase: 1.4,
+        },
+        // 宽裂隙的第二跳：小岛上换成正电以后，对岸上方的电子把人拉过去。
+        {
+          id: 'memorial-4-electron-c2',
+          x: 91 * T,
+          y: 170,
+          radius: 150,
+          strength: 13000,
+          scale: 1.2,
+          phase: 3.1,
+        },
+      ],
+      hazards: [
+        // 裂隙的判定在坑底：掉下去才回到上一个落脚点，被电子托住不算。
+        { type: 'void', x: gapA.x * T, y: 400, w: gapA.w * T, h: 80, killY: 436 },
+        { type: 'void', x: gapB.x * T, y: 400, w: gapB.w * T, h: 80, killY: 436 },
+        { type: 'void', x: gapC1.x * T, y: 400, w: gapC1.w * T, h: 80, killY: 436 },
+        { type: 'void', x: gapC2.x * T, y: 400, w: gapC2.w * T, h: 80, killY: 436 },
+      ],
+      checkpoints: [
+        makeCheckpoint(38 * T, groundAt(38) - PLAYER.HEIGHT, '第 4 段 · 第一道裂隙后'),
+        makeCheckpoint(58 * T, groundAt(58) - PLAYER.HEIGHT, '第 4 段 · 第二道裂隙前'),
+        makeCheckpoint(73.5 * T, groundAt(74) - PLAYER.HEIGHT, '第 4 段 · 宽裂隙前'),
+        makeCheckpoint(84 * T, groundAt(84) - PLAYER.HEIGHT, '第 4 段 · 宽裂隙的小岛'),
+        makeCheckpoint(93 * T, groundAt(93) - PLAYER.HEIGHT, '第 4 段 · 宽裂隙后'),
+      ],
+      memorials,
+      solaces,
+      tutorialSteps: [],
+    };
+  }
+
+  /**
+   * 「魑魅魍魉」的六段夜路。
    *
    * 每一段的地图都为「最慢的那双脚」留了路：科学怪人最多只能跨过两格宽的缺口、
    * 登上一格高的台阶；床单幽灵和蝙蝠可以走屋顶上的高空路，但门永远在地面上，
@@ -1456,7 +2584,9 @@ export class Level {
 
     // 第一条雨川：四格深的雨潭。出口是一列沉在水下的石阶，
     // 不会游水的脚要顺着石阶一级级往上爬。
-    paint(rows, 18, 16, 17, 4, '.');
+    // 潭面只挖到 31 格，32–34 三格留着，再被下面的三笔削成台阶；
+    // 若把 32–34 也一起挖空，台阶就没了，掉进潭里的人会卡在岸边。
+    paint(rows, 18, 16, 14, 4, '.');
     paint(rows, 18, 20, 14, 1, 'B'); // 河床铺石，不在水下长草
     paint(rows, 32, 16, 1, 3, '.'); // 台阶顶在 row19
     paint(rows, 33, 16, 1, 2, '.'); // 台阶顶在 row18
@@ -2045,7 +3175,7 @@ export class Level {
       tile === 'B' ||
       tile === 'C' ||
       tile === 'G' ||
-      // 鬼鬼祟祟的铁门上方那层看不见的符障：挡跳跃，不挡视线以外的路。
+      // 第三段的铁门上方那层看不见的符障：挡跳跃，不挡视线以外的路。
       tile === 'g' ||
       tile === 'S'
     );
@@ -2235,7 +3365,7 @@ export class Level {
     return null;
   }
 
-  /** 改动一格地形。科学怪人撞墙和鬼鬼祟祟的门都用它。 */
+  /** 改动一格地形。科学怪人撞墙和第三段的门都用它。 */
   setTile(col, row, tile) {
     if (col < 0 || col >= this.width || row < 0 || row >= this.height) return;
     this.tiles[row][col] = tile;
@@ -2258,6 +3388,29 @@ export class Level {
     }
   }
 
+  /**
+   * 集合门开始下沉：格子先不再按地形画（否则原地会留一堵墙），
+   * 碰撞保留到 endGateSink 再撤。
+   */
+  beginGateSink(gate) {
+    gate.sinking = true;
+    gate.sinkT = 0;
+    for (const cell of gate.tiles ?? []) {
+      this.sinkingCells.add(`${cell.col},${cell.row}`);
+    }
+  }
+
+  endGateSink(gate) {
+    gate.sinking = false;
+    for (const cell of gate.tiles ?? []) {
+      this.sinkingCells.delete(`${cell.col},${cell.row}`);
+    }
+  }
+
+  isSinkingCell(col, row) {
+    return this.sinkingCells.has(`${col},${row}`);
+  }
+
   /** 从地图顶部往下找第一块可站立面的上沿像素 y。 */
   surfaceYAt(x) {
     const col = Math.max(0, Math.min(this.width - 1, Math.floor(x / T)));
@@ -2277,7 +3430,7 @@ export class Level {
     );
   }
 
-  /** 守夜人的灯会被墙和关着的门挡住。 */
+  /** 提灯人的灯会被墙和关着的门挡住。 */
   hasLineOfSight(x1, y1, x2, y2) {
     const dx = x2 - x1;
     const dy = y2 - y1;

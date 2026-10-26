@@ -1,21 +1,23 @@
 /**
- * 「鬼鬼祟祟」的运行逻辑。
+ * 「第三段 · 另一双脚步」的运行逻辑。
  *
- * 这些函数都直接操作 Game 实例，但不改 Game 的其它模式：
- * 只有 mode === 'sneak' 时才会被调用。把逻辑单独放在这里，
- * 是为了不把原有的单人 / 追思 / 百鬼夜行流程搅在一起。
+ * 原来「鬼鬼祟祟」的整套双人潜行循环都搬到这里，挂在追思路线的第三段上：
+ * 只有 level.sneak 为真时才会被调用，mode 仍然是 memorial。
+ * 这样追思路线的记忆、皮鞋、存档与段落门都还按原来的方式工作。
  */
 import { PLAYER, VIEW } from './config.js';
-import { SNEAK_ROUTE, SNEAK_STAGES } from './sneak.js';
+import { MEMORIAL_ROUTE } from './memorial.js';
+import { SNEAK_CAST, SNEAK_STAGE, SNEAK_STAGES } from './sneak.js';
 
-const LABELS = ['鬼鬼', '祟祟'];
+const LABELS = SNEAK_CAST;
 
 /**
  * 叠罗汉：上面那个人站在下面那个人的「头顶」上。
- * 小鬼的画高约 27px，所以脚的落点比下面那个人的碰撞盒顶部再高 9px。
+ * 提灯人算上尖帽约 28px 高，所以脚的落点比下面那个人的碰撞盒顶部再高 10px；
+ * 蹲下时整个上半身往下挪 3px，头顶也跟着矮一截。
  */
-const STACK_FEET = 27;
-const STACK_CROUCH_FEET = 21;
+const STACK_FEET = 28;
+const STACK_CROUCH_FEET = 25;
 const STACK_BOOST = 1.34;
 
 /** 下面的人蹲下时身体变矮，头顶也跟着低下去。 */
@@ -46,11 +48,18 @@ export function createSneakState() {
     hints: new Set(),
     warned: [false, false],
     goalTimer: 0,
+    goalReady: [false, false],
     rope: {
       active: false,
       length: ROPE.maxLength,
       reeled: false,
       warned: false,
+      held: false,
+      inRange: false,
+      distance: ROPE.maxLength,
+      anchorIndex: -1,
+      otherIndex: -1,
+      gateBetween: false,
     },
     // 组合技第一次成功时各提示一次，跨段保留。
     combo: { stack: false, boost: false, rope: false, hoist: false, gate: false },
@@ -70,6 +79,7 @@ export function initSneakStage(game) {
   sneak.hints = new Set();
   sneak.warned = [false, false];
   sneak.goalTimer = 0;
+  sneak.goalReady = [false, false];
   sneak.stageStartSpotted = sneak.spotted;
   sneak.stageStartFalls = sneak.falls;
   sneak.rope = {
@@ -77,12 +87,19 @@ export function initSneakStage(game) {
     length: ROPE.maxLength,
     reeled: false,
     warned: false,
+    held: false,
+    inRange: false,
+    distance: ROPE.maxLength,
+    anchorIndex: -1,
+    otherIndex: -1,
+    gateBetween: false,
   };
 
   for (const player of sneakPlayers(game)) {
     player.exposure = 0;
     player.hidden = false;
     player.seen = false;
+    player.seenBy = null;
     player.standingOn = null;
     player.carrying = null;
   }
@@ -97,7 +114,7 @@ export function createSneakInput(input) {
 }
 
 export function sneakStageName(stage) {
-  return SNEAK_STAGES[stage - 1]?.name ?? '';
+  return SNEAK_STAGES[stage - 1]?.name ?? SNEAK_STAGE.name;
 }
 
 /** 整条赛道的主循环。 */
@@ -113,11 +130,22 @@ export function updateSneak(game, dt) {
     y: player.y,
     feetY: player.feetY,
   }));
-  game.player.update(dt, game.sneakInput, level);
-  game.partner.update(dt, game.input, level);
-  // 地上的南瓜和别的线路一样能推、抱、抛、叠高；两个小鬼都能碰它们。
+  // 糖袋里的增益糖对你和回音同时生效；计时必须在玩家物理之前结算。
+  game.updateCandyTimers(dt);
+  if (game.mobileAssist) {
+    // 手机上没有第二套方向键：回音拿一份和主角相同的输入，跟着一起走。
+    // 两块石板的门仍然可以靠南瓜压住一块，所以一个人也走得完。
+    game.player.update(dt, game.input.fork(), level);
+    game.partner.update(dt, game.input.fork(), level);
+  } else {
+    game.player.update(dt, game.sneakInput, level);
+    game.partner.update(dt, game.input, level);
+  }
+  game.input.clearPressed();
+  // 地上的南瓜和别的线路一样能推、抱、抛、叠高；两个人都能碰它们。
   // 放在叠罗汉 / 影子线之前，踩在南瓜上的脚这一帧就算落地。
   if (game.pumpkins) game.pumpkins.update(dt, sneakPlayers(game));
+  game.updateCandyActions(dt);
   // 两个人之间的两件默契：踩在对方头顶上，以及一根可以收紧的影子线。
   updateStack(game, before);
   updateRope(game, dt);
@@ -131,14 +159,26 @@ export function updateSneak(game, dt) {
   updateSneakCamera(game, dt);
   game.particles.update(dt);
 
+  // 这一段仍然是追思路线：经过阿遥的记忆时会点灯，皮鞋也照样磨。
+  if (game.mode === 'memorial') {
+    game.updateMemorialMemories();
+    const walked = game.player.onGround ? Math.abs(game.player.vx) * dt : 0;
+    game.session.distance += walked;
+    game.shoeDistance += walked;
+    game.player.shoeFit = game.getShoeFit();
+  }
+
   if (game.session.completed) return;
   const goalY = level.goalY;
-  const atGoal = sneakPlayers(game).every(
+  // 两个人各算各的：谁先到门口，门上的两个灯位就亮哪一个。
+  const goalReady = sneakPlayers(game).map(
     (player) =>
       player.centerX >= level.goalX - 6 &&
-      // 屋顶上的门有高度：从屋檐下面走过不算到。
+      // 门口有高度：从下面走过不算到。
       (goalY == null || Math.abs(player.feetY - goalY) < 28),
   );
+  sneak.goalReady = goalReady;
+  const atGoal = goalReady.every(Boolean);
   if (!atGoal) {
     sneak.goalTimer = 0;
     return;
@@ -146,16 +186,16 @@ export function updateSneak(game, dt) {
   if (sneak.goalTimer <= 0) {
     sneak.goalTimer = 0.55;
     game.audio.checkpoint();
-    game.notify('两个人都到门口了。', 1500);
+    game.notify('你和回音都到门口了。', 1500);
   }
   sneak.goalTimer -= dt;
-  if (sneak.goalTimer <= 0) game.advanceSneak();
+  if (sneak.goalTimer <= 0) game.advanceMemorial();
 }
 
 function updateWatchers(level, dt) {
   for (const device of level.devices) {
     if (device.type !== 'watcher') continue;
-    // 后几段的守夜人会提着灯来回走。走到头就转身，
+    // 提灯人会提着灯来回走。走到头就转身，
     // 灯光锥也跟着转到另一边——院子里的影子会一段一段地换位置。
     if (device.minX != null && device.maxX != null) {
       device.patrolClock = (device.patrolClock ?? 0) + dt * device.patrolSpeed;
@@ -199,9 +239,20 @@ function updateGates(game) {
   const pumpkins = game.pumpkins?.pumpkins ?? [];
   const plates = level.devices.filter((device) => device.type === 'plate');
   for (const plate of plates) {
-    plate.pressed =
-      players.some((player) => playerOnPlate(player, plate)) ||
-      pumpkins.some((pumpkin) => pumpkinOnPlate(pumpkin, plate));
+    // 谁压着这块石板？画面上要用压秤人的颜色标出来：
+    // 你青蓝、回音暖黄、南瓜橙色。人和南瓜都在时，先认人。
+    const wasPressed = Boolean(plate.pressed);
+    const byPlayer = players.findIndex((player) => playerOnPlate(player, plate));
+    const byPumpkin =
+      byPlayer < 0 && pumpkins.some((pumpkin) => pumpkinOnPlate(pumpkin, plate));
+    plate.pressed = byPlayer >= 0 || byPumpkin;
+    plate.byPlayer = byPlayer;
+    plate.byPumpkin = byPumpkin;
+    // 踩上去 / 抬脚各给一声很轻的响动，石板才有「被压住」的实感。
+    if (plate.pressed !== wasPressed) {
+      if (plate.pressed) game.audio.knock();
+      else game.audio.spark();
+    }
   }
 
   for (const gate of level.gates) {
@@ -220,7 +271,7 @@ function updateGates(game) {
     ) {
       gate.partialHinted = true;
       game.notify(
-        `门上的小符亮了 ${gate.pressedCount} / ${gate.plates.length} 块。另一块也要有人——或者一颗南瓜也行：两块同时压住，门才会升起来。`,
+        `门上的小符亮了 ${gate.pressedCount} / ${gate.plates.length} 块。另一块也要有人，或者放一颗南瓜。两块同时压住，门才会升起来。`,
         3600,
       );
     }
@@ -262,10 +313,10 @@ function updateGates(game) {
         gate.announced = true;
         game.notify(
           gate.latch
-            ? '门把这一下记住了。以后你们各自走开，它也不会再关上。'
+            ? '门记住这次了。以后你们走开，它也不会再关上。'
             : gate.kind === 'bridge'
-              ? '影子桥铺开了。压着秤盘的人一松脚（或南瓜被搬走），桥就会散。'
-              : '石板压住了，门开着。压着秤盘的人一松脚（或南瓜被搬走），门就会合上。',
+              ? '影子桥铺开了。压秤盘的人一松脚，或者南瓜被搬走，桥就散。'
+              : '石板压住了，门开着。压秤盘的人一松脚，或者南瓜被搬走，门就合上。',
           2600,
         );
       }
@@ -274,7 +325,7 @@ function updateGates(game) {
 }
 
 /**
- * 叠罗汉。上面的小鬼落到下面那个人的头顶时会被接住；
+ * 叠罗汉。上面的人落到下面那个人的头顶时会被接住；
  * 之后他跟着对方一起走、一起跳，按自己的跳跃键就能从头顶弹开。
  * 如果下面的人正蹲着，弹开的那一下会高很多——这是第一个组合技。
  */
@@ -370,7 +421,7 @@ function updateStack(game, before) {
 /**
  * 影子线。
  *
- * 两只鬼之间一直垂着一根线，但只有按住 Space 时它才会绷紧：
+ * 你和回音之间一直垂着一根线，但只有按住 Space 时它才会绷紧：
  * 站着的那个人当桩，另一个人被慢慢收过来。线够不着时不会硬拽，
  * 免得把原本靠石板门分开的两个人拉回一起。
  */
@@ -380,6 +431,17 @@ function updateRope(game, dt) {
   const [a, b] = sneakPlayers(game);
   const held = game.input.isDown('rope');
   const stacked = Boolean(a.standingOn || b.standingOn);
+  const distance = Math.hypot(b.centerX - a.centerX, b.centerY - a.centerY);
+
+  // 画面要照着这组状态画线：谁按着 Space、够不够得着、谁当桩、往哪边拉。
+  // 都放在这里算一次，绘制端只读，不再自己猜。
+  rope.held = held;
+  rope.distance = distance;
+  rope.inRange = distance <= ROPE.attach;
+  rope.anchorIndex = -1;
+  rope.otherIndex = -1;
+  rope.gateBetween = false;
+  rope.reeled = false;
 
   if (!held || stacked) {
     rope.active = false;
@@ -389,7 +451,6 @@ function updateRope(game, dt) {
     return;
   }
 
-  const distance = Math.hypot(b.centerX - a.centerX, b.centerY - a.centerY);
   if (!rope.active) {
     if (distance > ROPE.attach) {
       if (!rope.warned) {
@@ -434,6 +495,9 @@ function updateRope(game, dt) {
     other = a;
   }
   if (!anchor) return;
+  rope.anchorIndex = anchor === a ? 0 : 1;
+  rope.otherIndex = 1 - rope.anchorIndex;
+  rope.gateBetween = Boolean(gateBetween);
 
   const dx = anchor.centerX - other.centerX;
   const dy = anchor.centerY - other.centerY;
@@ -490,7 +554,7 @@ function updateRope(game, dt) {
   // 隔着一扇能翻的门时也一样：线收到底，门这边的人会被整个拽过门，
   // 落到当桩的人身边——这是「同时踩住两块石板」之外的另一条路。
   // 阈值留到 34px：贴着高墙侧面被吊起来的人，脚会停在墙沿下方约 27px，
-  // 比 26 多一点点；屋顶那面五格高的烟囱墙就靠这一截把人接上去。
+  // 比 26 多一点点；高墙就靠这一截把人接上去。
   if (
     rope.reeled &&
     rope.length <= ROPE.minLength + 0.75 &&
@@ -523,7 +587,7 @@ function updateRope(game, dt) {
           sneak.combo.gate = true;
           const otherIndex = other === a ? 0 : 1;
           game.audio.checkpoint();
-          game.notify(`拉过来了。${LABELS[otherIndex]}被影子线从门那边整个拽了过来。`, 3200);
+          game.notify(`拉过来了。${LABELS[otherIndex]}被影子线从门那边拽了过来。`, 3200);
         }
       } else if (!sneak.combo.hoist) {
         sneak.combo.hoist = true;
@@ -588,7 +652,7 @@ function watcherSees(level, watcher, player) {
 }
 
 /**
- * 两只鬼是一对。屏幕只有 512px 宽，如果一个人跑得太远，
+ * 你和回音是一对。屏幕只有 512px 宽，如果一个人跑得太远，
  * 镜头会把两个人都丢掉；这里用一根很软的「影子绳」把他们拉在 400px 内。
  * 正常解谜时两人相距不到 300px，几乎不会触发。
  */
@@ -617,20 +681,26 @@ function updateExposure(game, dt) {
     if (sneak.caughtCooldown > 0) {
       player.exposure = Math.max(0, (player.exposure ?? 0) - dt * 1.6);
       player.seen = false;
+      player.seenBy = null;
       return;
     }
 
     let seen = false;
+    // 画面要用「谁在看你」画一条很淡的视线：灯和鬼之间连起来，
+    // 玩家才知道该往哪边躲，而不是只看见头顶冒感叹号。
+    let seenBy = null;
     if (!inShadow) {
       for (const watcher of watchers) {
         if (watcherSees(level, watcher, player)) {
           seen = true;
+          seenBy = watcher;
           watcher.alert = true;
           break;
         }
       }
     }
     player.seen = seen;
+    player.seenBy = seenBy;
 
     if (seen) {
       player.exposure = Math.min(1, (player.exposure ?? 0) + dt * (player.crouching ? 0.62 : 0.88));
@@ -641,7 +711,7 @@ function updateExposure(game, dt) {
     if (seen && player.exposure > 0.5 && !sneak.warned[index]) {
       sneak.warned[index] = true;
       game.notify(
-        `守夜人的灯扫到${LABELS[index]}了。按住 ${index === 0 ? 'S' : '↓'} 潜行，或躲进影子。`,
+        `提灯人的灯扫到${LABELS[index]}了。按住 ${index === 0 ? 'S' : '↓'} 潜行，或躲进影子。`,
         2400,
       );
     }
@@ -667,7 +737,7 @@ function caughtByWatcher(game, index) {
   }
 
   game.notify(
-    `守夜人的灯照到了${LABELS[index]}。两只鬼是一对，一起退回影子记号。`,
+    `提灯人的灯照到了${LABELS[index]}。你和回音是一对，一起退回影子记号。`,
     3000,
   );
   respawnSneakPair(game);
@@ -691,6 +761,7 @@ export function respawnSneakPair(game) {
     player.exposure = 0;
     player.hidden = false;
     player.seen = false;
+    player.seenBy = null;
     player.standingOn = null;
     player.carrying = null;
   }
@@ -698,7 +769,12 @@ export function respawnSneakPair(game) {
   sneak.rope.reeled = false;
   sneak.rope.length = ROPE.maxLength;
   sneak.rope.warned = false;
+  sneak.rope.anchorIndex = -1;
+  sneak.rope.otherIndex = -1;
   sneak.goalTimer = 0;
+  sneak.goalReady = [false, false];
+  // 回到影子记号的这一下，身后的皮鞋也在落脚点重新排队。
+  game.shoeFollowers?.resetAt(game.player.centerX, game.player.feetY, game.player.facing);
   updateSneakCamera(game, 0, true);
 }
 
@@ -712,8 +788,13 @@ function updateCheckpoints(game) {
     );
     if (!bothReached) break;
     sneak.checkpointIndex = index;
+    // 追思路线的存档读 session.checkpoint；潜行段也把落脚点写进去，
+    // 读档时才能从影子记号而不是地图起点回来。
+    game.session.checkpointIndex = index;
+    game.session.checkpoint = { x: checkpoint.x, y: checkpoint.y };
     game.audio.checkpoint();
-    game.notify(`影子记号 · 两个人都走到了这里（${checkpoint.label}）`, 2200);
+    game.notify(`影子记号 · 你和回音都走到了这里（${checkpoint.label}）`, 2200);
+    game.persist?.();
   }
 }
 
@@ -724,20 +805,25 @@ function updateHints(game) {
     const reached = sneakPlayers(game).some((player) => player.centerX >= hint.x);
     if (!reached) return;
     sneak.hints.add(index);
-    game.notify(hint.text, hint.duration ?? 3800);
+    game.notify(
+      game.mobileAssist && hint.mobileText ? hint.mobileText : hint.text,
+      hint.duration ?? 3800,
+    );
   });
 }
 
 function checkHazards(game) {
   const sneak = game.session.sneak;
   if (sneak.caughtCooldown > 0) return;
+  // 护身糖：你和回音一起免疫岩浆 / 尖刺 / 黑水沟。
+  if (sneakPlayers(game).some((player) => player.effectMods?.shield)) return;
   for (const player of sneakPlayers(game)) {
     if (!game.level.overlapsHazard(player.bounds)) continue;
     sneak.falls += 1;
     sneak.caughtCooldown = 1.8;
     game.damageFlash = 0.7;
     game.audio.death();
-    game.notify('有一只鬼掉进了黑水沟。两只鬼重新牵起手，回到影子记号。', 2800);
+    game.notify('有人掉进了黑水沟。你和回音重新牵起手，回到影子记号。', 2800);
     respawnSneakPair(game);
     return;
   }
@@ -751,7 +837,7 @@ export function updateSneakCamera(game, dt, snap = false) {
   const avgVx = (game.player.vx + game.partner.vx) / 2;
   const lookAhead = Math.max(-20, Math.min(20, avgVx * 0.16));
   const targetX = Math.max(0, Math.min(maxX, mid - VIEW.WIDTH * 0.5 + lookAhead));
-  // 晾糖场、长廊和屋顶比一屏高：镜头要同时框住两个人，
+  // 地图比一屏高时：镜头要同时框住两个人，
   // 而不是只盯着高的那一个，否则站在低处的同伴会从画面下方掉出去。
   const topY = Math.min(game.player.centerY, game.partner.centerY);
   const bottomY = Math.max(game.player.centerY, game.partner.centerY);
@@ -792,10 +878,29 @@ export function getSneakHud(game) {
   } else if (sneak.rope?.active) {
     combo = sneak.rope.reeled ? '影子线 · 收线中' : '影子线 · 绷紧';
   }
+  // 一个人已经到了门口、另一个还在路上：面板直接说谁在等谁。
+  const goalReady = sneak.goalReady ?? [false, false];
+  if (!combo && goalReady.some(Boolean) && !goalReady.every(Boolean)) {
+    const waiting = goalReady[0] ? 0 : 1;
+    combo = `${LABELS[waiting]} 已经在门口等着了`;
+  }
+  // 门上只要有一块石板亮着、还差几块，面板也直说。
+  // 门在画面外的时候，这一行就是两个人唯一的进度交代。
+  if (!combo) {
+    const gate = (game.level.gates ?? []).find(
+      (entry) =>
+        !entry.open &&
+        entry.pressedCount > 0 &&
+        entry.pressedCount < entry.plates.length,
+    );
+    if (gate) {
+      combo = `石板 ${gate.pressedCount}/${gate.plates.length} · 还差 ${gate.plates.length - gate.pressedCount} 块`;
+    }
+  }
 
   return {
     stage: game.level.stage,
-    total: SNEAK_ROUTE.totalStages,
+    total: MEMORIAL_ROUTE.totalStages,
     name: sneakStageName(game.level.stage),
     objective: game.level.objective,
     names: LABELS,
@@ -818,7 +923,7 @@ export function getSneakCompletion(game) {
   return {
     spotted: sneak.spotted,
     falls: sneak.falls,
-    stages: SNEAK_ROUTE.totalStages,
+    stages: MEMORIAL_ROUTE.totalStages,
   };
 }
 

@@ -1,22 +1,4 @@
-/* 「鬼鬼祟祟」双人潜行线的附加样式，单独成文件，避免动主样式表。 */
-
-.mode-button--sneak {
-  color: #d9f4ee;
-  border-color: rgba(110, 196, 180, 0.5);
-  background:
-    linear-gradient(160deg, rgba(25, 53, 55, 0.96), rgba(13, 23, 29, 0.98));
-}
-
-.mode-button--sneak:hover {
-  color: #f0fffa;
-  border-color: rgba(146, 232, 213, 0.74);
-}
-
-.mode-button--sneak .mode-badge {
-  color: #c4fff1;
-  background: #0d3a35;
-  border-color: #3d8d80;
-}
+/* 追思路线第三段「另一双脚步」的附加样式：双人潜行面板与按键提示。 */
 
 /* ---------- 玩家面板里的双人状态 ---------- */
 
@@ -29,7 +11,6 @@
 }
 
 .player-panel.is-sneak .panel-charge,
-.player-panel.is-sneak .panel-effects,
 .player-panel.is-sneak .panel-fit-line,
 .player-panel.is-sneak .panel-bar--fit {
   display: none;
