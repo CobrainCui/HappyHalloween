@@ -19,6 +19,7 @@
  */
 
 import { VIEW } from './config.js';
+import { SET_ELEMENT_NAMES } from './setTheory.js';
 
 const T = VIEW.TILE;
 
@@ -33,14 +34,8 @@ const OPERATOR = '214, 202, 224';
 
 // 门楣成员板上的中文名。整个游戏只有这一处在 canvas 上写中文：
 // 元素小像放大到两倍，旁边直接写名字，玩家不用猜图标。
-const LOOK_NAMES = Object.freeze({
-  skull: '骷髅',
-  ghost: '幽灵',
-  eye: '眼睛',
-  candle: '蜡烛',
-  hand: '手',
-  bone: '骨头',
-});
+// 名字本身放在 setTheory.js，互动提示和提示面板也读同一份。
+const LOOK_NAMES = SET_ELEMENT_NAMES;
 
 const NAME_FONT =
   '10px "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif';
@@ -426,9 +421,19 @@ export function drawSetElement(renderer, pumpkin, time, submersion = 0) {
   const x = Math.round(pumpkin.x + pumpkin.w / 2);
   const y = Math.round(pumpkin.y + pumpkin.h);
   const marks = pumpkin.setMarks;
+  // 落进坑里的一颗往下沉，地面以下的部分被裁掉，像是整个人陷进去。
+  const sinking = pumpkin.inPit
+    ? Math.min(1, Math.max(0, (performance.now() - (pumpkin.sinkAt ?? 0)) / 320))
+    : 0;
 
   ctx.save();
   ctx.translate(x, y);
+  if (sinking > 0) {
+    ctx.beginPath();
+    ctx.rect(-40, -80, 80, 80);
+    ctx.clip();
+    ctx.translate(0, sinking * 18);
+  }
 
   // 地面影子：泡在水里就不画了，水面看不到岸上的那种影子。
   if (submersion <= 0) {
@@ -595,6 +600,47 @@ export function drawSetElement(renderer, pumpkin, time, submersion = 0) {
 
 /* ---------------- 地面上的四个格子 ---------------- */
 
+/**
+ * 地面上的坑：开着的坑是地表往下的一段暗口，两边是石沿；
+ * 放对一颗之后，淡色的石板从左边滑过来盖严，和地面齐平，
+ * 人可以直接从盖子上走过去。
+ */
+function drawSetPit(ctx, pit, tint, now) {
+  const x = Math.round(pit.x);
+  const w = Math.round(pit.w);
+  const y = Math.round(pit.y);
+
+  if (!pit.filled) {
+    ctx.fillStyle = 'rgba(6, 3, 10, 0.94)';
+    ctx.fillRect(x + 1, y, w - 2, 8);
+    // 坑口贴着地面的那一条，颜色跟着这一格走。
+    ctx.fillStyle = `rgba(${tint}, 0.22)`;
+    ctx.fillRect(x + 2, y, w - 4, 1);
+    ctx.fillStyle = 'rgba(196, 160, 214, 0.42)';
+    ctx.fillRect(x, y, 1, 8);
+    ctx.fillRect(x + w - 1, y, 1, 8);
+    ctx.fillRect(x + 1, y + 8, w - 2, 1);
+    return;
+  }
+
+  // 先让东西沉下去一小会儿，盖子再盖上。
+  const t = Math.min(1, Math.max(0, (now - pit.filledAt - 160) / 260));
+  const ease = t * t * (3 - 2 * t);
+  const lidW = Math.max(1, Math.round((w - 2) * ease));
+
+  // 没盖满之前，剩下的一小截还是暗的。
+  if (lidW < w - 2) {
+    ctx.fillStyle = 'rgba(6, 3, 10, 0.94)';
+    ctx.fillRect(x + 1 + lidW, y, w - 2 - lidW, 7);
+  }
+  ctx.fillStyle = 'rgba(56, 46, 68, 1)';
+  ctx.fillRect(x + 1, y, lidW, 4);
+  ctx.fillStyle = 'rgba(128, 112, 148, 1)';
+  ctx.fillRect(x + 1, y, lidW, 1);
+  ctx.fillStyle = `rgba(${tint}, 0.8)`;
+  ctx.fillRect(x + 2, y + 2, Math.max(1, lidW - 2), 1);
+}
+
 function drawTrayPlate(ctx, tray, time) {
   const x = Math.round(tray.x);
   const w = Math.round(tray.w);
@@ -632,6 +678,10 @@ function drawTrayPlate(ctx, tray, time) {
     ctx.fillRect(px, y - 3, 2, 1);
   }
   ctx.globalAlpha = 1;
+
+  // 这一格里的坑：放对的东西落进去之后，盖子会从左边滑过来盖严。
+  const now = performance.now();
+  for (const pit of tray.pits ?? []) drawSetPit(ctx, pit, tint, now);
 }
 
 /**
@@ -900,7 +950,7 @@ export function drawSetWard(renderer, col, row) {
   ctx.restore();
 }
 
-/** 远处雾里的两圆：阿岚笔记上的图，只留一层很淡的轮廓。 */
+/** 远处雾里的两圆：Kurt 草稿纸上的图，只留一层很淡的轮廓。 */
 export function drawSetRing(renderer, decoration, time) {
   const ctx = renderer.ctx;
   const x = decoration.x;

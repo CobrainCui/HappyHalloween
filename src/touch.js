@@ -33,11 +33,11 @@ export class TouchControls {
     this.bindTapButton(
       root.querySelector('#touchInteractButton'),
       handlers.onInteract,
-      // 互动键允许长按：惊恐发作时可以一直按住呼吸。
+      // 互动键允许长按：惊恐发作时一直按住再松开，也算一次呼吸。
       { allowLongHold: true },
     );
     this.bindTapButton(root.querySelector('#touchBagButton'), handlers.onBag);
-    this.bindTapButton(root.querySelector('#touchPouchButton'), handlers.onPouch);
+    this.bindTapButton(root.querySelector('#touchHintButton'), handlers.onHint);
     this.bindTapButton(root.querySelector('#touchPauseButton'), handlers.onPause);
 
     // 长按虚拟键不该弹出系统菜单。

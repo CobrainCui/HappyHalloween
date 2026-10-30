@@ -19,6 +19,7 @@ import {
   drawSetRing,
   drawSetWard,
 } from './setDraw.js';
+import { YOKAI } from './parade.js';
 import { drawShoeFollowers } from './shoeFollowers.js';
 import { drawYokaiSprite } from './yokai.js';
 
@@ -57,6 +58,8 @@ export class Renderer {
     this.ctx.imageSmoothingEnabled = false;
     this.level = level;
     this.particles = particles;
+    // 镜头倍率：手机端放大画面用，桌面端保持 1。
+    this.cameraZoom = 1;
 
     const random = seededRandom(20261031);
 
@@ -94,8 +97,27 @@ export class Renderer {
     }));
   }
 
+  /**
+   * 镜头实际能看到的范围。没放大时就是 VIEW 的 512×288；
+   * 放大以后变窄，镜头跟随和贴边判定都要按这个尺寸来算，
+   * 否则地图右端会永远露出一块走不到的黑边。
+   */
+  get viewWidth() {
+    return VIEW.WIDTH / this.cameraZoom;
+  }
+
+  get viewHeight() {
+    return VIEW.HEIGHT / this.cameraZoom;
+  }
+
+  setCameraZoom(zoom) {
+    const next = Number(zoom);
+    this.cameraZoom = Number.isFinite(next) && next > 0 ? Math.min(2, Math.max(1, next)) : 1;
+  }
+
   render(game, time) {
     const ctx = this.ctx;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     // 最后一扇门后面的碑前长镜头自己画满整块画布，不再走关卡镜头。
     if (game.ending) {
       game.ending.draw(this, time);
@@ -116,6 +138,8 @@ export class Renderer {
     ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+    // 放大镜头：下面所有绘制仍然用世界坐标，整块图一起等比放大。
+    if (this.cameraZoom !== 1) ctx.setTransform(this.cameraZoom, 0, 0, this.cameraZoom, 0, 0);
 
     if (isCavern) {
       this.drawCavernBackground(time, cameraX, cameraY);
@@ -162,7 +186,10 @@ export class Renderer {
     ctx.restore();
 
     this.drawCandyAura(game, cameraX, cameraY, time);
-    // 走过的段落留下的皮鞋：画在人前面，看起来跟在身后。
+    // 举在手里的南瓜跟着人走：门脸和树都画完了，最后再补上它，
+    // 不然站在屋前时，脑袋上的南瓜会被房子挡住。
+    this.drawCarriedPumpkins(game, time, cameraX, cameraY);
+    // 走过的段落留下的鞋：画在人前面，看起来跟在身后。
     if (game.mode === 'memorial') drawShoeFollowers(this, game, time, cameraX, cameraY);
     // 开场坐在南瓜车里时先不画玩家，车厢窗口里单独画一个小身影。
     if (!game.session?.carriageRiding) {
@@ -583,15 +610,18 @@ export class Renderer {
     const level = this.level;
     const isCavern = level.style === 'cavern';
     const startCol = Math.max(0, Math.floor(cameraX / T) - 1);
-    const endCol = Math.min(level.width - 1, Math.ceil((cameraX + VIEW.WIDTH) / T) + 1);
+    const endCol = Math.ceil((cameraX + this.viewWidth) / T) + 1;
     const startRow = Math.max(0, Math.floor(cameraY / T) - 1);
-    const endRow = Math.min(level.height - 1, Math.ceil((cameraY + VIEW.HEIGHT) / T) + 1);
+    const endRow = Math.min(level.height - 1, Math.ceil((cameraY + this.viewHeight) / T) + 1);
 
     for (let row = startRow; row <= endRow; row += 1) {
       for (let col = startCol; col <= endCol; col += 1) {
-        const tile = level.getTile(col, row);
+        // 手机端镜头在最右端会多滚一截：多出来的几列用最后一列的格子续上，
+        // 地面就继续往右延伸进夜色，不会在画面上硬生生切一刀。
+        const srcCol = Math.min(col, level.width - 1);
+        const tile = level.getTile(srcCol, row);
         // 正在下沉的集合门由 setDraw 单独画成一块移动的石门，原格先空出来。
-        if (tile !== '.' && level.isSinkingCell?.(col, row)) continue;
+        if (tile !== '.' && level.isSinkingCell?.(srcCol, row)) continue;
         if (tile === '#') {
           if (isCavern) this.drawCavernEarthTile(col, row);
           else this.drawEarthTile(col, row);
@@ -616,7 +646,7 @@ export class Renderer {
         if (
           isCavern &&
           (tile === '#' || tile === 'B' || tile === 'P') &&
-          level.getTile(col, row - 1) === '.'
+          level.getTile(srcCol, row - 1) === '.'
         ) {
           this.drawSurfaceBones(col, row);
         }
@@ -1214,7 +1244,10 @@ export class Renderer {
           this.drawLamp(decoration, time);
           break;
         case 'sign':
-          this.drawSign(decoration);
+          this.drawSign(decoration, time, game);
+          break;
+        case 'tutorialGate':
+          this.drawTutorialGate(decoration, time, game);
           break;
         case 'mushroom':
           this.drawMushroom(decoration);
@@ -1725,48 +1758,70 @@ export class Renderer {
   drawPumpkins(game, time, cameraX, cameraY) {
     const world = game.pumpkins;
     if (!world?.pumpkins?.length) return;
-    const pumpkins = [...world.pumpkins].sort((a, b) => a.y + a.h - (b.y + b.h));
+    const pumpkins = [...world.pumpkins]
+      .filter((pumpkin) => !pumpkin.carrier)
+      .sort((a, b) => a.y + a.h - (b.y + b.h));
     for (const pumpkin of pumpkins) {
       if (pumpkin.x + pumpkin.w < cameraX - 120) continue;
       if (pumpkin.x > cameraX + VIEW.WIDTH + 120) continue;
       if (pumpkin.y + pumpkin.h < cameraY - 160) continue;
       if (pumpkin.y > cameraY + VIEW.HEIGHT + 160) continue;
+      this.drawPumpkinEntity(pumpkin, time);
+    }
+  }
 
-      // 南瓜有多少泡在水里：0 完全在岸上，1 整颗在水下。
-      const cx = pumpkin.x + pumpkin.w / 2;
-      const cyTop = pumpkin.y;
-      const cyBot = pumpkin.y + pumpkin.h;
-      const water = this.level.getWaterAt?.(cx, cyTop) ?? this.level.getWaterAt?.(cx, cyBot);
-      const submersion = water
-        ? Math.min(1, Math.max(0, (cyBot - water.y) / pumpkin.h))
-        : 0;
+  /**
+   * 抱在手里的南瓜单独画：屋子、门和树都画在这之前，
+   * 所以要等它们都落笔以后再补上，免得举过头顶的南瓜被门脸挡住。
+   */
+  drawCarriedPumpkins(game, time, cameraX, cameraY) {
+    const carried = (game.pumpkins?.pumpkins ?? []).filter((pumpkin) => pumpkin.carrier);
+    if (!carried.length) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(-cameraX, -cameraY);
+    for (const pumpkin of carried) this.drawPumpkinEntity(pumpkin, time);
+    ctx.restore();
+  }
 
-      // 第二段的元素有自己的形状和颜色：长 / 扁 / 圆 / 骷髅。
-      if (pumpkin.look) {
-        drawSetElement(this, pumpkin, time, submersion);
-      } else {
-        this.drawPumpkin(
-          {
-            x: pumpkin.x + pumpkin.w / 2,
-            y: pumpkin.y + pumpkin.h,
-            variant: pumpkin.variant,
-          },
-          time,
-          submersion,
-        );
-      }
+  /** 一颗南瓜的完整画法：水面、光、形状和涟漪。 */
+  drawPumpkinEntity(pumpkin, time) {
+    // 南瓜有多少泡在水里：0 完全在岸上，1 整颗在水下。
+    const cx = pumpkin.x + pumpkin.w / 2;
+    const cyTop = pumpkin.y;
+    const cyBot = pumpkin.y + pumpkin.h;
+    const water = this.level.getWaterAt?.(cx, cyTop) ?? this.level.getWaterAt?.(cx, cyBot);
+    const submersion = water
+      ? Math.min(1, Math.max(0, (cyBot - water.y) / pumpkin.h))
+      : 0;
 
-      // 半淹在水里的南瓜：在水面线上画两圈浅色涟漪，和玩家的水纹呼应。
-      if (water && submersion > 0 && submersion < 1) {
-        const ctx = this.ctx;
-        const sy = Math.round(water.y);
-        const rAlpha = 0.24 + Math.sin(time * 4.2 + cx * 0.1) * 0.06;
-        ctx.globalAlpha = rAlpha;
-        ctx.fillStyle = '#8fe1de';
-        ctx.fillRect(Math.round(cx) - 9, sy - 1, 18, 1);
-        ctx.fillRect(Math.round(cx) - 5, sy + 2, 10, 1);
-        ctx.globalAlpha = 1;
-      }
+    // 第二段的元素有自己的形状和颜色：长 / 扁 / 圆 / 骷髅。
+    if (pumpkin.look) {
+      // 已经沉进坑里的一颗就不再画了；下沉那一小段由 drawSetElement 演完。
+      if (pumpkin.inPit && performance.now() - (pumpkin.sinkAt ?? 0) >= 360) return;
+      drawSetElement(this, pumpkin, time, submersion);
+    } else {
+      this.drawPumpkin(
+        {
+          x: pumpkin.x + pumpkin.w / 2,
+          y: pumpkin.y + pumpkin.h,
+          variant: pumpkin.variant,
+        },
+        time,
+        submersion,
+      );
+    }
+
+    // 半淹在水里的南瓜：在水面线上画两圈浅色涟漪，和玩家的水纹呼应。
+    if (water && submersion > 0 && submersion < 1) {
+      const ctx = this.ctx;
+      const sy = Math.round(water.y);
+      const rAlpha = 0.24 + Math.sin(time * 4.2 + cx * 0.1) * 0.06;
+      ctx.globalAlpha = rAlpha;
+      ctx.fillStyle = '#8fe1de';
+      ctx.fillRect(Math.round(cx) - 9, sy - 1, 18, 1);
+      ctx.fillRect(Math.round(cx) - 5, sy + 2, 10, 1);
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -1952,15 +2007,38 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawSign(decoration) {
+  drawSign(decoration, time = 0, game = null) {
     const ctx = this.ctx;
+    const story = Boolean(decoration.story);
+    const read = Boolean(
+      decoration.signId && game?.session?.readSigns?.has(decoration.signId),
+    );
+
     ctx.save();
     ctx.translate(Math.round(decoration.x), Math.round(decoration.y));
+
+    if (story) {
+      // 故事路牌：没读过的脚下有一圈暖光，牌顶浮一点火星；读过之后就收掉。
+      if (!read) {
+        const pulse = 0.5 + Math.sin(time * 2.1 + decoration.signIndex * 1.3) * 0.16;
+        ctx.globalAlpha = pulse * 0.34;
+        ctx.fillStyle = PALETTE.pumpkin;
+        ctx.fillRect(-10, -2, 21, 3);
+        ctx.globalAlpha = pulse * 0.18;
+        ctx.fillRect(-13, -3, 27, 5);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = '#907a86';
+        ctx.fillRect(-8, -2, 17, 1);
+        ctx.globalAlpha = 1;
+      }
+    }
 
     ctx.fillStyle = '#241620';
     ctx.fillRect(-1, -22, 3, 22);
     ctx.fillRect(-8, -27, 17, 11);
-    ctx.fillStyle = '#5b3b34';
+    ctx.fillStyle = story ? (read ? '#5b4038' : '#6a4538') : '#5b3b34';
     ctx.fillRect(-7, -26, 15, 9);
     ctx.fillStyle = '#815843';
     ctx.fillRect(-7, -26, 15, 1);
@@ -1972,9 +2050,84 @@ export class Renderer {
     ctx.fillStyle = PALETTE.pumpkin;
     ctx.fillRect(4, -24, 2, 2);
 
+    // 没读过的故事路牌，牌顶再浮一枚往上的小箭头，远处也看得见。
+    if (story && !read) {
+      const bob = Math.round(Math.sin(time * 2.4 + decoration.signIndex) * 2);
+      ctx.fillStyle = PALETTE.pumpkin;
+      ctx.globalAlpha = 0.75;
+      ctx.fillRect(-1, -39 + bob, 2, 2);
+      ctx.globalAlpha = 0.4;
+      ctx.fillRect(-2, -36 + bob, 4, 1);
+      ctx.globalAlpha = 1;
+    }
+
     ctx.fillStyle = '#3c2726';
     ctx.fillRect(-11, -9, 12, 2);
     ctx.fillRect(-12, -6, 16, 2);
+    ctx.restore();
+  }
+
+  /**
+   * 教程门：一列很淡的月光墙，做完这一课才落下去。
+   * 关着时是一道缓慢上升的光帘，打开后只剩一点余光。
+   */
+  drawTutorialGate(decoration, time, game) {
+    const gate = game?.level?.tutorialGates?.[decoration.index];
+    const open = Boolean(gate?.open);
+    const ctx = this.ctx;
+    const x = Math.round(decoration.x);
+    const baseY = Math.round(decoration.y);
+    const height = 120;
+
+    ctx.save();
+    ctx.translate(x, baseY);
+
+    if (open) {
+      // 已经打开：地上留一小圈余光，提醒这里曾经有一道门。
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.12 + Math.sin(time * 1.6 + x * 0.02) * 0.03;
+      ctx.fillStyle = '#9fd7e8';
+      ctx.fillRect(-6, -2, 12, 2);
+      ctx.fillRect(-2, -10, 4, 8);
+      ctx.restore();
+      return;
+    }
+
+    // 光帘：从地面往上，一格一格地淡下去。
+    ctx.globalCompositeOperation = 'lighter';
+    for (let index = 0; index < 10; index += 1) {
+      const y = -6 - index * 12;
+      const wobble = Math.sin(time * 2.4 + index * 0.8 + x * 0.03) * 1.6;
+      ctx.globalAlpha = (0.15 - index * 0.011) * (0.8 + Math.sin(time * 3 + index) * 0.2);
+      ctx.fillStyle = '#bfe9f4';
+      ctx.fillRect(-5 + Math.round(wobble), y, 10, 9);
+    }
+
+    // 两条亮边，让这道门看起来是一整面墙，而不是一根灯杆。
+    ctx.globalAlpha = 0.26 + Math.sin(time * 2.2 + x * 0.04) * 0.06;
+    ctx.fillStyle = '#9fd7e8';
+    ctx.fillRect(-5, -height, 1, height);
+    ctx.fillRect(4, -height, 1, height);
+
+    // 中轴：一条更亮的光线，把门的存在说清楚。
+    ctx.globalAlpha = 0.42 + Math.sin(time * 2.8 + x * 0.05) * 0.1;
+    ctx.fillStyle = '#dff6ff';
+    ctx.fillRect(-1, -height, 2, height);
+
+    // 门楣：一小截横线，像一个还没打开的关隘。
+    ctx.globalAlpha = 0.55;
+    ctx.fillRect(-8, -height, 16, 2);
+    ctx.fillStyle = '#9fd7e8';
+    ctx.fillRect(-8, -height, 3, 2);
+    ctx.fillRect(5, -height, 3, 2);
+
+    // 门楣下一点暖光，和教程提示框的灯色一致；像一枚还没点亮的锁。
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = '#d59642';
+    ctx.fillRect(-1, -height + 7, 2, 4);
+    ctx.fillRect(-3, -height + 8, 6, 2);
+
     ctx.restore();
   }
 
@@ -2239,10 +2392,10 @@ export class Renderer {
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(VIEW.WIDTH, 0);
-    ctx.lineTo(VIEW.WIDTH - 22, 14);
-    ctx.moveTo(VIEW.WIDTH, 0);
-    ctx.lineTo(VIEW.WIDTH - 9, 25);
+    ctx.moveTo(this.viewWidth, 0);
+    ctx.lineTo(this.viewWidth - 22, 14);
+    ctx.moveTo(this.viewWidth, 0);
+    ctx.lineTo(this.viewWidth - 9, 25);
     ctx.stroke();
 
     ctx.restore();
@@ -2769,16 +2922,18 @@ export class Renderer {
    */
   drawGoalEdgeMarker(time, cameraX, cameraY) {
     const level = this.level;
+    const viewWidth = this.viewWidth;
+    const viewHeight = this.viewHeight;
     const gx = level.goalX - cameraX;
     const gy = this.goalBaseY() - 34 - (cameraY ?? 0);
     const margin = 15;
-    if (gx >= margin && gx <= VIEW.WIDTH - margin && gy >= margin && gy <= VIEW.HEIGHT - margin) {
+    if (gx >= margin && gx <= viewWidth - margin && gy >= margin && gy <= viewHeight - margin) {
       return;
     }
 
     const tint = this.goalTint();
-    const px = Math.max(margin, Math.min(VIEW.WIDTH - margin, gx));
-    const py = Math.max(margin, Math.min(VIEW.HEIGHT - margin, gy));
+    const px = Math.max(margin, Math.min(viewWidth - margin, gx));
+    const py = Math.max(margin, Math.min(viewHeight - margin, gy));
     const angle = Math.atan2(gy - py, gx - px);
     const near = 1 - Math.min(1, Math.hypot(gx - px, gy - py) / 720);
     const pulse = 0.78 + Math.sin(time * 2.2) * 0.16;
@@ -2884,12 +3039,12 @@ export class Renderer {
       ctx.fillRect(0, 0, VIEW.WIDTH, VIEW.HEIGHT);
       ctx.globalCompositeOperation = 'lighter';
       const glow = ctx.createRadialGradient(
-        VIEW.WIDTH / 2,
-        VIEW.HEIGHT * 0.62,
+        this.viewWidth / 2,
+        this.viewHeight * 0.62,
         8,
-        VIEW.WIDTH / 2,
-        VIEW.HEIGHT * 0.62,
-        VIEW.WIDTH * 0.62,
+        this.viewWidth / 2,
+        this.viewHeight * 0.62,
+        this.viewWidth * 0.62,
       );
       glow.addColorStop(0, `rgba(255, 250, 230, ${fade * 0.5})`);
       glow.addColorStop(1, 'rgba(255, 210, 140, 0)');
@@ -3426,6 +3581,9 @@ export class Renderer {
     const pumpkins = game?.pumpkins?.pumpkins ?? [];
 
     for (const task of tasks) {
+      // 狼人的月光记号只在敲过门、接下这件事以后才出现：
+      // 还没和这一户说过话时，屋顶上看不出任何名堂。
+      if (task.kind === 'chase' && !task.active) continue;
       if (
         task.kind !== 'chase' &&
         task.zones?.some(
@@ -3509,6 +3667,51 @@ export class Renderer {
         });
         ctx.stroke();
         ctx.restore();
+
+        // 守在屋脊上的阿嚎。接到这件事以后才站上来，在最高的那条屋脊上
+        // 来回走：碰到它会被扑下去，所以它得看得清楚——脚下一圈冷光，
+        // 走起来有步子，时不时对月亮长嚎一口。
+        if (task.guard && task.house) {
+          const guard = task.guard;
+          const hx = Math.round(guard.x);
+          const hy = Math.round(guard.y);
+          const breathing = 0.5 + Math.sin(time * 1.8) * 0.5;
+
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const glow = ctx.createRadialGradient(hx, hy - 10, 2, hx, hy - 10, 30);
+          glow.addColorStop(0, alpha(0.14 + breathing * 0.08));
+          glow.addColorStop(1, alpha(0));
+          ctx.fillStyle = glow;
+          ctx.fillRect(hx - 30, hy - 40, 60, 46);
+          ctx.restore();
+
+          ctx.save();
+          drawYokaiSprite(ctx, hx, hy, task.house, {
+            time,
+            facing: guard.dir < 0 ? -1 : 1,
+            moving: true,
+            airborne: false,
+            crouching: false,
+            walkPhase: time * 6.5,
+            inWater: false,
+            gliding: false,
+            charge: 0,
+          });
+          ctx.restore();
+
+          // 长嚎：脑袋边上荡开两圈声纹。
+          ctx.save();
+          ctx.strokeStyle = alpha(0.14 + breathing * 0.22);
+          ctx.lineWidth = 1;
+          for (let ring = 0; ring < 2; ring += 1) {
+            const radius = 9 + ring * 6 + breathing * 4;
+            ctx.beginPath();
+            ctx.arc(hx, hy - 26, radius, Math.PI * 0.9, Math.PI * 1.9);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
         continue;
       }
 
@@ -3901,7 +4104,7 @@ export class Renderer {
 
     // 追兵还在画面外：左侧画三枚往左的箭头，提醒「别回头，往前跑」。
     if (offscreen) {
-      const y = VIEW.HEIGHT * 0.52;
+      const y = this.viewHeight * 0.52;
       ctx.globalAlpha = 0.38 + close * 0.45;
       ctx.fillStyle = '#ffb0a0';
       for (let i = 0; i < 3; i += 1) {
@@ -3957,13 +4160,13 @@ export class Renderer {
   /**
    * 糖纸街的一户人家：门廊、亮着的窗、门牌和一只糖碗。
    * 门开一条缝 = 糖已经递出来、还在等玩家决定要不要捣蛋；
-   * 门关上、碗空了 = 这一户结算过了。
+   * 门上留一道粉笔勾 = 这一趟已经从这户拿过糖（再敲一次也照样给）。
+   * 糖是可以反复要的，所以做完的门也不熄灯、碗里照旧摆着那颗糖。
    */
   drawCandyDoor(device, game, time) {
     const ctx = this.ctx;
     const accent = device.accent ?? '#ffcf72';
     const near = game?.getNearbyDevice?.()?.id === device.id;
-    const lit = !device.done;
     const ajar = Boolean(device.active) && !device.done;
     const pulse = 0.62 + Math.sin(time * 2.1 + device.x * 0.013) * 0.16;
 
@@ -4020,17 +4223,15 @@ export class Renderer {
     ctx.fillRect(21, -69, 4, 5);
     ctx.fillRect(23, -74, 3, 5);
 
-    // 左窗：没结算时亮着，结算后暗下去
+    // 左窗：这户一直亮着灯，等着你来敲门
     ctx.fillStyle = '#100a15';
     ctx.fillRect(-25, -41, 15, 13);
-    ctx.fillStyle = lit ? '#ffcf72' : '#2a2131';
+    ctx.fillStyle = '#ffcf72';
     ctx.fillRect(-24, -40, 13, 11);
-    if (lit) {
-      ctx.globalAlpha = 0.35 + pulse * 0.25;
-      ctx.fillStyle = '#fff1c4';
-      ctx.fillRect(-23, -39, 11, 9);
-      ctx.globalAlpha = 1;
-    }
+    ctx.globalAlpha = 0.35 + pulse * 0.25;
+    ctx.fillStyle = '#fff1c4';
+    ctx.fillRect(-23, -39, 11, 9);
+    ctx.globalAlpha = 1;
     ctx.fillStyle = '#1a1120';
     ctx.fillRect(-18, -40, 1, 11);
     ctx.fillRect(-24, -35, 13, 1);
@@ -4038,7 +4239,7 @@ export class Renderer {
     // 右窗
     ctx.fillStyle = '#100a15';
     ctx.fillRect(12, -41, 12, 10);
-    ctx.fillStyle = lit ? '#ffcf72' : '#2a2131';
+    ctx.fillStyle = '#ffcf72';
     ctx.fillRect(13, -40, 10, 8);
     ctx.fillStyle = '#1a1120';
     ctx.fillRect(18, -40, 1, 8);
@@ -4072,7 +4273,7 @@ export class Renderer {
       ctx.fillRect(-7, -12, 14, 1);
       ctx.fillRect(-7, 2, 14, 1);
       ctx.fillStyle = accent;
-      ctx.globalAlpha = lit ? 0.9 : 0.35;
+      ctx.globalAlpha = 0.9;
       ctx.fillRect(4, -16, 2, 2);
       ctx.globalAlpha = 1;
       // 已经结算：门上留一道粉笔勾
@@ -4088,7 +4289,7 @@ export class Renderer {
     }
 
     // 门牌：3×5 像素数字
-    this.drawCandyDoorNumber(device.houseIndex, accent, lit);
+    this.drawCandyDoorNumber(device.houseIndex, accent);
 
     // 这户现在的状态：帮过 / 捣过蛋 / 正在做任务。
     if (device.helped) {
@@ -4124,40 +4325,36 @@ export class Renderer {
     ctx.fillRect(15, -10, 15, 2);
     ctx.fillStyle = '#c89a6a';
     ctx.fillRect(16, -10, 13, 1);
-    if (lit) {
-      // 碗里的糖：用这一户的 accent 画两颗
-      ctx.fillStyle = accent;
-      ctx.fillRect(19, -12, 2, 2);
-      ctx.fillRect(24, -13, 2, 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-      ctx.fillRect(19, -12, 1, 1);
-      ctx.globalAlpha = 0.45 + pulse * 0.3;
-      ctx.fillStyle = accent;
-      ctx.fillRect(20, -15, 1, 1);
-      ctx.fillRect(25, -10, 1, 1);
-      ctx.globalAlpha = 1;
-    }
+    // 碗里的糖：用这一户的 accent 画两颗
+    ctx.fillStyle = accent;
+    ctx.fillRect(19, -12, 2, 2);
+    ctx.fillRect(24, -13, 2, 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+    ctx.fillRect(19, -12, 1, 1);
+    ctx.globalAlpha = 0.45 + pulse * 0.3;
+    ctx.fillStyle = accent;
+    ctx.fillRect(20, -15, 1, 1);
+    ctx.fillRect(25, -10, 1, 1);
+    ctx.globalAlpha = 1;
 
-    // 还没结算时，糖碗上方浮着一颗这一户的糖
-    if (!device.done) {
-      const bob = Math.sin(time * 2.6 + device.x * 0.02) * 1.6;
-      ctx.save();
-      ctx.translate(22, -17 + bob);
-      ctx.globalCompositeOperation = 'lighter';
-      const glow = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
-      glow.addColorStop(0, `${accent}33`);
-      glow.addColorStop(1, `${accent}00`);
-      ctx.fillStyle = glow;
-      ctx.fillRect(-16, -16, 32, 32);
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = accent;
-      ctx.fillRect(-3, -2, 6, 4);
-      ctx.fillRect(-5, -3, 2, 2);
-      ctx.fillRect(3, -3, 2, 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillRect(-2, -2, 1, 1);
-      ctx.restore();
-    }
+    // 糖碗上方浮着这一户的糖：做完的门也一样，糖还可以再要一次
+    const bob = Math.sin(time * 2.6 + device.x * 0.02) * 1.6;
+    ctx.save();
+    ctx.translate(22, -17 + bob);
+    ctx.globalCompositeOperation = 'lighter';
+    const glow = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
+    glow.addColorStop(0, `${accent}33`);
+    glow.addColorStop(1, `${accent}00`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(-16, -16, 32, 32);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = accent;
+    ctx.fillRect(-3, -2, 6, 4);
+    ctx.fillRect(-5, -3, 2, 2);
+    ctx.fillRect(3, -3, 2, 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.fillRect(-2, -2, 1, 1);
+    ctx.restore();
 
     // 捣蛋的彩纸：从门缝往外飘一小会儿
     if (device.flash > 0) {
@@ -4174,7 +4371,7 @@ export class Renderer {
     }
 
     // 玩家走近时，门槛上有一小圈暖光
-    if (near && !device.done) {
+    if (near) {
       ctx.globalCompositeOperation = 'lighter';
       const halo = ctx.createRadialGradient(0, -6, 2, 0, -6, 30);
       halo.addColorStop(0, `rgba(255, 212, 130, ${0.16 + pulse * 0.12})`);
@@ -4188,7 +4385,7 @@ export class Renderer {
   }
 
   /** 门牌上的 1–10：最小号的 3×5 点阵数字。 */
-  drawCandyDoorNumber(index, accent, lit) {
+  drawCandyDoorNumber(index, accent) {
     const patterns = {
       0: ['111', '101', '101', '101', '111'],
       1: ['010', '110', '010', '010', '111'],
@@ -4208,8 +4405,8 @@ export class Renderer {
     ctx.translate(-Math.floor(width / 2), -42);
     ctx.fillStyle = 'rgba(12, 7, 15, 0.8)';
     ctx.fillRect(-2, -2, width + 4, 9);
-    ctx.fillStyle = lit ? accent : '#6b5a6d';
-    ctx.globalAlpha = lit ? 0.95 : 0.6;
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.95;
     for (let d = 0; d < text.length; d += 1) {
       const rows = patterns[text[d]];
       if (!rows) continue;
@@ -4224,27 +4421,28 @@ export class Renderer {
   }
 
   /**
-   * 路边的石鼓：一块嵌在石座里的旧面具，面具后面藏着一团还没跟上的影子。
-   * 敲过之后眼睛暗下去，影子已经站到队伍里了。
+   * 路边的石鼓：一块嵌在石座里的旧面具，面具后面站着还没跟上的客人。
+   * 敲过之后眼睛暗下去，客人已经站到队伍里了。
+   *
+   * 没敲过的石鼓是这一段里唯一能请到同行者的地方，所以要和终点门用同一套
+   * 语言把自己标出来：地面一汪光池、一柱往上冒火星的光、鼓顶一枚一直往下
+   * 指的箭头，旁边还站着一个半透明的、就是你要请的那位。颜色跟着客人走
+   * （科学怪人是绿的，幽灵是白的），一眼就知道「这里有个人可以带走」，
+   * 也不会和终点的暖光混淆。
    */
   drawMaskDevice(device, game, time) {
     const ctx = this.ctx;
     const joined = Boolean(device.joined);
     const nearby = game?.getNearbyParadeDevice?.()?.id === device.id;
-    const pulse = 0.62 + Math.sin(time * 1.9 + device.x * 0.02) * 0.14;
-    const glow = joined ? 0 : nearby ? 0.24 : 0.14;
+    const guest = (device.yokaiIds ?? []).map((id) => YOKAI[id]).find(Boolean);
+    const tint = guest?.accent ? hexToRgb(guest.accent) : '255, 176, 102';
 
     ctx.save();
     ctx.translate(Math.round(device.x), Math.round(device.y));
 
     if (!joined) {
-      ctx.globalCompositeOperation = 'lighter';
-      const aura = ctx.createRadialGradient(0, -22, 2, 0, -22, nearby ? 38 : 30);
-      aura.addColorStop(0, `rgba(255, 156, 92, ${glow * pulse})`);
-      aura.addColorStop(1, 'rgba(255, 120, 70, 0)');
-      ctx.fillStyle = aura;
-      ctx.fillRect(-42, -58, 84, 62);
-      ctx.globalCompositeOperation = 'source-over';
+      this.drawMaskBeacon(time, tint, nearby);
+      this.drawWaitingGuests(device, time, nearby);
     }
 
     // 石座
@@ -4293,20 +4491,6 @@ export class Renderer {
     ctx.fillRect(-11, -32, 2, 5);
     ctx.fillRect(9, -32, 2, 5);
 
-    // 还没加入的影子：一小团伏在面具后面
-    if (!joined) {
-      ctx.globalAlpha = 0.3 + Math.sin(time * 2.1) * 0.08;
-      ctx.fillStyle = '#120a18';
-      ctx.fillRect(-5, -40 - Math.sin(time * 1.6) * 2, 10, 8);
-      ctx.fillRect(-3, -44 - Math.sin(time * 1.6) * 2, 6, 5);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = '#ffd29a';
-      ctx.globalAlpha = 0.6 + Math.sin(time * 4.1) * 0.2;
-      ctx.fillRect(-2, -41 - Math.sin(time * 1.6) * 2, 1, 1);
-      ctx.fillRect(1, -41 - Math.sin(time * 1.6) * 2, 1, 1);
-      ctx.globalAlpha = 1;
-    }
-
     // 敲过之后飘着的一小簇余烬
     if (joined) {
       ctx.globalCompositeOperation = 'lighter';
@@ -4319,6 +4503,161 @@ export class Renderer {
       }
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 还站在石鼓边、没跟上的客人：画成半透明的影子，五官还在，但不该被当成
+   * 已经入队的同行者，所以整体压到五六成，脚下再垫一圈同色的光。
+   * 一段里最多有两位客人等在鼓后，按人数左右排开，画在石鼓后面。
+   */
+  drawWaitingGuests(device, time, nearby) {
+    const guests = (device.yokaiIds ?? []).map((id) => YOKAI[id]).filter(Boolean);
+    if (!guests.length) return;
+
+    const ctx = this.ctx;
+    const spread = guests.length === 1 ? [17] : guests.length === 2 ? [-18, 18] : [-27, 0, 27];
+    const size = 96;
+    if (!this.guestCanvas) {
+      this.guestCanvas = document.createElement('canvas');
+      this.guestCanvas.width = size;
+      this.guestCanvas.height = size;
+    }
+    const scratch = this.guestCanvas.getContext('2d');
+    scratch.imageSmoothingEnabled = false;
+
+    guests.forEach((guest, index) => {
+      const sway = Math.sin(time * 1.5 + index * 2.1);
+      scratch.setTransform(1, 0, 0, 1, 0, 0);
+      scratch.clearRect(0, 0, size, size);
+      drawYokaiSprite(scratch, size / 2, size - 16, guest, {
+        time,
+        facing: index % 2 === 0 ? 1 : -1,
+        moving: false,
+        airborne: false,
+        crouching: false,
+        walkPhase: sway * 0.6,
+        inWater: false,
+        gliding: false,
+        charge: 0,
+      });
+
+      const x = spread[index] ?? index * 20;
+      const tint = hexToRgb(guest.accent ?? '#ffb45e');
+      const alpha = (nearby ? 0.72 : 0.55) + sway * 0.07;
+
+      // 每个人脚下一小汪同色的光，和石鼓的光柱连成一片
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.save();
+      ctx.translate(x, -1);
+      ctx.scale(1, 0.3);
+      const foot = ctx.createRadialGradient(0, 0, 1, 0, 0, 20);
+      foot.addColorStop(0, `rgba(${tint}, ${alpha * 0.32})`);
+      foot.addColorStop(1, `rgba(${tint}, 0)`);
+      ctx.fillStyle = foot;
+      ctx.fillRect(-20, -20, 40, 40);
+      ctx.restore();
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(this.guestCanvas, Math.round(x - size / 2), -size + 16 + Math.round(sway));
+      ctx.restore();
+    });
+  }
+
+  /**
+   * 石鼓的信标。和终点门是同一套画法，但更矮、更细：终点门的光顶到画面
+   * 上沿，石鼓的光只到鼓顶上方一点，走到跟前时整柱再亮一格。
+   */
+  drawMaskBeacon(time, tint, nearby) {
+    const ctx = this.ctx;
+    const pulse = 0.8 + Math.sin(time * 1.9) * 0.14;
+    const strength = nearby ? 1 : 0.78;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // 地面光池：鼓座底下的一汪灯色
+    ctx.save();
+    ctx.translate(0, -1);
+    ctx.scale(1, 0.26);
+    const pool = ctx.createRadialGradient(0, 0, 2, 0, 0, 58);
+    pool.addColorStop(0, `rgba(${tint}, ${0.4 * pulse * strength})`);
+    pool.addColorStop(0.45, `rgba(${tint}, ${0.16 * pulse * strength})`);
+    pool.addColorStop(1, `rgba(${tint}, 0)`);
+    ctx.fillStyle = pool;
+    ctx.fillRect(-58, -58, 116, 116);
+    ctx.restore();
+
+    // 光柱：从鼓座里升起来，外面几层宽光往里收，中间一根更亮的芯
+    const beam = ctx.createLinearGradient(0, -132, 0, 0);
+    beam.addColorStop(0, `rgba(${tint}, 0)`);
+    beam.addColorStop(0.35, `rgba(${tint}, ${0.07 * pulse * strength})`);
+    beam.addColorStop(1, `rgba(${tint}, ${0.3 * pulse * strength})`);
+    ctx.fillStyle = beam;
+    for (const [width, alpha] of [
+      [44, 0.5],
+      [28, 0.62],
+      [13, 0.78],
+    ]) {
+      ctx.globalAlpha = alpha * strength;
+      ctx.fillRect(-width / 2, -132, width, 132);
+    }
+    ctx.globalAlpha = 1;
+
+    // 顺着光柱往上飘的火星
+    for (let i = 0; i < 8; i += 1) {
+      const rise = (time * 0.24 + i * 0.127) % 1;
+      const fx = Math.sin(time * 1.3 + i * 2.1) * 12;
+      const fy = -6 - rise * 112;
+      ctx.fillStyle = `rgba(${tint}, ${(1 - rise) * 0.8 * strength})`;
+      ctx.fillRect(Math.round(fx), Math.round(fy), 1, i % 2 === 0 ? 2 : 1);
+    }
+
+    // 鼓顶的箭头：一直往下指着石鼓，和终点门顶上那枚是同一个形状
+    const bob = Math.sin(time * 1.8) * 3;
+    const ay = Math.round(-92 + bob);
+    const halo = ctx.createRadialGradient(0, ay, 2, 0, ay, 24);
+    halo.addColorStop(0, `rgba(${tint}, ${0.36 * pulse * strength})`);
+    halo.addColorStop(1, `rgba(${tint}, 0)`);
+    ctx.fillStyle = halo;
+    ctx.fillRect(-26, ay - 26, 52, 52);
+
+    // 箭杆：有了它，鼓顶那团亮才读得出是「往下指」
+    ctx.fillStyle = `rgba(${tint}, ${0.72 * strength})`;
+    ctx.fillRect(-2, ay - 22, 4, 14);
+    for (let i = 0; i < 5; i += 1) {
+      const w = [15, 13, 9, 6, 2][i];
+      ctx.fillStyle = `rgba(${tint}, ${(0.9 - i * 0.06) * strength})`;
+      ctx.fillRect(-w / 2, ay - 9 + i * 2, w, 2);
+    }
+    ctx.fillStyle = `rgba(255, 246, 219, ${0.95 * strength})`;
+    ctx.fillRect(-1, ay - 20, 2, 12);
+    ctx.fillRect(-3, ay - 7, 6, 2);
+    ctx.fillRect(-2, ay - 5, 4, 2);
+    ctx.fillRect(-1, ay - 3, 2, 2);
+
+    // 站到跟前时，脚边一圈一圈往外扩的涟漪
+    if (nearby) {
+      for (let i = 0; i < 2; i += 1) {
+        const spread = (time * 0.75 + i * 0.5) % 1;
+        const radius = 12 + spread * 34;
+        ctx.globalAlpha = (1 - spread) * 0.55;
+        ctx.save();
+        ctx.translate(0, -1);
+        ctx.scale(1, 0.3);
+        ctx.strokeStyle = `rgba(${tint}, 0.9)`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
     }
 
     ctx.restore();
@@ -4731,54 +5070,103 @@ export class Renderer {
       ctx.fillStyle = '#e9e3d6';
       ctx.fillRect(-4, -2, 3, 3);
       ctx.fillRect(1, -2, 3, 3);
-    } else if (type === 'wizardHat') {
-      ctx.fillStyle = '#3a2366';
-      ctx.fillRect(-5, 2, 10, 2);
-      ctx.fillRect(-4, -1, 8, 3);
+    } else if (type === 'vampireCollar') {
+      // 立起来的高竖领
+      ctx.fillStyle = '#2a0f1a';
+      ctx.fillRect(-5, -4, 3, 9);
+      ctx.fillRect(2, -4, 3, 9);
+      ctx.fillRect(-3, -4, 6, 2);
+      ctx.fillStyle = '#5c1f2e';
+      ctx.fillRect(-4, -3, 1, 7);
+      ctx.fillRect(3, -3, 1, 7);
+      ctx.fillStyle = '#e0b35c';
+      ctx.fillRect(-1, -4, 2, 2);
+    } else if (type === 'vampireCape') {
+      // 燕尾披风：两条尾巴垂下来
+      ctx.fillStyle = '#1d0e1a';
+      ctx.fillRect(-5, -5, 10, 6);
+      ctx.fillRect(-6, 1, 4, 5);
+      ctx.fillRect(2, 1, 4, 5);
+      ctx.fillStyle = '#5c1f2e';
+      ctx.fillRect(-4, -4, 2, 6);
+      ctx.fillRect(2, -3, 2, 6);
+      ctx.fillStyle = '#e0b35c';
+      ctx.fillRect(-1, -5, 2, 2);
+    } else if (type === 'fangs') {
+      // 一对尖牙
+      ctx.fillStyle = '#f7f1e7';
+      ctx.fillRect(-4, -4, 3, 3);
+      ctx.fillRect(1, -4, 3, 3);
+      ctx.fillRect(-3, -1, 1, 3);
+      ctx.fillRect(2, -1, 1, 3);
+      ctx.fillStyle = '#cfc4b1';
+      ctx.fillRect(-4, -1, 3, 1);
+      ctx.fillRect(1, -1, 3, 1);
+    } else if (type === 'mummyEye') {
+      // 一条蒙眼的布条
+      ctx.fillStyle = '#e3d5b0';
+      ctx.fillRect(-6, -4, 12, 6);
+      ctx.fillStyle = '#b7a681';
+      ctx.fillRect(-6, 1, 12, 1);
+      ctx.fillStyle = '#171020';
+      ctx.fillRect(-4, -2, 8, 2);
+      ctx.fillStyle = '#ffd678';
+      ctx.fillRect(-1, -2, 1, 1);
+    } else if (type === 'mummyWrap') {
+      // 一卷旧绷带
+      ctx.fillStyle = '#e3d5b0';
+      ctx.fillRect(-5, -4, 10, 9);
+      ctx.fillStyle = '#c6b58d';
+      ctx.fillRect(-5, -2, 10, 1);
+      ctx.fillRect(-5, 1, 10, 1);
+      ctx.fillStyle = '#f0e5c6';
+      ctx.fillRect(-4, -3, 4, 1);
+      ctx.fillStyle = '#8d7c58';
+      ctx.fillRect(2, -1, 3, 2);
+    } else if (type === 'mummyTail') {
+      // 一段松开的布尾
+      ctx.fillStyle = '#e3d5b0';
+      ctx.fillRect(-2, -6, 4, 4);
+      ctx.fillRect(-4, -2, 5, 3);
+      ctx.fillRect(-2, 1, 5, 3);
+      ctx.fillRect(0, 4, 4, 2);
+      ctx.fillStyle = '#c6b58d';
+      ctx.fillRect(-2, -3, 2, 1);
+      ctx.fillRect(-1, 1, 3, 1);
+    } else if (type === 'witchHat') {
+      // 宽檐尖帽
+      ctx.fillStyle = '#2c1836';
+      ctx.fillRect(-6, 1, 12, 2);
+      ctx.fillRect(-4, -1, 8, 2);
       ctx.fillRect(-3, -3, 6, 2);
       ctx.fillRect(-2, -5, 4, 2);
-      ctx.fillRect(-1, -7, 3, 2);
-      ctx.fillStyle = '#ff7d1a';
-      ctx.fillRect(-4, 1, 8, 1);
+      ctx.fillRect(-1, -8, 3, 3);
+      ctx.fillStyle = '#6b3a86';
+      ctx.fillRect(-6, 1, 12, 1);
+      ctx.fillStyle = '#b58fd6';
+      ctx.fillRect(0, -6, 1, 1);
+    } else if (type === 'broom') {
+      // 一把旧扫帚
+      ctx.fillStyle = '#7a5128';
+      ctx.fillRect(-1, -2, 2, 10);
+      ctx.fillStyle = '#c9a35b';
+      ctx.fillRect(-5, -6, 10, 2);
+      ctx.fillRect(-4, -8, 8, 2);
+      ctx.fillStyle = '#8a6a35';
+      ctx.fillRect(-5, -5, 10, 1);
+      ctx.fillRect(-2, 0, 1, 1);
+    } else if (type === 'catDoll') {
+      // 黑猫布偶：两只黄眼睛
+      ctx.fillStyle = '#171020';
+      ctx.fillRect(-4, -2, 8, 6);
+      ctx.fillRect(-3, -6, 6, 4);
+      ctx.fillRect(-4, -8, 2, 2);
+      ctx.fillRect(2, -8, 2, 2);
       ctx.fillStyle = '#ffd678';
-      ctx.fillRect(-1, -4, 1, 1);
-    } else if (type === 'starCloak') {
-      ctx.fillStyle = '#2c1a4d';
-      ctx.fillRect(-5, -4, 10, 8);
-      ctx.fillStyle = '#3f2a6b';
-      ctx.fillRect(-4, -3, 3, 6);
-      ctx.fillStyle = '#ffd678';
-      ctx.fillRect(-2, -2, 1, 1);
-      ctx.fillRect(2, 0, 1, 1);
-      ctx.fillRect(0, 2, 1, 1);
-      ctx.fillStyle = '#1b102c';
-      ctx.fillRect(-5, 3, 10, 1);
-    } else if (type === 'wand') {
-      ctx.fillStyle = '#5b3a29';
-      ctx.fillRect(-1, -2, 2, 7);
-      ctx.fillStyle = '#ff9b3d';
-      ctx.fillRect(-3, -5, 6, 4);
-      ctx.fillStyle = '#ffd678';
-      ctx.fillRect(-2, -4, 2, 2);
-    } else if (type === 'spellbook') {
-      ctx.fillStyle = '#4b2d38';
-      ctx.fillRect(-5, -4, 10, 7);
-      ctx.fillStyle = '#f2e4cc';
-      ctx.fillRect(-4, -3, 8, 5);
-      ctx.fillStyle = '#7f5046';
-      ctx.fillRect(-1, -3, 1, 5);
-      ctx.fillStyle = '#c9520d';
-      ctx.fillRect(-5, -1, 2, 2);
-    } else if (type === 'beard') {
-      ctx.fillStyle = '#e6e0ea';
-      ctx.fillRect(-5, -4, 10, 3);
-      ctx.fillRect(-4, -1, 8, 2);
-      ctx.fillRect(-3, 1, 6, 2);
-      ctx.fillRect(-2, 3, 4, 1);
-      ctx.fillRect(-1, 4, 2, 1);
-      ctx.fillStyle = '#c8c0d2';
-      ctx.fillRect(-3, -2, 2, 1);
-      ctx.fillRect(1, 0, 2, 1);
+      ctx.fillRect(-2, -4, 2, 1);
+      ctx.fillRect(1, -4, 2, 1);
+      ctx.fillStyle = '#3a2233';
+      ctx.fillRect(3, 2, 1, 2);
     } else if (type === 'candyCorn') {
       ctx.fillStyle = '#fff4d8';
       ctx.fillRect(-2, -6, 4, 2);
@@ -5021,12 +5409,12 @@ export class Renderer {
     const ctx = this.ctx;
     const alpha = game.damageFlash * 0.45;
     const gradient = ctx.createRadialGradient(
-      VIEW.WIDTH / 2,
-      VIEW.HEIGHT / 2,
-      VIEW.WIDTH * 0.18,
-      VIEW.WIDTH / 2,
-      VIEW.HEIGHT / 2,
-      VIEW.WIDTH * 0.66,
+      this.viewWidth / 2,
+      this.viewHeight / 2,
+      this.viewWidth * 0.18,
+      this.viewWidth / 2,
+      this.viewHeight / 2,
+      this.viewWidth * 0.66,
     );
     gradient.addColorStop(0, 'rgba(255, 100, 30, 0)');
     gradient.addColorStop(0.72, `rgba(255, 74, 20, ${alpha * 0.3})`);
@@ -5041,7 +5429,7 @@ export class Renderer {
    *   - 第三段（恶劣心境）：世界随路程慢慢褪色、脚下越来越沉；
    *     经过旧灯时短暂「透亮」，颜色和脚步一起回来一会儿；
    *   - 第二段（惊恐障碍）：先心跳脉动，再把视野从四周向角色收拢成一只小孔；
-   *     按住 E 呼吸后，孔慢慢退开；
+   *     按住空格呼吸后，孔慢慢退开；
    *   - 南瓜车任务超时：整屏红色报警、扫描带闪烁。
    */
   /** 雨川的雨。画在屏幕空间，不参与碰撞。 */
@@ -5094,12 +5482,12 @@ export class Renderer {
     ctx.restore();
 
     const vignette = ctx.createRadialGradient(
-      VIEW.WIDTH / 2,
-      VIEW.HEIGHT / 2,
-      VIEW.WIDTH * 0.24,
-      VIEW.WIDTH / 2,
-      VIEW.HEIGHT / 2,
-      VIEW.WIDTH * 0.68,
+      this.viewWidth / 2,
+      this.viewHeight / 2,
+      this.viewWidth * 0.24,
+      this.viewWidth / 2,
+      this.viewHeight / 2,
+      this.viewWidth * 0.68,
     );
     vignette.addColorStop(0, 'rgba(8, 3, 12, 0)');
     vignette.addColorStop(0.7, 'rgba(8, 3, 12, 0.12)');
@@ -5124,12 +5512,12 @@ export class Renderer {
 
   /**
    * 多拍呼吸的引导环（`breaths > 1` 时才会用到）：外圈随着一拍向内收，
-   * 收到发亮的目标带里按 E。当前第二段只配一次呼吸，走的是角色的那只孔。
+   * 收到发亮的目标带里按空格。当前第二段只配一次呼吸，走的是角色的那只孔。
    * 不做惩罚判定，按早了只响一声。
    */
   drawBreathRing(ctx, panic, time) {
-    const cx = VIEW.WIDTH / 2;
-    const cy = VIEW.HEIGHT * 0.62;
+    const cx = this.viewWidth / 2;
+    const cy = this.viewHeight * 0.62;
     const phase = panic.beat ?? 0;
     const radius = 58 - phase * 34;
     const start = panic.windowStart ?? 0.46;
@@ -5288,7 +5676,7 @@ export class Renderer {
     }
 
     // 惊恐发作：视野从四周向角色收拢，只剩身边一小圈；颜色退掉、天花板压低，
-    // 心跳一下一下再把这一圈收紧。按住 E 呼吸后，由 memorialTunnel 慢慢打开。
+    // 心跳一下一下再把这一圈收紧。按住空格呼吸后，由 memorialTunnel 慢慢打开。
     if (session.memorialPanic) {
       const panic = session.memorialPanic;
       const warn = panic.phase === 'warn';

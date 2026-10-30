@@ -144,9 +144,11 @@ export class ParticleSystem {
     }
   }
 
-  spawnCandyBurst(x, y) {
+  spawnCandyBurst(x, y, { accent = null, count = 6 } = {}) {
     const colors = ['#ff6fa5', '#ffd166', '#fff4d8', '#ff9b3d'];
-    for (let i = 0; i < 6; i += 1) {
+    // 拿糖的动效用这颗糖自己的颜色，让画面里的爆开和卡片是同一个颜色。
+    if (accent) colors.push(accent, accent);
+    for (let i = 0; i < count; i += 1) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 24 + Math.random() * 34;
       this.items.push({

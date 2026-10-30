@@ -1,14 +1,18 @@
 import { Game } from './game.js';
 import * as Save from './save.js';
 import { getItemDef } from './collectibles.js';
-import { CANDY_EFFECTS, CANDY_EFFECT_TYPES } from './candyEffects.js';
 import { BUFF_CANDIES, BUFF_CANDY_TYPES } from './buffCandies.js';
 import { PARADE_ROUTE, PARADE_TRACKS } from './parade.js';
+import { MEMORIAL_ROUTE } from './memorial.js';
 import { TouchControls, isMobileDevice } from './touch.js';
 import { ShoeVoice } from './shoeVoice.js';
 import { CLASS_LINES } from './classJokes.js';
 import { drawYokaiSprite } from './yokai.js';
+import { paintShoePair } from './shoeFollowers.js';
+import { ShoeTalk, SHOE_THEORY } from './shoeTalk.js';
 import { PuzzleView } from './puzzleView.js';
+import { CONTROL_KEYS, CONTROL_KEYS_MOBILE, getHintContent } from './hints.js';
+import { MOBILE } from './config.js';
 
 /**
  * 版本开关：默认「班级版」，`?v=public` 为公开版。
@@ -26,31 +30,67 @@ const startScreen = document.querySelector('#startScreen');
 const trackScreen = document.querySelector('#trackScreen');
 const pauseScreen = document.querySelector('#pauseScreen');
 const backpackScreen = document.querySelector('#backpackScreen');
-const pouchScreen = document.querySelector('#pouchScreen');
+const hintScreen = document.querySelector('#hintScreen');
 const trickDoorScreen = document.querySelector('#trickDoorScreen');
 const trickPuzzleScreen = document.querySelector('#trickPuzzleScreen');
 const rosterScreen = document.querySelector('#rosterScreen');
 const sacrificeScreen = document.querySelector('#sacrificeScreen');
 const defeatScreen = document.querySelector('#defeatScreen');
 const completeScreen = document.querySelector('#completeScreen');
+const letterScreen = document.querySelector('#letterScreen');
+const letterSealed = document.querySelector('#letterSealed');
+const letterOpened = document.querySelector('#letterOpened');
+const openLetterButton = document.querySelector('#openLetterButton');
+const laterLetterButton = document.querySelector('#laterLetterButton');
+const talkToShoeButton = document.querySelector('#talkToShoeButton');
+const closeLetterButton = document.querySelector('#closeLetterButton');
+const shoeTalkScreen = document.querySelector('#shoeTalkScreen');
+const shoeTalkCanvas = document.querySelector('#shoeTalkCanvas');
+const shoeTalkBubbles = document.querySelector('#shoeTalkBubbles');
+const closeShoeTalkButton = document.querySelector('#closeShoeTalkButton');
+const shoeTheoryButton = document.querySelector('#shoeTheoryButton');
+const shoeTalkTheory = document.querySelector('#shoeTalkTheory');
+const shoeTalkTheoryTitle = document.querySelector('#shoeTalkTheoryTitle');
+const shoeTalkTheoryBody = document.querySelector('#shoeTalkTheoryBody');
+const shoeTalkReplayButton = document.querySelector('#shoeTalkReplayButton');
+const shoeTalkDoneButton = document.querySelector('#shoeTalkDoneButton');
+const shoeRackSection = document.querySelector('#shoeRackSection');
+const shoeRack = document.querySelector('#shoeRack');
+const shoeRackDetail = document.querySelector('#shoeRackDetail');
 
+const modeActions = document.querySelector('#modeActions');
 const startTutorialButton = document.querySelector('#startTutorialButton');
+const tutorialBadge = document.querySelector('#tutorialBadge');
+const tutorialDetail = document.querySelector('#tutorialDetail');
+const replayTutorialButton = document.querySelector('#replayTutorialButton');
 const startMemorialButton = document.querySelector('#startMemorialButton');
 const startParadeButton = document.querySelector('#startParadeButton');
 const startTrickButton = document.querySelector('#startTrickButton');
+const mainRouteNote = document.querySelector('#mainRouteNote');
+const sideRouteNote = document.querySelector('#sideRouteNote');
 const continueButton = document.querySelector('#continueButton');
 const continueLabel = document.querySelector('#continueLabel');
 const continueDetail = document.querySelector('#continueDetail');
 const clearSaveButton = document.querySelector('#clearSaveButton');
+const startLetterButton = document.querySelector('#startLetterButton');
 const closeTrackButton = document.querySelector('#closeTrackButton');
 const trackGrid = document.querySelector('#trackGrid');
 const resumeButton = document.querySelector('#resumeButton');
 const pauseRestartButton = document.querySelector('#pauseRestartButton');
+const pauseHintButton = document.querySelector('#pauseHintButton');
 const pauseExitButton = document.querySelector('#pauseExitButton');
 const defeatRestartButton = document.querySelector('#defeatRestartButton');
 const defeatExitButton = document.querySelector('#defeatExitButton');
 const closeBackpackButton = document.querySelector('#closeBackpackButton');
-const closePouchButton = document.querySelector('#closePouchButton');
+const closeHintButton = document.querySelector('#closeHintButton');
+const hintTitle = document.querySelector('#hintTitle');
+const hintStep = document.querySelector('#hintStep');
+const hintObjective = document.querySelector('#hintObjective');
+const hintList = document.querySelector('#hintList');
+const hintKeys = document.querySelector('#hintKeys');
+const screenMenuButton = document.querySelector('#screenMenuButton');
+const screenHintButton = document.querySelector('#screenHintButton');
+const screenCorner = document.querySelector('#screenCorner');
 const closeTrickDoorButton = document.querySelector('#closeTrickDoorButton');
 const trickDoorPortrait = document.querySelector('#trickDoorPortrait');
 const trickDoorKind = document.querySelector('#trickDoorKind');
@@ -72,7 +112,6 @@ const trickPuzzleStage = document.querySelector('#trickPuzzleStage');
 const trickPuzzleFeedback = document.querySelector('#trickPuzzleFeedback');
 const trickPuzzleLeaveButton = document.querySelector('#trickPuzzleLeaveButton');
 const closeRosterButton = document.querySelector('#closeRosterButton');
-const skipTutorialButton = document.querySelector('#skipTutorialButton');
 const replayButton = document.querySelector('#replayButton');
 const completeExitButton = document.querySelector('#completeExitButton');
 
@@ -86,7 +125,6 @@ const panelProgressText = document.querySelector('#panelProgressText');
 const panelProgressBar = document.querySelector('#panelProgressBar');
 const panelBones = document.querySelector('#panelBones');
 const panelHands = document.querySelector('#panelHands');
-const panelCandies = document.querySelector('#panelCandies');
 const panelCostume = document.querySelector('#panelCostume');
 const panelTime = document.querySelector('#panelTime');
 const compactCells = [
@@ -117,6 +155,7 @@ const panelGrid = document.querySelector('#panelGrid');
 const memorialInfo = document.querySelector('#memorialInfo');
 const memorialCondition = document.querySelector('#memorialCondition');
 const memorialBody = document.querySelector('#memorialBody');
+const memorialBodyEn = document.querySelector('#memorialBodyEn');
 const memorialLights = document.querySelector('#memorialLights');
 const memorialGateRow = document.querySelector('#memorialGateRow');
 const memorialGates = document.querySelector('#memorialGates');
@@ -153,7 +192,6 @@ const sacrificeCount = document.querySelector('#sacrificeCount');
 const sacrificeCopy = document.querySelector('#sacrificeCopy');
 const defeatCopy = document.querySelector('#defeatCopy');
 const statBones = document.querySelector('#statBones');
-const statCandies = document.querySelector('#statCandies');
 const statHands = document.querySelector('#statHands');
 const statCostumes = document.querySelector('#statCostumes');
 const statMemories = document.querySelector('#statMemories');
@@ -201,6 +239,7 @@ const fieldSpeedMark = document.querySelector('#fieldSpeedMark');
 const staticHud = document.querySelector('#staticHud');
 const staticHudStatus = document.querySelector('#staticHudStatus');
 const staticHudCharge = document.querySelector('#staticHudCharge');
+const staticHudDistance = document.querySelector('#staticHudDistance');
 const staticHudForce = document.querySelector('#staticHudForce');
 
 const interactionPrompt = document.querySelector('#interactionPrompt');
@@ -214,20 +253,59 @@ const tutorialPips = document.querySelector('#tutorialPips');
 
 const gameScreen = document.querySelector('#gameScreen');
 const screenUi = document.querySelector('#screenUi');
+// 落幕的旁白和名单：整块由 ending.js 填字，这里只负责在进出这一幕时收放。
+const endingLayer = document.querySelector('#endingLayer');
 const questTrack = document.querySelector('#questTrack');
 const questText = document.querySelector('#questText');
 const questTime = document.querySelector('#questTime');
 const questProgress = document.querySelector('#questProgress');
+const questExitButton = document.querySelector('#questExitButton');
+const questFoot = document.querySelector('#questFoot');
 
 const toast = document.querySelector('#toast');
+const candyReward = document.querySelector('#candyReward');
+const candyRewardCard = candyReward.querySelector('.candy-reward-card');
+const candyRewardKicker = document.querySelector('#candyRewardKicker');
+const candyRewardGlyph = document.querySelector('#candyRewardGlyph');
+const candyRewardName = document.querySelector('#candyRewardName');
+const candyRewardTag = document.querySelector('#candyRewardTag');
+const candyRewardCount = document.querySelector('#candyRewardCount');
+const candyRewardSparks = document.querySelector('#candyRewardSparks');
+const shoeReward = document.querySelector('#shoeReward');
+const shoeRewardCard = shoeReward.querySelector('.shoe-reward-card');
+const shoeRewardKicker = document.querySelector('#shoeRewardKicker');
+const shoeRewardCanvas = document.querySelector('#shoeRewardCanvas');
+const shoeRewardName = document.querySelector('#shoeRewardName');
+const shoeRewardTag = document.querySelector('#shoeRewardTag');
+const shoeRewardEn = document.querySelector('#shoeRewardEn');
+const shoeRewardCount = document.querySelector('#shoeRewardCount');
+const shoeRewardSparks = document.querySelector('#shoeRewardSparks');
+const openingCard = document.querySelector('#openingCard');
+const openingCn = document.querySelector('#openingCn');
+const openingEn = document.querySelector('#openingEn');
+const openingTutorialToggle = document.querySelector('#openingTutorialToggle');
+const openingTutorialTitle = document.querySelector('#openingTutorialTitle');
+const openingTutorialMark = document.querySelector('#openingTutorialMark');
+const openingTutorial = document.querySelector('#openingTutorial');
+const openingTutorialCn = document.querySelector('#openingTutorialCn');
+const openingSkip = document.querySelector('#openingSkip');
+const blessingCard = document.querySelector('#blessingCard');
+const blessingKicker = document.querySelector('#blessingKicker');
+const blessingCn = document.querySelector('#blessingCn');
+const blessingEn = document.querySelector('#blessingEn');
+const signCard = document.querySelector('#signCard');
+const signKicker = document.querySelector('#signKicker');
+const signCn = document.querySelector('#signCn');
+const signEn = document.querySelector('#signEn');
+const signClose = document.querySelector('#signClose');
 const touchRoot = document.querySelector('#touchControls');
+const touchInteractButton = document.querySelector('#touchInteractButton');
 const topStatusText = document.querySelector('#topStatusText');
 const completeKicker = document.querySelector('#completeKicker');
 const completeTitle = document.querySelector('#completeTitle');
 const completeCopy = document.querySelector('#completeCopy');
 const completeTime = document.querySelector('#completeTime');
 const completeBones = document.querySelector('#completeBones');
-const completeCandies = document.querySelector('#completeCandies');
 const completeHands = document.querySelector('#completeHands');
 const completeCostumes = document.querySelector('#completeCostumes');
 const completeFit = document.querySelector('#completeFit');
@@ -235,25 +313,59 @@ const completeFit = document.querySelector('#completeFit');
 const inventoryBones = document.querySelector('#inventoryBones');
 const inventoryBonesTotal = document.querySelector('#inventoryBonesTotal');
 const inventoryHands = document.querySelector('#inventoryHands');
-const inventoryCandies = document.querySelector('#inventoryCandies');
-const inventoryCandyTypes = document.querySelector('#inventoryCandyTypes');
-const candyCatalogue = document.querySelector('#candyCatalogue');
 const inventoryList = document.querySelector('#inventoryList');
 const inventoryTime = document.querySelector('#inventoryTime');
 const inventoryFitItem = document.querySelector('#inventoryFitItem');
 const inventoryFit = document.querySelector('#inventoryFit');
+const inventoryGrid = document.querySelector('#inventoryGrid');
+const inventoryHandBox = document.querySelector('#inventoryHandBox');
+const inventoryCarryNote = document.querySelector('#inventoryCarryNote');
+const wardrobePanel = document.querySelector('#wardrobePanel');
 const wardrobeGrid = document.querySelector('#wardrobeGrid');
+const wardrobeProgress = document.querySelector('#wardrobeProgress');
 const placementPanel = document.querySelector('#placementPanel');
 const placementField = document.querySelector('#placementField');
 const placementItems = document.querySelector('#placementItems');
 const pouchGrid = document.querySelector('#pouchGrid');
 const pouchTotal = document.querySelector('#pouchTotal');
+const rosterPouchGrid = document.querySelector('#rosterPouchGrid');
+const rosterPouchTotal = document.querySelector('#rosterPouchTotal');
 
 const PLACE_ORDER = ['rib', 'femur', 'skull', 'rightHand'];
 
 const game = new Game(canvas);
+// 手机屏幕小：把镜头里的世界整体放大一点，人物和环境才看得清；
+// 最右端再给右手按键留一条空白，走到头时门不会压在按键底下。
+// 这两项都记在 Game 上，之后每一张新图重建渲染器时会自动带上。
+if (isMobile) {
+  game.setCameraFraming({
+    zoom: MOBILE.cameraZoom,
+    rightPadding: MOBILE.cameraRightPadding,
+  });
+}
 // 手机上没有第二套方向键：第三段让「回音」跟着主角走。
 game.mobileAssist = isMobile;
+
+// 与皮鞋对话：独立的一块画布，不占游戏循环。信纸上的按钮和背包里的鞋都调它。
+const shoeTalk = new ShoeTalk({ canvas: shoeTalkCanvas, bubbleLayer: shoeTalkBubbles });
+shoeTalk.onQuestion = (index) => {
+  // 问到「学习的定义」时，把下面那个「皮鞋学习论」轻轻亮一下。
+  if (index === 2) shoeTheoryButton?.classList.add('is-hinting');
+};
+// 最后一句说完再停一会儿，这一幕自己收起来，不用玩家再点一次「收起」。
+// 如果这时正翻着「皮鞋学习论」，就先记下来，等他收起来再把整幕关上。
+let shoeTalkClosePending = false;
+shoeTalk.onFinish = () => {
+  if (shoeTalkScreen.hidden) return;
+  if (!shoeTalkTheory.hidden) {
+    shoeTalkClosePending = true;
+    return;
+  }
+  closeShoeTalk();
+};
+if (shoeTalkTheoryTitle) shoeTalkTheoryTitle.textContent = SHOE_THEORY.title;
+if (shoeTalkTheoryBody) shoeTalkTheoryBody.textContent = SHOE_THEORY.body;
+
 const puzzleView = new PuzzleView({
   stage: trickPuzzleStage,
   feedback: trickPuzzleFeedback,
@@ -261,24 +373,56 @@ const puzzleView = new PuzzleView({
   metaMistakes: trickPuzzleMistakes,
   onSolved: (houseId) => game.solveTrickPuzzle(houseId),
   onPersist: () => game.persist(),
+  // 谜题面板只报名：answerRight / answerWrong / flip 都由 AudioKit 合成。
+  onSound: (name) => game.audio[name]?.(),
 });
 let toastTimer = 0;
+let candyRewardTimers = [];
+let candyBumpTarget = null;
+let shoeRewardTimers = [];
+let shoeBumpTarget = null;
+let blessingTimer = 0;
+// 祝福停留的这段时间里，飘在左上角的提示先让一让：别压在她的那句话上。
+let blessingUntil = 0;
 let tutorialPipSignature = '';
 
 // 触屏按键只借用 Input 的动作集合，游戏逻辑不需要知道设备。
 // 桌面端这层一直隐藏，也不会被激活。
 const touchControls = new TouchControls(touchRoot, game.input, {
   onBag: () => toggleBagPanel(),
-  onPouch: () => togglePouchPanel(),
+  onHint: () => openHintPanel(),
   onPause: () => {
     if (game.state === 'playing') game.pause();
   },
   onInteract: () => {
-    if (game.state === 'playing') {
-      // 手机端第三段由你一个人操作：互动也固定交给主角，
-      // 回音会自动跟着走，不会抢走南瓜。
-      game.interact(game.isSneakStage() ? game.player : undefined);
+    if (game.state === 'sign') {
+      game.closeSign();
+      return;
     }
+    if (game.state !== 'playing') return;
+    // 手机只有一个「互动」按钮，按当下的情况挑一件事做：
+    // 惊恐发作时先呼吸；空着手站在能走的门边时，它跟着提示变成「离开」，
+    // 一样要点两下才真的走；身边有装置时去摸装置；其余时候抱 / 抛身边的东西。
+    if (game.isPanicActive()) {
+      game.handlePanicPress();
+      return;
+    }
+    // 站在故事路牌旁时，互动键先把路牌摊开。
+    if (game.getNearbySign()) {
+      game.openSign();
+      return;
+    }
+    if (!game.pumpkins?.getCarried(game.player) && game.getTrickExitDevice()) {
+      game.requestTrickExit();
+      return;
+    }
+    if (game.shouldUseDevice()) {
+      game.useDevice();
+      return;
+    }
+    // 手机端第三段由你一个人操作：互动也固定交给主角，
+    // 回音会自动跟着走，不会抢走南瓜。
+    game.interact(game.isSneakStage() ? game.player : undefined);
   },
 });
 
@@ -364,12 +508,429 @@ function toastDuration(message, duration) {
 
 function showToast(message, duration = 2000) {
   if (!message) return;
+  if (performance.now() < blessingUntil) return;
   toast.textContent = message;
   toast.classList.add('is-visible');
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => {
     toast.classList.remove('is-visible');
   }, toastDuration(message, duration));
+}
+
+// 追思小径每段文字的第二行：一、二段是英文，第三段换成了文言文。
+// 文言文不走斜体，换成正楷一些的字面；空行则整块收起来。
+const CJK_TEXT = /[㐀-鿿]/;
+function setSecondaryLine(node, text) {
+  if (!node) return;
+  const value = text ?? '';
+  node.textContent = value;
+  node.hidden = !value;
+  node.classList.toggle('is-verse', CJK_TEXT.test(value));
+}
+
+/** 糖纸街面板里「糖袋」那一格的数字；面板收起来时退到手机上那排精简数字。 */
+function pouchCountNode() {
+  const nodes = [trickPouch, panelPouchCount];
+  for (const slot of compactCells) {
+    if (slot.label.textContent === '糖袋' && !slot.cell.hidden) nodes.push(slot.value);
+  }
+  return nodes.find((node) => node && node.getClientRects().length) ?? null;
+}
+
+/** HUD 按 1280×720 缩放，量出来的屏幕像素要除以它才是这一层的坐标。 */
+function screenUiScale() {
+  const width = screenUi.getBoundingClientRect().width;
+  return screenUi.offsetWidth > 0 && width > 0 ? width / screenUi.offsetWidth : 1;
+}
+
+/** 糖袋计数的落点：整行那格数字靠右，落点贴右边；收起来的精简数字很小，就压在它身上。 */
+function pouchCountAnchor() {
+  const target = pouchCountNode();
+  if (!target) return null;
+  const box = target.getBoundingClientRect();
+  return {
+    x: box.width >= 60 ? box.right - 12 : box.left + box.width / 2,
+    y: box.top + box.height / 2,
+  };
+}
+
+/** 卡片飞向糖袋计数的位移，按两边此刻在屏幕上的位置算，HUD 挪过位置也对得上。 */
+function layOutCandyFlight() {
+  const anchor = pouchCountAnchor();
+  if (!anchor) return;
+  const cardBox = candyRewardCard.getBoundingClientRect();
+  const scale = screenUiScale();
+  const dx = (anchor.x - (cardBox.left + cardBox.width / 2)) / scale;
+  const dy = (anchor.y - (cardBox.top + cardBox.height / 2)) / scale;
+  candyReward.style.setProperty('--fly-x', `${Math.round(dx)}px`);
+  candyReward.style.setProperty('--fly-y', `${Math.round(dy)}px`);
+  // 中途往上抬一点，走弧线而不是直线。
+  candyReward.style.setProperty('--fly-mx', `${Math.round(dx * 0.55)}px`);
+  candyReward.style.setProperty('--fly-my', `${Math.round(dy * 0.45 - 36)}px`);
+}
+
+function bumpPouchCount() {
+  const target = pouchCountNode();
+  if (!target) return;
+  candyBumpTarget?.classList.remove('is-candy-bump');
+  candyBumpTarget = target;
+  target.style.setProperty(
+    '--accent',
+    candyReward.style.getPropertyValue('--accent') || '#ffcf72',
+  );
+  void target.offsetWidth;
+  target.classList.add('is-candy-bump');
+  candyRewardTimers.push(
+    window.setTimeout(() => target.classList.remove('is-candy-bump'), 700),
+  );
+}
+
+/** 卡片落进糖袋时，计数上扩一圈同色的光环。 */
+function pingPouchCount() {
+  const anchor = pouchCountAnchor();
+  if (!anchor) return;
+  const scale = screenUiScale();
+  const rootBox = candyReward.getBoundingClientRect();
+  const ping = document.createElement('span');
+  ping.className = 'candy-reward-ping';
+  ping.style.left = `${Math.round((anchor.x - rootBox.left) / scale)}px`;
+  ping.style.top = `${Math.round((anchor.y - rootBox.top) / scale)}px`;
+  candyReward.append(ping);
+  candyRewardTimers.push(window.setTimeout(() => ping.remove(), 900));
+}
+
+function stopCandyReward() {
+  for (const timer of candyRewardTimers) window.clearTimeout(timer);
+  candyRewardTimers = [];
+  candyBumpTarget?.classList.remove('is-candy-bump');
+  candyBumpTarget = null;
+  // 半路收掉时，落袋那圈光还没到时间清自己。
+  for (const ping of candyReward.querySelectorAll('.candy-reward-ping')) ping.remove();
+  candyReward.classList.remove('is-collecting');
+  candyReward.hidden = true;
+}
+
+/**
+ * 拿到一颗糖：卡片在画面中间弹出来，停一下，再缩成一点飞进糖袋的计数，
+ * 计数跟着亮一下、扩一圈光。糖纸街每做成一户都走这一遍。
+ */
+function playCandyReward(reward) {
+  if (!reward) return;
+  stopCandyReward();
+
+  const accent = reward.accent ?? '#ffcf72';
+  const added = Number(reward.added) || 0;
+  candyReward.style.setProperty('--accent', accent);
+  candyRewardKicker.textContent = `${reward.mode === 'trick' ? '捣蛋' : '帮忙'} · ${
+    reward.houseName ?? '糖纸街'
+  }`;
+  candyRewardGlyph.textContent = reward.glyph ?? '✦';
+  candyRewardName.textContent = reward.name ?? '一颗糖';
+  candyRewardTag.textContent = reward.tag ?? '';
+  candyRewardCount.textContent = added > 0 ? `糖袋 +${added}` : '糖袋满了';
+  candyRewardCount.classList.toggle('is-full', added <= 0);
+
+  candyRewardSparks.replaceChildren();
+  for (let i = 0; i < 12; i += 1) {
+    const spark = document.createElement('i');
+    spark.style.setProperty('--a', `${i * 30 + (Math.random() * 14 - 7)}deg`);
+    // 起点贴着卡片外沿，再散到画面外，不然大半程都被卡片挡住。
+    spark.style.setProperty('--d', `${156 + Math.random() * 64}px`);
+    spark.style.setProperty('--s', `${6 + Math.random() * 3}px`);
+    candyRewardSparks.append(spark);
+  }
+
+  candyReward.hidden = false;
+  layOutCandyFlight();
+  // 连着拿到两颗时，动画要跟着从头放一遍。
+  candyReward.classList.remove('is-collecting');
+  void candyRewardCard.offsetWidth;
+
+  candyRewardTimers.push(
+    window.setTimeout(() => {
+      candyReward.classList.add('is-collecting');
+      candyRewardTimers.push(
+        window.setTimeout(() => {
+          // 卡片已经缩到看不见了，再留一会儿，好让计数上那圈光有时间放完。
+          bumpPouchCount();
+          pingPouchCount();
+          candyRewardTimers.push(
+            window.setTimeout(() => {
+              candyReward.classList.remove('is-collecting');
+              candyReward.hidden = true;
+            }, 760),
+          );
+        }, 640),
+      );
+    }, 1180),
+  );
+}
+
+/** 鞋落进哪一格：游玩时是旅人手记里「身后」那一行，结算页是「身后的鞋」。 */
+function shoeCountNode() {
+  const nodes = [memorialShoes, completeShoes];
+  return nodes.find((node) => node && node.getClientRects().length) ?? null;
+}
+
+function shoeCountAnchor() {
+  const target = shoeCountNode();
+  if (!target) return null;
+  const box = target.getBoundingClientRect();
+  return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+}
+
+/** 卡片飞向「身后」那一格：和糖飞向糖袋同一套弧线，只是落点换了一处。 */
+function layOutShoeFlight() {
+  const anchor = shoeCountAnchor();
+  if (!anchor) {
+    // 找不到「身后」那一格（碑前那一幕里没有面板）：就在原地缩掉，
+    // 别让它飞向上一张卡片留下的旧坐标。
+    for (const key of ['--fly-x', '--fly-y', '--fly-mx', '--fly-my']) {
+      shoeReward.style.setProperty(key, '0px');
+    }
+    return false;
+  }
+  const cardBox = shoeRewardCard.getBoundingClientRect();
+  const scale = screenUiScale();
+  const dx = (anchor.x - (cardBox.left + cardBox.width / 2)) / scale;
+  const dy = (anchor.y - (cardBox.top + cardBox.height / 2)) / scale;
+  shoeReward.style.setProperty('--fly-x', `${Math.round(dx)}px`);
+  shoeReward.style.setProperty('--fly-y', `${Math.round(dy)}px`);
+  shoeReward.style.setProperty('--fly-mx', `${Math.round(dx * 0.55)}px`);
+  shoeReward.style.setProperty('--fly-my', `${Math.round(dy * 0.45 - 36)}px`);
+  return true;
+}
+
+function bumpShoeCount() {
+  const target = shoeCountNode();
+  if (!target) return;
+  shoeBumpTarget?.classList.remove('is-shoe-bump');
+  shoeBumpTarget = target;
+  target.style.setProperty(
+    '--accent',
+    shoeReward.style.getPropertyValue('--accent') || '#c6b3e0',
+  );
+  void target.offsetWidth;
+  target.classList.add('is-shoe-bump');
+  shoeRewardTimers.push(
+    window.setTimeout(() => target.classList.remove('is-shoe-bump'), 700),
+  );
+}
+
+/** 鞋落进那一格时，落点上扩一圈同色的光环。 */
+function pingShoeCount() {
+  const anchor = shoeCountAnchor();
+  if (!anchor) return;
+  const scale = screenUiScale();
+  const rootBox = shoeReward.getBoundingClientRect();
+  const ping = document.createElement('span');
+  ping.className = 'shoe-reward-ping';
+  ping.style.left = `${Math.round((anchor.x - rootBox.left) / scale)}px`;
+  ping.style.top = `${Math.round((anchor.y - rootBox.top) / scale)}px`;
+  shoeReward.append(ping);
+  shoeRewardTimers.push(window.setTimeout(() => ping.remove(), 900));
+}
+
+function stopShoeReward() {
+  for (const timer of shoeRewardTimers) window.clearTimeout(timer);
+  shoeRewardTimers = [];
+  shoeBumpTarget?.classList.remove('is-shoe-bump');
+  shoeBumpTarget = null;
+  for (const ping of shoeReward.querySelectorAll('.shoe-reward-ping')) ping.remove();
+  shoeReward.classList.remove('is-collecting');
+  shoeReward.classList.remove('has-blessing');
+  shoeReward.hidden = true;
+  playerPanel.classList.remove('is-rewarding');
+}
+
+/**
+ * 卡片正中那双鞋：和路上跟着的同一套画法，放大七倍画出来。
+ * 逻辑画布 24×12 格，鞋跟踩在第 9 行，靴筒最高的那双也留得下。
+ */
+function drawShoeRewardArt(reward) {
+  const ctx = shoeRewardCanvas?.getContext('2d');
+  if (!ctx) return;
+  const scale = 7;
+  const logicalW = 24;
+  const logicalH = 12;
+  shoeRewardCanvas.width = logicalW * scale;
+  shoeRewardCanvas.height = logicalH * scale;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, logicalW, logicalH);
+  paintShoePair(ctx, {
+    style: reward.shoe,
+    accent: reward.accent,
+    centerX: logicalW / 2,
+    groundY: 9,
+  });
+}
+
+/**
+ * 走完一段：那一段的人的鞋弹出来，停一下，再缩成一点落进「身后」那一格。
+ * 和拿到一颗糖同一套节奏，中间画的是鞋本身——就是接下来跟在身后的那一双。
+ */
+function playShoeReward(reward) {
+  if (!reward) return;
+  stopShoeReward();
+  stopBlessing();
+
+  // 桌面端鞋卡和祝福同时出现：祝福卡高过一行时，鞋卡往下让一点，别压住英文。
+  shoeReward.classList.toggle('has-blessing', Boolean(reward.blessing));
+
+  const accent = reward.accent ?? '#c6b3e0';
+  shoeReward.style.setProperty('--accent', accent);
+  // 手机上卡片和祝福会重叠：先藏起旅人手记，让卡片和祝福有自己的位置。
+  playerPanel.classList.add('is-rewarding');
+  // 开篇的人物小传压在卡片上：中文一行、英文一行；没有小传时才写落脚习惯。
+  shoeRewardKicker.textContent = `${reward.stageLabel ?? `第 ${reward.stage} 段`} · ${
+    reward.patient ?? ''
+  }`;
+  shoeRewardName.textContent = reward.shoeName ?? '一双鞋';
+  shoeRewardTag.textContent = reward.bio ?? reward.line ?? '';
+  setSecondaryLine(shoeRewardEn, reward.bioEn);
+  shoeRewardCount.textContent = '身后的鞋 +1';
+  drawShoeRewardArt(reward);
+
+  shoeRewardSparks.replaceChildren();
+  for (let i = 0; i < 12; i += 1) {
+    const spark = document.createElement('i');
+    spark.style.setProperty('--a', `${i * 30 + (Math.random() * 14 - 7)}deg`);
+    spark.style.setProperty('--d', `${156 + Math.random() * 64}px`);
+    spark.style.setProperty('--s', `${6 + Math.random() * 3}px`);
+    shoeRewardSparks.append(spark);
+  }
+
+  shoeReward.hidden = false;
+  // 卡片在画面上停几秒才收：有小传的卡片多留一会儿，让中英文都看得完。
+  const holdMs = reward.bio ? 5200 : 3180;
+  // 鞋和祝福一起出现：卡片正中是鞋与人物小传，画面上方是这一段的病人留给主角的话。
+  // 手机屏幕矮，两张卡会叠在一起，等鞋收进「身后」再浮出祝福。
+  if (reward.blessing) {
+    if (isMobile) {
+      shoeRewardTimers.push(
+        window.setTimeout(() => playBlessing(reward), holdMs + 1500),
+      );
+    } else {
+      playBlessing(reward);
+    }
+  }
+  // 连着走过两段时，动画要跟着从头放一遍。
+  shoeReward.classList.remove('is-collecting');
+  void shoeRewardCard.offsetWidth;
+
+  // 卡片在画面上停几秒才收：有小传的卡片多留一会儿，让中英文都看得完。
+  shoeRewardTimers.push(
+    window.setTimeout(() => {
+      // 落点等这一刻再量：换图、结算页弹出来之后，「身后」那一格才在。
+      layOutShoeFlight();
+      shoeReward.classList.add('is-collecting');
+      shoeRewardTimers.push(
+        window.setTimeout(() => {
+          bumpShoeCount();
+          pingShoeCount();
+          shoeRewardTimers.push(
+            window.setTimeout(() => {
+              shoeReward.classList.remove('is-collecting');
+              shoeReward.hidden = true;
+              if (!reward.blessing) playerPanel.classList.remove('is-rewarding');
+            }, 760),
+          );
+        }, 640),
+      );
+    }, holdMs),
+  );
+}
+
+/**
+ * 通关一段之后浮出来的祝福：中英文各一行，停在画面上方几秒再自己收掉。
+ * 不挡路、不接管按键，玩家可以边走边看。
+ */
+function playBlessing(reward) {
+  const blessing = reward.blessing;
+  if (!blessing?.cn) return;
+  stopBlessing();
+  // stopBlessing 会收起「让旅人手记靠边」的标记，这里再打上：
+  // 手机上祝福也要独占画面，直到它自己收掉。
+  playerPanel.classList.add('is-rewarding');
+  // 祝福是这一段的收尾：左上角的飘字先收掉，等它说完再恢复。
+  toast.classList.remove('is-visible');
+  window.clearTimeout(toastTimer);
+  blessingUntil = performance.now() + 8000;
+  blessingKicker.textContent = `${reward.patient ?? ''} 送给主角的话 · A word for you`;
+  blessingCn.textContent = blessing.cn;
+  setSecondaryLine(blessingEn, blessing.en);
+  blessingCard.hidden = false;
+  blessingCard.classList.remove('is-visible');
+  void blessingCard.offsetWidth;
+  blessingCard.classList.add('is-visible');
+  blessingTimer = window.setTimeout(() => {
+    blessingCard.classList.remove('is-visible');
+    blessingTimer = window.setTimeout(() => {
+      blessingCard.hidden = true;
+      playerPanel.classList.remove('is-rewarding');
+      blessingUntil = 0;
+    }, 400);
+  }, 7600);
+}
+
+function stopBlessing() {
+  if (blessingTimer) window.clearTimeout(blessingTimer);
+  blessingTimer = 0;
+  blessingUntil = 0;
+  blessingCard.classList.remove('is-visible');
+  blessingCard.hidden = true;
+  playerPanel.classList.remove('is-rewarding');
+}
+
+/**
+ * 起始页的入口主次。
+ *
+ * 教程没走完时只有教程是亮的：主线与两条附带的夜路压暗，点一下只给一句提示。
+ * 教程走完之后，主线顶到最上面，并写明走到第几段；
+ * 魑魅魍魉和糖纸街留在下面的「附带的夜路」里，随时能走。
+ */
+function refreshStartScreen(data = Save.current()) {
+  const cleared = Save.tutorialCleared(data);
+  const tutorial = data?.routes?.tutorial;
+  const memorial = data?.routes?.memorial;
+
+  modeActions.dataset.gate = cleared ? 'routes' : 'tutorial';
+  startTutorialButton.hidden = cleared;
+  replayTutorialButton.hidden = !cleared;
+  // 收在背包里的信：起始页也留一个安静的入口，不用先进一趟夜路再开背包。
+  const letterInBag = Save.memorialLetterInBag(data);
+  startLetterButton.hidden = !letterInBag;
+  if (letterInBag) {
+    startLetterButton.textContent = Save.memorialLetterRead(data)
+      ? '再看皮鞋的信'
+      : '打开皮鞋的信';
+  }
+
+  // 教程还没走完：说清楚从哪儿接上、大概要多久。
+  if (!cleared) {
+    const step = tutorial?.step ?? 0;
+    tutorialBadge.textContent = '第一步';
+    tutorialDetail.textContent =
+      step > 0 && !tutorial?.completed
+        ? `接着上次 · 第 ${step + 1} 课`
+        : '约 2 分钟 · 走路、跳跃、推南瓜';
+  }
+
+  for (const button of [startMemorialButton, startParadeButton, startTrickButton]) {
+    button.classList.toggle('is-locked', !cleared);
+    if (cleared) button.removeAttribute('aria-disabled');
+    else button.setAttribute('aria-disabled', 'true');
+  }
+
+  mainRouteNote.textContent = !cleared
+    ? '教程后开放'
+    : !memorial
+      ? '四段夜路'
+      : memorial.completed
+        ? '四段走完了'
+        : `第 ${Save.routeStage('memorial', memorial)} / ${MEMORIAL_ROUTE.totalStages} 段`;
+  sideRouteNote.textContent = cleared ? '随时能走' : '教程后开放';
 }
 
 /**
@@ -380,9 +941,127 @@ function refreshContinue(data = Save.current()) {
   const run = Save.describeRun(data);
   continueButton.hidden = !run;
   clearSaveButton.hidden = !data;
-  if (!run) return;
-  continueLabel.textContent = run.title;
-  continueDetail.textContent = run.detail;
+  if (run) {
+    continueLabel.textContent = run.title;
+    continueDetail.textContent = run.detail;
+  }
+  refreshStartScreen(data);
+}
+
+/**
+ * 皮鞋的信：主线第一次走完、从碑前回到目录时出现一次。
+ * 一出现就把「递过了」的标记落下，之后回到目录都不会再自动弹；
+ * 信本身仍然留在背包里，随时能翻开、能叫鞋说话。
+ */
+function maybeShowMemorialLetter() {
+  if (!letterScreen.hidden) return;
+  if (!Save.memorialCleared()) return;
+  // 已经做过选择（打开过，或收进了背包）就不再弹；
+  // 如果上次是在信封面前直接关掉了页面，下次回到目录仍然把信递上来。
+  const decided = Save.memorialLetterRead() || Save.memorialLetterInBag();
+  if (Save.memorialLetterSeen() && decided) return;
+  showMemorialLetter({ opened: false });
+  if (!Save.memorialLetterSeen()) Save.markMemorialLetterSeen();
+  openLetterButton?.focus?.({ preventScroll: true });
+}
+
+/** 打开信纸；从背包里翻出来时也走这里。 */
+function showMemorialLetter({ opened = false } = {}) {
+  letterScreen.hidden = false;
+  letterSealed.hidden = opened;
+  letterOpened.hidden = !opened;
+}
+
+/** 「打开」：读到信的内容，从此已读，也收进背包。 */
+function openMemorialLetter() {
+  Save.markMemorialLetterRead();
+  letterSealed.hidden = true;
+  letterOpened.hidden = false;
+  talkToShoeButton?.focus?.({ preventScroll: true });
+  if (!backpackScreen.hidden) updateShoeRack();
+  refreshStartScreen();
+}
+
+/** 「稍后再看」：不读，但信收进背包，之后在背包里点开。 */
+function postponeMemorialLetter() {
+  Save.markMemorialLetterInBag();
+  letterScreen.hidden = true;
+  showToast('信收进了背包 · 随时能翻开。', 3000);
+  if (!backpackScreen.hidden) updateShoeRack();
+  refreshStartScreen();
+  if (!startLetterButton.hidden) startLetterButton.focus({ preventScroll: true });
+}
+
+/** 收起：没拆开过就按「稍后再看」处理，别让信丢掉。 */
+function closeMemorialLetter() {
+  if (!letterSealed.hidden) {
+    postponeMemorialLetter();
+    return;
+  }
+  letterScreen.hidden = true;
+  if (!startScreen.hidden && !startLetterButton.hidden) {
+    startLetterButton.focus({ preventScroll: true });
+  }
+}
+
+/** 从背包里点开那封信：直接读，不再问一次打开还是稍后。 */
+function openLetterFromBag() {
+  Save.markMemorialLetterRead();
+  showMemorialLetter({ opened: true });
+  talkToShoeButton?.focus?.({ preventScroll: true });
+  if (!backpackScreen.hidden) updateShoeRack();
+  refreshStartScreen();
+}
+
+/**
+ * 与皮鞋对话：信收起，角色和鞋面对面。穿着什么时装，画面上就是什么样。
+ * 这一幕不进入游戏状态——背包或目录照常在下面，关掉就回到原来的画面。
+ */
+function openShoeTalk() {
+  if (!shoeTalk || !shoeTalkScreen) return;
+  letterScreen.hidden = true;
+  shoeTalkScreen.hidden = false;
+  shoeTalkClosePending = false;
+  shoeTalkTheory.hidden = true;
+  shoeTalkTheory.closest('.shoe-talk-panel')?.classList.remove('is-showing-theory');
+  shoeTheoryButton.textContent = '什么是皮鞋学习论？';
+  shoeTheoryButton.classList.remove('is-hinting');
+  // 穿什么时装就画什么：当前这一局优先，其次读档里记着的那一套。
+  const costume =
+    game.player?.costume ??
+    game.session?.equippedCostume ??
+    Save.current()?.wallet?.equippedCostume ??
+    null;
+  shoeTalk.start(costume);
+  closeShoeTalkButton?.focus?.({ preventScroll: true });
+}
+
+function closeShoeTalk() {
+  shoeTalkScreen.hidden = true;
+  shoeTalk?.stop();
+  shoeTalkClosePending = false;
+  // 关掉之后把焦点交回去，键盘和读屏不会停在一个已经藏起来的按钮上。
+  if (!letterScreen.hidden) talkToShoeButton?.focus?.({ preventScroll: true });
+  else if (!startScreen.hidden && !startLetterButton.hidden) {
+    startLetterButton.focus({ preventScroll: true });
+  }
+}
+
+function toggleShoeTheory() {
+  const showing = shoeTalkTheory.hidden;
+  shoeTalkTheory.hidden = !showing;
+  shoeTheoryButton.textContent = showing ? '收起皮鞋学习论' : '什么是皮鞋学习论？';
+  // 展开说明时把舞台收起来：短屏幕上说明才读得完，收起按钮也还够得着。
+  shoeTalkTheory.closest('.shoe-talk-panel')?.classList.toggle('is-showing-theory', showing);
+  if (showing) {
+    shoeTheoryButton.classList.remove('is-hinting');
+    requestAnimationFrame(() => {
+      shoeTalkTheory.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  } else if (shoeTalkClosePending) {
+    // 说明是在这一幕该收起来的时候翻开的：收好了，就把整幕一起关上。
+    closeShoeTalk();
+  }
 }
 
 function hideAllOverlays() {
@@ -391,21 +1070,43 @@ function hideAllOverlays() {
     trackScreen,
     pauseScreen,
     backpackScreen,
-    pouchScreen,
+    hintScreen,
     trickDoorScreen,
     trickPuzzleScreen,
     rosterScreen,
     sacrificeScreen,
     defeatScreen,
     completeScreen,
+    letterScreen,
+    shoeTalkScreen,
+    signCard,
   ]) {
     overlay.hidden = true;
   }
+  shoeTalk?.stop();
+  shoeTalkClosePending = false;
 }
 
 function syncOverlays(state) {
   hideAllOverlays();
   if (state !== 'trickPuzzle') puzzleView.close();
+
+  // 开场白和祝福是画面上方的浮字，不占一个独立状态：
+  // 不在游玩里、或换了状态，就先收起来。
+  if (state !== 'playing') openingCard.hidden = true;
+  // 落幕的文字层只在碑前那一幕出现；结算页、目录都先收掉。
+  endingLayer.hidden = state !== 'ending';
+  if (state === 'title' || state === 'complete' || state === 'ending') stopBlessing();
+  if (state === 'sign') {
+    const sign = game.session?.readingSign;
+    if (sign) {
+      signKicker.textContent = `路牌 ${sign.index + 1}/${sign.total} · Road Sign`;
+      signCn.textContent = sign.cn;
+      setSecondaryLine(signEn, sign.en);
+      signClose.textContent = isMobile ? '轻触这里收起' : 'V / Esc 收起';
+      signCard.hidden = false;
+    }
+  }
 
   // 名册、送别和结算面板会把路让出来；飘在上面的提示先收掉，别盖住标题。
   if (
@@ -414,19 +1115,31 @@ function syncOverlays(state) {
     state === 'sacrifice' ||
     state === 'defeat' ||
     state === 'inventory' ||
-    state === 'pouch' ||
+    state === 'hint' ||
+    state === 'paused' ||
+    state === 'ending' ||
     state === 'trickDoor' ||
-    state === 'trickPuzzle'
+    state === 'trickPuzzle' ||
+    state === 'sign'
   ) {
     toast.classList.remove('is-visible');
   }
+
+  // 拿糖的卡片只在街上放；一开面板就收掉，别悬在对话和结算上面。
+  if (state !== 'playing') stopCandyReward();
+  // 拿到鞋的卡片要跟到下一幕去：前几段的鞋落进旅人手记的「身后」，
+  // 最后那双是在碑前那一幕的黑屏上先放完的，所以 ending 也不收。
+  // 只在真正的对话面板上收掉，免得和结算页抢画面。
+  if (state !== 'playing' && state !== 'complete' && state !== 'ending') stopShoeReward();
 
   if (state === 'title') startScreen.hidden = false;
   else if (state === 'tracks') trackScreen.hidden = false;
   else if (state === 'paused') pauseScreen.hidden = false;
   else if (state === 'inventory') backpackScreen.hidden = false;
-  else if (state === 'pouch') pouchScreen.hidden = false;
-  else if (state === 'trickDoor') {
+  else if (state === 'hint') {
+    hintScreen.hidden = false;
+    updateHint();
+  } else if (state === 'trickDoor') {
     trickDoorScreen.hidden = false;
     updateTrickDoor();
   } else if (state === 'trickPuzzle') {
@@ -443,12 +1156,23 @@ function syncOverlays(state) {
     state === 'playing' ||
     state === 'paused' ||
     state === 'inventory' ||
-    state === 'pouch' ||
+    state === 'hint' ||
     state === 'trickDoor' ||
     state === 'trickPuzzle' ||
     state === 'roster' ||
     state === 'sacrifice';
   playerPanel.hidden = !inRun;
+
+  // 左上角常驻的「目录 / 提示」：只要在一局里就能看见；
+  // 标题页、赛道选择页和结算页不重复摆按钮。
+  const hasCorner =
+    inRun ||
+    state === 'trickPuzzle' ||
+    state === 'defeat';
+  if (screenCorner) screenCorner.hidden = !hasCorner;
+  if (screenHintButton) {
+    screenHintButton.hidden = !(state === 'playing' || state === 'paused');
+  }
 
   // 触屏按键只在真正操作时出现；面板打开时让位给弹层。
   // 第三段在手机上是单指操作，回音会自动跟着你走。
@@ -502,11 +1226,11 @@ function syncOverlays(state) {
   } else if (state === 'inventory') {
     window.setTimeout(() => closeBackpackButton.focus({ preventScroll: true }), 0);
     updateInventory();
-    topStatusText.textContent = '背包 · 骨头和糖果';
-  } else if (state === 'pouch') {
-    window.setTimeout(() => closePouchButton.focus({ preventScroll: true }), 0);
-    updatePouch();
-    topStatusText.textContent = '糖袋 · 全线路通用';
+    topStatusText.textContent = '背包 · 骨头、衣橱和糖袋';
+  } else if (state === 'hint') {
+    window.setTimeout(() => closeHintButton.focus({ preventScroll: true }), 0);
+    updateHint();
+    topStatusText.textContent = '提示 · 这一关怎么走';
   } else if (state === 'trickDoor') {
     window.setTimeout(() => trickHelpButton.focus({ preventScroll: true }), 0);
     topStatusText.textContent = '糖纸街 · 敲门';
@@ -543,7 +1267,6 @@ function updateInventory() {
   inventoryBones.textContent = String(hud.bones);
   inventoryBonesTotal.textContent = String(hud.totalBones);
   inventoryHands.textContent = String(hud.rightHandBones);
-  inventoryCandies.textContent = String(hud.candies);
   inventoryTime.textContent = formatTime(hud.time);
   // 只有追思小径有皮鞋；其它线路的背包里不摆鞋。
   inventoryFitItem.hidden = hud.mode !== 'memorial';
@@ -571,17 +1294,253 @@ function updateInventory() {
     inventoryList.append(empty);
   }
 
-  updateCandyTypes(hud);
-  updateCandyCatalogue(hud);
   updateWardrobe(hud);
   updatePlacementPanel(hud);
+  updateShoeRack();
+
+  // 糖纸街的街面和追思前几段没有完整行囊：背包里只带糖袋；
+  // 衣橱在追思路上一路都能打开，随时能看时装拼到哪一步。
+  const hasBackpack =
+    game.mode === 'trick'
+      ? Boolean(game.session?.trickRoom)
+      : game.mode !== 'memorial' || Boolean(game.level.memorialChapter?.hasBackpack);
+  const hasWardrobe = hasBackpack || game.mode === 'memorial';
+  inventoryGrid.hidden = !hasBackpack;
+  inventoryHandBox.hidden = !hasBackpack;
+  wardrobePanel.hidden = !hasWardrobe;
+  if (!hasBackpack) placementPanel.hidden = true;
+  inventoryCarryNote.hidden = hasBackpack;
+  inventoryCarryNote.textContent =
+    game.mode === 'trick'
+      ? '糖纸街不摆骨头和时装，背包里只带糖袋。'
+      : '这一段手里只有灯；鞋、衣橱和糖袋照常打开。';
+
+  updatePouch();
 }
 
 /** 糖袋：十种增益糖，全线路通用。按数字键或点卡片吃一颗。 */
 function updatePouch() {
   const pouch = game.getPouchState();
   pouchTotal.textContent = String(pouch.total);
-  pouchGrid.replaceChildren();
+  fillPouchGrid(pouchGrid, pouch);
+}
+
+/* ---------------- 背包里的鞋架 ----------------
+ * 脚上这双和身后跟着的鞋都摆在这里；点一张卡片，下面展开它的细节。
+ * 只有主线有鞋，其它线路整块不出现。
+ */
+let shoeRackSelection = 'own';
+
+function updateShoeRack(scroll = false) {
+  const rack = game.getShoeRackState?.();
+  if (!rack) return;
+  const inMemorial = rack.mode === 'memorial';
+  shoeRackSection.hidden = !inMemorial;
+  if (!inMemorial) {
+    shoeRackDetail.hidden = true;
+    return;
+  }
+
+  const entries = [rack.own, ...rack.followers];
+  if (!entries.some((entry) => entry.id === shoeRackSelection)) shoeRackSelection = 'own';
+
+  shoeRack.replaceChildren();
+
+  // 先放那封信：读过 / 没读过的状态写在第二行，点开就能重读或叫鞋说话。
+  if (Save.memorialLetterInBag()) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'shoe-card shoe-card--letter';
+    const glyph = document.createElement('span');
+    glyph.className = 'shoe-card-letter';
+    glyph.textContent = '✉';
+    glyph.setAttribute('aria-hidden', 'true');
+    const copy = document.createElement('span');
+    copy.className = 'shoe-card-copy';
+    const name = document.createElement('b');
+    name.textContent = '皮鞋的信';
+    const note = document.createElement('em');
+    note.textContent = Save.memorialLetterRead() ? '读过了 · 点开再看看' : '未读 · 收在背包里';
+    copy.append(name, note);
+    card.append(glyph, copy);
+    card.addEventListener('click', openLetterFromBag);
+    shoeRack.append(card);
+  }
+
+  for (const entry of entries) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'shoe-card';
+    card.classList.toggle('is-own', entry.kind === 'own');
+    card.classList.toggle('is-selected', entry.id === shoeRackSelection);
+    card.style.setProperty('--accent', entry.accent);
+
+    const art = document.createElement('canvas');
+    art.className = 'shoe-card-art';
+    art.setAttribute('aria-hidden', 'true');
+    drawShoeCardArt(art, entry);
+
+    const copy = document.createElement('span');
+    copy.className = 'shoe-card-copy';
+    const name = document.createElement('b');
+    name.textContent =
+      entry.kind === 'own' ? '自己脚上' : `${entry.patient}的${entry.shoeName}`;
+    const note = document.createElement('em');
+    note.textContent =
+      entry.kind === 'own'
+        ? `${entry.shoeName} · 合脚度 ${formatPercent(entry.fit)}`
+        : `${entry.stageLabel} · ${entry.following ? '跟在身后' : '收在鞋架'}`;
+    copy.append(name, note);
+
+    card.append(art, copy);
+    card.addEventListener('click', () => {
+      shoeRackSelection = entry.id;
+      updateShoeRack(true);
+    });
+    shoeRack.append(card);
+  }
+
+  renderShoeDetail(entries.find((entry) => entry.id === shoeRackSelection) ?? entries[0], scroll);
+}
+
+/** 卡片上那双鞋：和路上跟着的同一套画法。 */
+function drawShoeCardArt(canvas, entry) {
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+  const scale = 5;
+  const logicalW = 24;
+  const logicalH = 12;
+  canvas.width = logicalW * scale;
+  canvas.height = logicalH * scale;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, logicalW, logicalH);
+  paintShoePair(ctx, {
+    style: entry.shoe,
+    accent: entry.accent,
+    centerX: logicalW / 2,
+    groundY: 9,
+  });
+}
+
+/** 点开的那一张：脚上这双写合脚度和皮鞋学习论，身后的写人和那一句话。 */
+function renderShoeDetail(entry, scroll = false) {
+  if (!entry) {
+    shoeRackDetail.hidden = true;
+    return;
+  }
+  shoeRackDetail.hidden = false;
+  shoeRackDetail.replaceChildren();
+  shoeRackDetail.style.setProperty('--accent', entry.accent);
+
+  const head = document.createElement('div');
+  head.className = 'shoe-detail-head';
+  const kicker = document.createElement('p');
+  kicker.className = 'shoe-detail-kicker';
+  kicker.textContent =
+    entry.kind === 'own'
+      ? `合脚度 ${formatPercent(entry.fit)}`
+      : `${entry.stageLabel} · ${entry.following ? '跟在身后' : '收在鞋架'}`;
+  const title = document.createElement('p');
+  title.className = 'shoe-detail-title';
+  title.textContent =
+    entry.kind === 'own' ? '自己脚上的皮鞋' : `${entry.patient}的${entry.shoeName}`;
+  head.append(kicker, title);
+  shoeRackDetail.append(head);
+
+  if (entry.kind === 'own') {
+    const bar = document.createElement('div');
+    bar.className = 'shoe-fit-bar';
+    const fill = document.createElement('i');
+    fill.style.width = `${Math.round(entry.fit * 100)}%`;
+    bar.append(fill);
+    shoeRackDetail.append(bar);
+
+    const copy = document.createElement('p');
+    copy.className = 'shoe-detail-copy';
+    copy.textContent = '穿得越久越合脚。走完主线那一趟，它会停在 100%。';
+    shoeRackDetail.append(copy);
+
+    // 看不懂「皮鞋学习论」的，就在自己鞋底下读一遍。
+    const theory = document.createElement('div');
+    theory.className = 'shoe-detail-theory';
+    const theoryTitle = document.createElement('p');
+    theoryTitle.className = 'shoe-theory-title';
+    theoryTitle.textContent = SHOE_THEORY.title;
+    const theoryBody = document.createElement('p');
+    theoryBody.textContent = SHOE_THEORY.body;
+    theory.append(theoryTitle, theoryBody);
+    shoeRackDetail.append(theory);
+
+    if (Save.memorialLetterRead()) {
+      const talk = document.createElement('button');
+      talk.type = 'button';
+      talk.className = 'secondary-button shoe-detail-talk';
+      talk.textContent = '与皮鞋对话';
+      talk.addEventListener('click', openShoeTalk);
+      shoeRackDetail.append(talk);
+    } else {
+      const hint = document.createElement('p');
+      hint.className = 'shoe-detail-hint';
+      hint.textContent = '读完那封信，它会开口。';
+      shoeRackDetail.append(hint);
+    }
+    if (scroll) shoeRackDetail.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    return;
+  }
+
+  if (entry.bio) {
+    const bio = document.createElement('p');
+    bio.className = 'shoe-detail-copy';
+    bio.textContent = entry.bio;
+    shoeRackDetail.append(bio);
+  }
+  if (entry.line) {
+    const line = document.createElement('p');
+    line.className = 'shoe-detail-line';
+    line.textContent = entry.line;
+    shoeRackDetail.append(line);
+  }
+  if (entry.blessing?.cn) {
+    const blessing = document.createElement('p');
+    blessing.className = 'shoe-detail-blessing';
+    blessing.textContent = `它留给你的话：${entry.blessing.cn}`;
+    shoeRackDetail.append(blessing);
+  }
+  if (scroll) shoeRackDetail.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+/** 魑魅魍魉里没有背包，名册面板顺带装糖袋。 */
+function updateRosterCandy() {
+  const pouch = game.getPouchState();
+  rosterPouchTotal.textContent = String(pouch.total);
+  fillPouchGrid(rosterPouchGrid, pouch);
+}
+
+/** 吃一颗糖；背包不关，吃完还能接着吃或直接按 Tab 回路上。 */
+function eatPouchCandy(type) {
+  const result = game.usePouchCandy(type);
+  if (!result.ok) {
+    showToast(result.message, 2400);
+  } else {
+    showToast(`吃下${result.def.name} · ${result.def.tag} ${result.def.duration} 秒。`, 2200);
+  }
+  updatePouch();
+  updateRosterCandy();
+  updateHud();
+  return result;
+}
+
+function fillPouchGrid(grid, pouch = game.getPouchState()) {
+  grid.replaceChildren();
+
+  if (pouch.total <= 0) {
+    const empty = document.createElement('p');
+    empty.className = 'pouch-empty';
+    empty.textContent =
+      '糖袋是空的。去糖纸街敲一户人家的门：帮忙做完任务，或者抢了糖就跑，都能换到一颗。';
+    grid.append(empty);
+  }
 
   BUFF_CANDY_TYPES.forEach((type, index) => {
     const def = BUFF_CANDIES[type];
@@ -624,21 +1583,10 @@ function updatePouch() {
     use.className = 'pouch-use';
     use.disabled = count <= 0;
     use.textContent = count <= 0 ? '袋里没有' : '吃一颗';
-    use.addEventListener('click', () => {
-      const result = game.usePouchCandy(type);
-      if (!result.ok) {
-        showToast(result.message, 2400);
-        updatePouch();
-        updateHud();
-        return;
-      }
-      // 吃下去就回到路上；想再吃一颗再按 Q。
-      game.closePouch();
-      updateHud();
-    });
+    use.addEventListener('click', () => eatPouchCandy(type));
 
     card.append(top, title, tag, copy, use);
-    pouchGrid.append(card);
+    grid.append(card);
   });
 }
 
@@ -692,7 +1640,9 @@ function updateTrickDoor() {
   trickDoorLine.textContent = house.line;
   trickDoorTask.textContent = `${house.taskTitle}：${house.taskText}`;
   if (trickDoorTrick) {
-    trickDoorTrick.textContent = `捣蛋 · 抢了就跑：夺过这颗${house.candyName}钻进后巷。跑到街尾的栅门、没被追上，拿到的一定是它；被追上，糖会被拿回去。`;
+    // 每一户的后巷都不一样：规则一样说，巷子的脾气跟着这一户补一句。
+    const twist = house.raceTwist ? `（这一户的后巷：${house.raceTwist}）` : '';
+    trickDoorTrick.textContent = `捣蛋 · 抢了就跑：夺过这颗${house.candyName}钻进后巷。跑到街尾的栅门、没被追上，拿到的一定是它；被追上，糖会被拿回去。${twist}`;
   }
   trickDoorCandy.replaceChildren();
 
@@ -735,6 +1685,8 @@ function updateRoster() {
   const parade = hud.parade;
   rosterGrid.replaceChildren();
   rosterSupports.replaceChildren();
+  // 名册就是魑魅魍魉的行囊：糖袋也放在这里，Tab 一个键就能吃到。
+  updateRosterCandy();
   if (!parade) {
     rosterCount.textContent = '0 / 0';
     const empty = document.createElement('p');
@@ -800,7 +1752,7 @@ function updateRoster() {
     } else if (locked) {
       const note = document.createElement('p');
       note.className = 'roster-locked';
-      note.textContent = '还没遇见 · 到石鼓前互动';
+      note.textContent = '还没遇见 · 到石鼓前按 Q';
       card.append(head, trait, note);
     } else {
       // 台词放到悬停提示里，卡片只留一句手感说明。
@@ -830,10 +1782,10 @@ function updateSacrifice() {
   if (!choices.length) {
     sacrificeCopy.textContent = '没有可以留下的人了。';
   } else if (context.reason === 'rescue') {
-    sacrificeCopy.textContent = `绷带把${context.name || '中招的人'}拉了回来，但仍要留下一人，支援也会失效。`;
+    sacrificeCopy.textContent = `绷带把${context.name || '中招的人'}拉了回来，但仍要留下一人，他给队伍的加成也会失效。`;
   } else {
     sacrificeCopy.textContent =
-      '瘴气冲散了队伍。留下一人，他的支援也会失效。';
+      '瘴气冲散了队伍。留下一位同行者，他给队伍的加成也会失效。';
   }
 
   choices.forEach((choice, index) => {
@@ -908,81 +1860,14 @@ function renderTracks() {
   }
 }
 
-function updateCandyTypes(hud) {
-  inventoryCandyTypes.replaceChildren();
-  let found = false;
-
-  for (const [type, count] of Object.entries(hud.candyTypes)) {
-    if (!count) continue;
-    found = true;
-    const effect = CANDY_EFFECTS[type];
-    const chip = document.createElement('span');
-    chip.className = 'candy-kind';
-    if (effect) chip.title = `${effect.disorder}（${effect.icdName}）· ${effect.summary}`;
-    const dot = document.createElement('i');
-    dot.className = `candy-dot candy-dot--${type}`;
-    const name = document.createElement('span');
-    name.textContent = effect
-      ? `${getItemDef(type).label} · ${effect.disorder}`
-      : getItemDef(type).label;
-    const amount = document.createElement('b');
-    amount.textContent = `×${count}`;
-    chip.append(dot, name, amount);
-    inventoryCandyTypes.append(chip);
-  }
-
-  if (!found) {
-    const empty = document.createElement('span');
-    empty.className = 'candy-empty';
-    empty.textContent = '罐子还是空的。路上有彩色的糖纸。';
-    inventoryCandyTypes.append(empty);
-  }
-}
-
-/** 糖果图鉴：糖名、对应的疾病名与编码、吃下后的行为。 */
-function updateCandyCatalogue(hud) {
-  candyCatalogue.replaceChildren();
-
-  for (const type of CANDY_EFFECT_TYPES) {
-    const effect = CANDY_EFFECTS[type];
-    const def = getItemDef(type);
-    const count = hud.candyTypes?.[type] ?? 0;
-
-    const item = document.createElement('li');
-    item.className = 'candy-entry';
-    item.classList.toggle('is-found', count > 0);
-
-    const dot = document.createElement('i');
-    dot.className = `candy-dot candy-dot--${type}`;
-
-    const text = document.createElement('div');
-    text.className = 'candy-entry-text';
-
-    const title = document.createElement('p');
-    title.className = 'candy-entry-title';
-    const name = document.createElement('b');
-    name.textContent = def.label;
-    const disorder = document.createElement('span');
-    disorder.textContent = `${effect.disorder} · ${effect.code}`;
-    title.append(name, disorder);
-
-    const copy = document.createElement('p');
-    copy.className = 'candy-entry-copy';
-    copy.textContent = `${effect.tag}，${effect.duration} 秒。${effect.summary}`;
-
-    text.append(title, copy);
-
-    const amount = document.createElement('em');
-    amount.className = 'candy-entry-count';
-    amount.textContent = count > 0 ? `已吃 ×${count}` : '还没找到';
-
-    item.append(dot, text, amount);
-    candyCatalogue.append(item);
-  }
-}
-
 function updateWardrobe(hud) {
   wardrobeGrid.replaceChildren();
+
+  const completeCount = hud.costumes.filter((costume) => costume.complete).length;
+  const foundParts = hud.costumes.reduce((sum, costume) => sum + costume.foundCount, 0);
+  const totalParts = hud.costumes.reduce((sum, costume) => sum + costume.difficulty, 0);
+  wardrobeProgress.textContent =
+    `已拼好 ${completeCount} / ${hud.costumes.length} 套 · 零件 ${foundParts} / ${totalParts}`;
 
   for (const costume of hud.costumes) {
     const card = document.createElement('article');
@@ -1233,21 +2118,54 @@ function updateFieldHud(hud) {
     fieldHud.hidden = true;
     if (hud.electron) {
       staticHud.hidden = false;
+      const nearer = hud.electron.model === 'coulomb' ? '，越近越强' : '';
       staticHudCharge.textContent =
         hud.charge > 0 ? 'q = +1' : hud.charge < 0 ? 'q = -1' : 'q = 0';
+      staticHudDistance.textContent = `r = ${Math.round(hud.electron.distance)} px`;
+      // 合力以体重为单位：×1.0 就是和重力一样大，×2.0 就是两倍。
       staticHudForce.textContent = !hud.electron.charged
         ? '—'
-        : forceArrow(hud.electron.forceX, hud.electron.forceY, hud.electron.forceMag);
+        : `${forceArrow(hud.electron.forceX, hud.electron.forceY, hud.electron.forceMag)} ×${(hud.electron.forceG ?? 0).toFixed(1)}`;
       staticHudStatus.textContent = !hud.electron.charged
         ? '电子带负电。未带电时，它碰不到你。'
-        : hud.charge > 0
-          ? '异种电荷相吸：正电荷被电子吸引。'
-          : '同种电荷相斥：负电荷被电子排斥。';
+        : hud.electron.airborne && hud.electron.forceG > 0.6
+          ? '被电子拉住时，按 Q 放掉电荷。'
+          : hud.charge > 0
+            ? `异种电荷相吸：正电荷被电子吸引${nearer}。`
+            : `同种电荷相斥：负电荷被电子排斥${nearer}。`;
     } else {
       staticHud.hidden = true;
     }
   }
 }
+
+// 任务面板上的「退出任务」：第一下只是把按钮点亮，3 秒内再点一下才真的走。
+// 离开房间会丢掉屋里的进度，不该由一次手滑决定；换了任务就重新点亮。
+let questExitArmUntil = 0;
+let questExitTimer = 0;
+let questExitBeat = '';
+
+function resetQuestExitArm() {
+  if (!questExitArmUntil) return;
+  questExitArmUntil = 0;
+  window.clearTimeout(questExitTimer);
+  questExitTimer = 0;
+  questExitButton.classList.remove('is-armed');
+  questExitButton.textContent = '退出任务';
+}
+
+questExitButton.addEventListener('click', () => {
+  if (performance.now() < questExitArmUntil) {
+    resetQuestExitArm();
+    game.exitTrickTask();
+    return;
+  }
+  questExitArmUntil = performance.now() + 3200;
+  questExitButton.classList.add('is-armed');
+  questExitButton.textContent = '再点一次 · 退出任务';
+  window.clearTimeout(questExitTimer);
+  questExitTimer = window.setTimeout(resetQuestExitArm, 3200);
+});
 
 function updateQuest(hud) {
   const quest = hud.quest;
@@ -1258,8 +2176,19 @@ function updateQuest(hud) {
 
   if (!visible) {
     questTrack.classList.remove('is-alarm');
+    questFoot.classList.remove('is-open');
+    resetQuestExitArm();
     return;
   }
+
+  // 糖纸街的任务都可以从这张小面板上退出；谜题面板有自己的「先离开」。
+  const canExit = quest.kind === 'trickTask' || quest.kind === 'trickRace';
+  const beat = canExit ? `${quest.kind}:${quest.text}` : '';
+  if (beat !== questExitBeat) {
+    questExitBeat = beat;
+    resetQuestExitArm();
+  }
+  questFoot.classList.toggle('is-open', canExit);
 
   if (quest.kind === 'trickRace') {
     questText.textContent = quest.text;
@@ -1288,6 +2217,74 @@ function updateQuest(hud) {
   questTrack.classList.toggle('is-alarm', Boolean(quest.alarm));
 }
 
+/**
+ * 开场车程：画面正上方的开场白与折叠的南瓜派教程。
+ *
+ * 中文一行、英文一行，字号比普通提示大；每一句换上来时淡入一次。
+ * 教程默认折叠，点标题才展开；展开时 Game 会停住车程（提前下车后则停住独白），
+ * 读完再继续。
+ */
+function updateOpening(hud) {
+  const opening = hud.opening;
+  if (!opening || hud.state !== 'playing') {
+    openingCard.hidden = true;
+    playerPanel.classList.remove('is-opening-hidden');
+    return;
+  }
+
+  const beatKey = `${opening.index}:${opening.cn}`;
+  if (openingCard.dataset.beat !== beatKey) {
+    openingCard.dataset.beat = beatKey;
+    openingCn.textContent = opening.cn;
+    openingEn.textContent = opening.en;
+    openingCn.hidden = !opening.cn;
+    openingEn.hidden = !opening.en;
+    openingCard.classList.remove('is-new-beat');
+    if (opening.cn) {
+      void openingCard.offsetWidth;
+      openingCard.classList.add('is-new-beat');
+    }
+  }
+
+  // 教程正文只写一次；标题、正文都直接读章节数据。教程只有中文原文。
+  // 教程跟在第二句开场白后面出现，第一句时先不露面。
+  const tutorial = opening.tutorial;
+  const showTutorial = Boolean(tutorial && opening.tutorialVisible);
+  openingTutorialToggle.hidden = !showTutorial;
+  if (showTutorial) {
+    openingTutorialTitle.textContent = tutorial.label ?? '南瓜派教程';
+    openingTutorialCn.textContent = tutorial.cn ?? '';
+  }
+
+  const open = showTutorial && Boolean(opening.tutorialOpen);
+  openingTutorial.hidden = !open;
+  openingCard.classList.toggle('is-tutorial-open', open);
+  openingTutorialToggle.setAttribute('aria-expanded', String(open));
+  openingTutorialMark.textContent = open ? '收起' : '展开';
+  openingSkip.hidden = !opening.canSkip;
+
+  openingCard.hidden = false;
+  // 开场白要占满画面上方：右上角的旅人手记先让开。
+  playerPanel.classList.add('is-opening-hidden');
+}
+
+function setOpeningTutorialOpen(open) {
+  openingTutorial.hidden = !open;
+  openingCard.classList.toggle('is-tutorial-open', open);
+  openingTutorialToggle.setAttribute('aria-expanded', String(open));
+  openingTutorialMark.textContent = open ? '收起' : '展开';
+  game.setOpeningTutorialOpen(open);
+}
+
+openingTutorialToggle.addEventListener('click', () => {
+  const open = openingTutorialToggle.getAttribute('aria-expanded') !== 'true';
+  setOpeningTutorialOpen(open);
+});
+
+signCard.addEventListener('click', (event) => {
+  if (event.target.closest('#signClose') && game.state === 'sign') game.closeSign();
+});
+
 function updateHud() {
   const hud = game.getHudState();
   const isMemorial = hud.mode === 'memorial';
@@ -1310,7 +2307,7 @@ function updateHud() {
         : hud.mode === 'tutorial'
           ? '教程'
           : isMemorial
-            ? '追思'
+            ? '送派'
             : isParade
               ? '百鬼'
               : isTrick
@@ -1329,7 +2326,6 @@ function updateHud() {
     panelProgressBar.style.width = `${percent}%`;
     panelBones.textContent = `${hud.bones}/${hud.totalBones}`;
     panelHands.textContent = String(hud.rightHandBones);
-    panelCandies.textContent = `${hud.candies}/${hud.totalCandies}`;
     const equipped = hud.costumes.find((costume) => costume.equipped);
     panelCostume.textContent = equipped ? equipped.name : '未换装';
     panelTime.textContent = formatTime(hud.time);
@@ -1358,6 +2354,7 @@ function updateHud() {
       const memorial = hud.memorial;
       memorialCondition.textContent = `${memorial.code} · ${memorial.disorder}`;
       memorialBody.textContent = memorial.body;
+      setSecondaryLine(memorialBodyEn, memorial.bodyEn);
       memorialLights.textContent = `${memorial.memories}/${memorial.totalMemories}`;
       // 只有第二段有集合门；其它段落这一行收起来。
       memorialGateRow.hidden = !memorial.setGates;
@@ -1457,7 +2454,7 @@ function updateHud() {
                   ]
               : [
                   ['骨头', `${hud.bones}/${hud.totalBones}`],
-                  ['糖果', `${hud.candies}/${hud.totalCandies}`],
+                  ['糖袋', String(hud.pouchTotal ?? 0)],
                   ['时间', formatTime(hud.time)],
                 ];
     setCompactStats(compactStats);
@@ -1469,6 +2466,7 @@ function updateHud() {
   updateTutorial(hud);
   updateQuest(hud);
   updateActiveEffects(hud);
+  updateOpening(hud);
 
   if (hud.state === 'playing' && hud.interaction) {
     interactionPrompt.hidden = false;
@@ -1479,6 +2477,19 @@ function updateHud() {
     interactionKeyAlt.hidden = !hud.interaction.altKey;
     interactionKeyAlt.textContent = hud.interaction.altKey ?? '';
     interactionPrompt.classList.toggle('is-locked', !hud.interaction.available);
+    // 手机上没有键盘：惊恐发作时右下角的「互动」变成「呼吸」，
+    // 站在能走的门边时变成「离开」。
+    const leavingTrick =
+      hud.interaction.kind === 'trickExit' || hud.interaction.kind === 'trickRaceExit';
+    setTouchInteractLabel(
+      hud.interaction.kind === 'panic'
+        ? '呼吸'
+        : leavingTrick
+          ? '离开'
+          : hud.interaction.kind === 'sign'
+            ? '路牌'
+            : '互动',
+    );
     // 手机上交给 CSS 把提示抬到虚拟按键上方，避免和拇指打架。
     if (hud.tutorial && !isMobile) {
       interactionPrompt.style.bottom = '136px';
@@ -1487,7 +2498,14 @@ function updateHud() {
     }
   } else {
     interactionPrompt.hidden = true;
+    setTouchInteractLabel('互动');
   }
+}
+
+function setTouchInteractLabel(label) {
+  if (!touchInteractButton || touchInteractButton.textContent === label) return;
+  touchInteractButton.textContent = label;
+  touchInteractButton.setAttribute('aria-label', label);
 }
 
 function fillCompleteScreen(result) {
@@ -1498,7 +2516,7 @@ function fillCompleteScreen(result) {
   completeKicker.textContent = isParade
     ? `Hyakki yakō · ${result.track?.tier ?? '简单'} · ${result.track?.name ?? '提灯夜路'}`
     : isMemorial
-      ? 'Sir loved pumpkin pie'
+      ? 'Sir Loved Pumpkin Pie'
       : isTrick
         ? 'Trick or treat · sugar-paper street'
         : result.mode === 'tutorial'
@@ -1526,7 +2544,6 @@ function fillCompleteScreen(result) {
           : '你穿过了电子厅和两口熔岩井。这一段走完了，长夜还没结束。';
   completeTime.textContent = formatTime(result.time);
   completeBones.textContent = `${result.bones}/${result.totalBones}`;
-  completeCandies.textContent = `${result.candies}/${result.totalCandies}`;
   completeHands.textContent = String(result.rightHandBones);
   completeCostumes.textContent = `${result.costumes}/${result.totalCostumes}`;
   completeMemories.textContent = `${result.memories}/${result.totalMemories}`;
@@ -1543,10 +2560,9 @@ function fillCompleteScreen(result) {
   completeSkipped.textContent = String(result.trick?.left ?? 0);
   completeTrickCandies.textContent = String(result.trick?.candies ?? 0);
   completeFit.textContent = formatPercent(result.shoeFit);
-  completeExitButton.textContent = result.mode === 'tutorial' ? '去给老师送南瓜派' : '回到起始页';
+  completeExitButton.textContent = result.mode === 'tutorial' ? '去给老师送南瓜派' : '退回目录';
 
   statBones.hidden = isMemorial || isParade || isTrick;
-  statCandies.hidden = isMemorial || isParade || isTrick;
   statHands.hidden = isMemorial || isParade || isTrick;
   statCostumes.hidden = isMemorial || isParade || isTrick;
   statMemories.hidden = !isMemorial;
@@ -1574,28 +2590,54 @@ function fillCompleteScreen(result) {
 game.onStateChange = (state) => {
   syncOverlays(state);
   // 回到起始页时刷新「继续」——通关或换线路后那里已经变了。
-  if (state === 'title') refreshContinue();
+  if (state === 'title') {
+    refreshContinue();
+    // 主线第一次走完、回到目录：先把那封信递过来。
+    maybeShowMemorialLetter();
+  }
 };
 
 game.onNotice = (message, duration) => {
   showToast(message, duration);
 };
 
+game.onCandyReward = (reward) => {
+  playCandyReward(reward);
+};
+
+game.onShoeReward = (reward) => {
+  playShoeReward(reward);
+};
+
 game.onComplete = (result) => {
   fillCompleteScreen(result);
 };
+
+/** 教程没走完时，主线与两条附带的夜路都只回一句话。 */
+function tutorialGateOpen() {
+  if (Save.tutorialCleared(Save.current())) return true;
+  showToast('先把新手教程走完——大约两分钟，主线才会开。', 3600);
+  return false;
+}
 
 startTutorialButton.addEventListener('click', () => {
   enterFullscreen();
   game.startTutorial();
 });
 
+replayTutorialButton.addEventListener('click', () => {
+  enterFullscreen();
+  game.startTutorial();
+});
+
 startMemorialButton.addEventListener('click', () => {
+  if (!tutorialGateOpen()) return;
   enterFullscreen();
   game.startMemorial();
 });
 
 startParadeButton.addEventListener('click', () => {
+  if (!tutorialGateOpen()) return;
   enterFullscreen();
   game.openParadeTracks();
 });
@@ -1613,6 +2655,7 @@ defeatExitButton.addEventListener('click', () => {
 });
 
 startTrickButton.addEventListener('click', () => {
+  if (!tutorialGateOpen()) return;
   enterFullscreen();
   game.startTrickOrTreat();
 });
@@ -1650,16 +2693,28 @@ pauseRestartButton.addEventListener('click', () => {
   restartRun();
 });
 
+pauseHintButton.addEventListener('click', () => {
+  openHintPanel();
+});
+
 pauseExitButton.addEventListener('click', () => {
-  game.returnToTitle();
+  returnToDirectory();
+});
+
+screenMenuButton.addEventListener('click', () => {
+  returnToDirectory();
+});
+
+screenHintButton.addEventListener('click', () => {
+  openHintPanel();
+});
+
+closeHintButton.addEventListener('click', () => {
+  game.closeHint();
 });
 
 closeBackpackButton.addEventListener('click', () => {
   game.closeBackpack();
-});
-
-closePouchButton.addEventListener('click', () => {
-  game.closePouch();
 });
 
 closeTrickDoorButton.addEventListener('click', () => {
@@ -1691,11 +2746,9 @@ closeRosterButton.addEventListener('click', () => {
   game.closeRoster();
 });
 
-skipTutorialButton.addEventListener('click', () => {
-  game.skipTutorial();
-});
-
 replayButton.addEventListener('click', () => {
+  // 结算页上的鞋可能还在飞，重开一局前先把它收掉。
+  stopShoeReward();
   if (game.mode === 'memorial') game.startMemorial();
   else if (game.mode === 'parade') game.startParade(game.getParadeTrackId());
   else if (game.mode === 'trick') game.startTrickOrTreat();
@@ -1706,6 +2759,19 @@ completeExitButton.addEventListener('click', () => {
   if (game.mode === 'tutorial') game.startMemorial();
   else game.returnToTitle();
 });
+
+// 老师的信：先问打开还是稍后再看；读完之后可以叫鞋说话。
+openLetterButton.addEventListener('click', openMemorialLetter);
+laterLetterButton.addEventListener('click', postponeMemorialLetter);
+talkToShoeButton.addEventListener('click', openShoeTalk);
+closeLetterButton.addEventListener('click', closeMemorialLetter);
+startLetterButton.addEventListener('click', openLetterFromBag);
+
+// 与皮鞋对话：收起、再听一遍、翻出皮鞋学习论。
+closeShoeTalkButton.addEventListener('click', closeShoeTalk);
+shoeTalkDoneButton.addEventListener('click', closeShoeTalk);
+shoeTalkReplayButton.addEventListener('click', openShoeTalk);
+shoeTheoryButton.addEventListener('click', toggleShoeTheory);
 
 // 手机上跳过碑前那一幕：点一下画面就行，不看虚拟按键。
 canvas.addEventListener('pointerdown', () => {
@@ -1782,61 +2848,77 @@ if (typeof ResizeObserver !== 'undefined') {
   window.addEventListener('resize', syncUiScale);
 }
 
-/** Tab 和触屏「背包」共用：按模式决定打开背包、名册，还是只给一句提示。 */
+/** Tab 和触屏「背包」共用：背包和名册里都带着糖袋，所有线路同一个键。 */
 function toggleBagPanel() {
-  if (game.state === 'pouch') {
-    game.closePouch();
-    return;
-  }
-  // 糖纸街的街面没有别的背包，Tab 直接打开糖袋；
-  // 进了女巫 / 男巫的房间，Tab 打开背包（男巫的骨槽要用右手骨）。
-  if (game.mode === 'trick') {
-    if (game.state === 'playing') {
-      if (game.session?.trickRoom) {
-        game.openBackpack();
-        updateInventory();
-      } else {
-        game.openPouch();
-        updatePouch();
-      }
-    } else if (game.state === 'inventory') {
-      game.closeBackpack();
-    }
-    return;
-  }
-  // 魑魅魍魉里打开的是队伍名册：谁跟着你、谁还没遇到。
-  if (game.mode === 'parade') {
-    if (game.state === 'playing') {
-      game.openRoster();
-      updateRoster();
-    } else if (game.state === 'roster') {
-      game.closeRoster();
-    }
-    return;
-  }
-  // 前两段手里只有灯；第三段进入地下后，背包与骨槽重新可用。
-  if (game.mode === 'memorial' && !game.level.memorialChapter?.hasBackpack) {
-    if (game.state === 'playing') {
-      showToast('追思路上不用背包，手里只有灯；糖袋按 Q。', 2200);
-    }
-    return;
-  }
-  if (game.state === 'playing') {
-    game.openBackpack();
-    updateInventory();
-  } else if (game.state === 'inventory') {
+  if (game.state === 'inventory') {
     game.closeBackpack();
+    return;
+  }
+  if (game.state === 'roster') {
+    game.closeRoster();
+    return;
+  }
+  if (game.state !== 'playing') return;
+  // 魑魅魍魉里打开的是队伍名册：谁跟着你、谁还没遇到；糖袋附在名册下面。
+  if (game.mode === 'parade') {
+    game.openRoster();
+    updateRoster();
+    return;
+  }
+  // 糖纸街的街面和追思前几段没有完整行囊，背包里只留糖袋。
+  game.openBackpack();
+  updateInventory();
+}
+
+/** H / 左上角「提示」：打开这一关的提示面板，再按一次关闭。 */
+function openHintPanel() {
+  if (game.state === 'hint') {
+    game.closeHint();
+    return;
+  }
+  if (!game.openHint()) return;
+  updateHint();
+}
+
+function updateHint() {
+  const content = getHintContent(game);
+  if (!content) return;
+  hintTitle.textContent = content.title ?? '提示';
+  hintStep.textContent = content.stepLabel ?? '';
+  hintObjective.textContent = content.objective ?? '';
+
+  hintList.replaceChildren();
+  const hints = content.hints?.length
+    ? [...content.hints]
+    : ['这一关已经走到最后，继续往右就是出口。'];
+  // 提示是按键盘写的；手机上先说清楚「互动」= E / Q / X / 空格。
+  if (isMobile) {
+    hints.push('手机上的「互动」就是 E / Q / X / 空格：抱起、摸装置、敲门、呼吸、离开都按它。');
+  }
+  hints.forEach((text, index) => {
+    const item = document.createElement('li');
+    const number = document.createElement('b');
+    number.textContent = String(index + 1);
+    number.setAttribute('aria-hidden', 'true');
+    const copy = document.createElement('span');
+    copy.textContent = text;
+    item.append(number, copy);
+    hintList.append(item);
+  });
+
+  hintKeys.replaceChildren();
+  // 手机上列虚拟按键，不列键盘：这一局根本按不到 E / Q / Tab。
+  for (const key of isMobile ? CONTROL_KEYS_MOBILE : CONTROL_KEYS) {
+    const entry = document.createElement('span');
+    entry.textContent = key;
+    hintKeys.append(entry);
   }
 }
 
-/** Q / 触屏「糖袋」：任何线路都能打开；吃糖的按钮在面板里。 */
-function togglePouchPanel() {
-  if (game.state === 'pouch') {
-    game.closePouch();
-    return;
-  }
-  if (game.state !== 'playing' && game.state !== 'paused') return;
-  if (game.openPouch()) updatePouch();
+/** 从任何一局里退回起始页（目录）。中途退出会先落盘，回来还能继续。 */
+function returnToDirectory() {
+  if (game.state === 'title') return;
+  game.returnToTitle();
 }
 
 /** R 和触屏暂停面板里的「重走这一段」共用。 */
@@ -1872,6 +2954,24 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
+  // 老师的信盖在目录上：没拆开时 Esc 等于「稍后再看」；拆开后 Esc 收起。
+  if (!letterScreen.hidden) {
+    if (event.code === 'Escape') {
+      event.preventDefault();
+      closeMemorialLetter();
+    }
+    return;
+  }
+
+  // 与皮鞋对话盖在最上面：Esc 收起，其它键交给聚焦的按钮。
+  if (!shoeTalkScreen.hidden) {
+    if (event.code === 'Escape' || event.code === 'KeyE') {
+      event.preventDefault();
+      closeShoeTalk();
+    }
+    return;
+  }
+
   // 碑前的那一幕：E / 空格 / 回车 / Esc 都能跳过；别的键不在这里生效。
   if (game.state === 'ending') {
     if (
@@ -1886,9 +2986,31 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (event.code === 'KeyQ') {
+  // 路牌：V 摊开 / 收起；摊开时玩法停住，只读这一句。
+  if (game.state === 'sign') {
+    if (
+      event.code === 'KeyV' ||
+      event.code === 'Escape' ||
+      event.code === 'KeyE' ||
+      event.code === 'Space' ||
+      event.code === 'Enter'
+    ) {
+      event.preventDefault();
+      game.closeSign();
+    }
+    return;
+  }
+
+  if (event.code === 'KeyV' && game.state === 'playing' && game.mode === 'memorial') {
     event.preventDefault();
-    togglePouchPanel();
+    game.toggleSign();
+    return;
+  }
+
+  // H：看这一关的提示；提示面板打开时再按一次关闭。
+  if (event.code === 'KeyH') {
+    event.preventDefault();
+    openHintPanel();
     return;
   }
 
@@ -1902,12 +3024,32 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
+  // 糖纸街副本：离开房间 / 掉头回街只认 X（按两下），E 不再负责走人。
+  if (event.code === 'KeyX' && game.state === 'playing' && game.mode === 'trick') {
+    event.preventDefault();
+    game.requestTrickExit();
+    return;
+  }
+
+  // 惊恐发作时，空格是专门留给呼吸的键：按一下或按住都认。
+  if (event.code === 'Space' && game.state === 'playing' && game.isPanicActive()) {
+    event.preventDefault();
+    game.handlePanicPress();
+    return;
+  }
+
+  // E：只抱起 / 抛出身边的东西，不再兼任装置、呼吸或离开。
   if (event.code === 'KeyE' && game.state === 'playing') {
     event.preventDefault();
-    // 按住 E 呼吸时，键盘重复事件不该在平复之后继续抓 / 丢南瓜。
-    if (event.repeat) return;
     // 潜行段里 E 只属于你；回音用 / 键，两个人不再抢同一个互动键。
     game.interact(game.isSneakStage() ? game.player : undefined);
+    return;
+  }
+
+  // Q：摸身边的装置——石鼓、铜球、南瓜车、糖门，与抱南瓜分开。
+  if (event.code === 'KeyQ' && game.state === 'playing') {
+    event.preventDefault();
+    game.useDevice();
     return;
   }
 
@@ -1960,30 +3102,25 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (game.state === 'pouch' && /^Digit[0-9]$/.test(event.code)) {
-    event.preventDefault();
+  // 背包 / 名册里的数字键：1–4 先归骨槽，没有骨槽可放时用来吃糖。
+  if (
+    (game.state === 'inventory' || game.state === 'roster') &&
+    /^Digit[0-9]$/.test(event.code)
+  ) {
     const index = event.code === 'Digit0' ? 9 : Number(event.code.slice(-1)) - 1;
-    const type = BUFF_CANDY_TYPES[index];
-    if (type) {
-      const result = game.usePouchCandy(type);
-      if (!result.ok) {
-        showToast(result.message, 2400);
-        updatePouch();
-        updateHud();
-      } else {
-        game.closePouch();
-        updateHud();
+    if (game.state === 'inventory' && index < PLACE_ORDER.length) {
+      const hud = game.getHudState();
+      const type = PLACE_ORDER[index];
+      if (hud.placement && type) {
+        event.preventDefault();
+        handlePlacement(type);
+        return;
       }
     }
-    return;
-  }
-
-  if (game.state === 'inventory' && /^Digit[1-4]$/.test(event.code)) {
-    const hud = game.getHudState();
-    const type = PLACE_ORDER[Number(event.code.slice(-1)) - 1];
-    if (hud.placement && type) {
+    const type = BUFF_CANDY_TYPES[index];
+    if (type) {
       event.preventDefault();
-      handlePlacement(type);
+      eatPouchCandy(type);
     }
     return;
   }
@@ -1992,17 +3129,26 @@ window.addEventListener('keydown', (event) => {
     if (targetIsButton) return;
     if (game.state === 'title') {
       event.preventDefault();
-      enterFullscreen();
-      game.startTutorial();
+      // 回车等于点起始页最上面那个亮着的按钮：先接着上次走，
+      // 没有存档就先走教程，教程走完了才进主线。
+      if (!continueButton.hidden) {
+        continueButton.click();
+      } else if (Save.tutorialCleared(Save.current())) {
+        enterFullscreen();
+        game.startMemorial();
+      } else {
+        enterFullscreen();
+        game.startTutorial();
+      }
     } else if (game.state === 'paused') {
       event.preventDefault();
       game.resume();
     } else if (game.state === 'inventory') {
       event.preventDefault();
       game.closeBackpack();
-    } else if (game.state === 'pouch') {
+    } else if (game.state === 'hint') {
       event.preventDefault();
-      game.closePouch();
+      game.closeHint();
     } else if (game.state === 'trickDoor') {
       event.preventDefault();
       game.closeTrickDoor();
@@ -2023,9 +3169,9 @@ window.addEventListener('keydown', (event) => {
     } else if (game.state === 'inventory') {
       event.preventDefault();
       game.closeBackpack();
-    } else if (game.state === 'pouch') {
+    } else if (game.state === 'hint') {
       event.preventDefault();
-      game.closePouch();
+      game.closeHint();
     } else if (game.state === 'trickDoor') {
       event.preventDefault();
       game.closeTrickDoor();
@@ -2072,6 +3218,8 @@ refreshContinue(bootSave);
 
 renderTracks();
 syncOverlays(game.state);
+// 刷新页面时也把还没做选择的那封信递上来；做过选择就不会再弹。
+maybeShowMemorialLetter();
 syncFullscreenUi();
 window.setInterval(updateHud, 100);
 

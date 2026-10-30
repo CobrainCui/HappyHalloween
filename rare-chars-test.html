@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>生僻字渲染测试</title>
+<style>
+  :root {
+    --mono: "Cascadia Mono", "Courier New", ui-monospace, monospace;
+    --sans: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  }
+  body { background:#08050d; color:#f5ead9; font-family:var(--sans); padding:24px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sample { font-size:34px; letter-spacing:.08em; color:#ffc46b; margin:10px 0 24px; }
+  table { border-collapse:collapse; width:100%; font-size:15px; }
+  th, td { border-bottom:1px solid #382343; padding:8px 10px; text-align:left; vertical-align:middle; }
+  th { color:#a994b8; font-weight:600; font-size:13px; }
+  .glyph { font-size:34px; line-height:1.2; }
+  .glyph.mono { font-family:var(--mono); }
+  .cp { font-family:var(--mono); color:#a994b8; font-size:13px; }
+  .ok { color:#7ddc8a; } .bad { color:#ff6b6b; }
+  .cols { display:flex; gap:32px; flex-wrap:wrap; margin-bottom:20px; }
+  .col h2 { font-size:13px; color:#a994b8; margin:0 0 6px; font-weight:600; }
+  canvas { background:#120a19; border:1px solid #382343; border-radius:6px; }
+  .note { color:#766281; font-size:12px; margin-top:16px; }
+</style>
+</head>
+<body>
+<h1>生僻字渲染测试</h1>
+<p class="sample">有女冯桃，其文亹亹。</p>
+<p class="sample" style="font-family:var(--mono)">有女冯桃，其文亹亹。 𪚥𠮷龘</p>
+
+<div class="cols">
+  <div class="col"><h2>Canvas · 结局字体（Noto Sans SC / PingFang / YaHei）</h2><canvas id="cA" width="420" height="150"></canvas></div>
+  <div class="col"><h2>Canvas · setDraw 名字字体（10px YaHei…）</h2><canvas id="cB" width="420" height="150"></canvas></div>
+  <div class="col"><h2>Canvas · dp 小字实际尺寸 @2x</h2><canvas id="cC" width="420" height="150"></canvas></div>
+</div>
+
+<table id="t">
+  <thead><tr><th>字</th><th>码位</th><th>区段</th><th>--sans 渲染</th><th>--mono 渲染</th><th>像素检测 sans</th><th>像素检测 mono</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<p class="note">像素检测：把该字画到 canvas，与已知缺字 U+FFFF 的像素比对；一致 = 字体缺字，浏览器会显示豆腐块或空白。</p>
+
+<script>
+const CHARS = [
+  ['亹', '用户句中出现的字'],
+  ['冯', '常用'],
+  ['龘', 'URO 末段'],
+  ['魑', '游戏标题'],
+  ['魅', '游戏标题'],
+  ['魍', '游戏标题'],
+  ['魉', '游戏标题'],
+  ['㐂', '扩展 A'],
+  ['𠮷', '扩展 B'],
+  ['𪚥', '扩展 B'],
+  ['𪚲', '扩展 B'],
+];
+const SANS = '"Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif';
+const MONO = '"Cascadia Mono", "Courier New", ui-monospace, monospace';
+
+function plane(cp) {
+  if (cp <= 0xFFFF) return 'BMP (U+' + cp.toString(16).toUpperCase() + ')';
+  return 'SSP (代理对 U+' + cp.toString(16).toUpperCase() + ')';
+}
+
+const probe = document.createElement('canvas');
+probe.width = probe.height = 48;
+const pctx = probe.getContext('2d', { willReadFrequently: true });
+function sig(ch, font) {
+  pctx.clearRect(0, 0, 48, 48);
+  pctx.font = font;
+  pctx.fillStyle = '#fff';
+  pctx.textBaseline = 'top';
+  pctx.fillText(ch, 2, 2);
+  const d = pctx.getImageData(0, 0, 48, 48).data;
+  let h = 0;
+  for (let i = 3; i < d.length; i += 4) h = (h * 31 + d[i]) >>> 0;
+  return h;
+}
+const tofus = { sans: sig('￿', '40px ' + SANS), mono: sig('￿', '40px ' + MONO) };
+function hasGlyph(ch, stack, key) {
+  const s = sig(ch, '40px ' + stack);
+  if (s === tofus[key]) return false;
+  // 再和一个必然缺字的私用区字符比对
+  return s !== sig('\u{F0000}', '40px ' + stack) || true;
+}
+
+const tbody = document.querySelector('#t tbody');
+for (const [ch, note] of CHARS) {
+  const cp = ch.codePointAt(0);
+  const tr = document.createElement('tr');
+  const okS = hasGlyph(ch, SANS, 'sans');
+  const okM = hasGlyph(ch, MONO, 'mono');
+  tr.innerHTML = `
+    <td class="glyph">${ch}</td>
+    <td class="cp">U+${cp.toString(16).toUpperCase()}</td>
+    <td class="cp">${plane(cp)}<br><span style="font-family:var(--sans);color:#766281">${note}</span></td>
+    <td class="glyph">${ch}</td>
+    <td class="glyph mono">${ch}</td>
+    <td class="${okS ? 'ok' : 'bad'}">${okS ? 'OK' : '缺字'}</td>
+    <td class="${okM ? 'ok' : 'bad'}">${okM ? 'OK' : '缺字'}</td>`;
+  tbody.appendChild(tr);
+}
+
+function paint(id, font, chars) {
+  const cv = document.getElementById(id);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#f5ead9';
+  ctx.font = font;
+  ctx.textBaseline = 'top';
+  ctx.fillText(chars, 10, 12);
+  ctx.fillStyle = '#766281';
+  ctx.font = '11px ' + SANS;
+  ctx.fillText(font, 10, 96);
+  // 小字行，模拟游戏内 10-12px
+  ctx.fillStyle = '#f5ead9';
+  ctx.font = font.replace(/^[0-9.]+px/, '11px');
+  ctx.fillText('有女冯桃，其文亹亹。魑魅魍魉 𪚥𠮷', 10, 118);
+}
+const SAMPLE = '亹亹魑魅魍魉龘𪚥𠮷';
+paint('cA', '30px "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif', SAMPLE);
+paint('cB', '10px "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif', SAMPLE);
+paint('cC', 'bold 6px monospace', SAMPLE + ' ✓');
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Pumpkin Hollow
+title Sir Loved Pumpkin Pie
 
 where node >nul 2>nul
 if errorlevel 1 (
@@ -16,11 +16,11 @@ if errorlevel 1 (
 )
 
 echo.
-echo   Starting Pumpkin Hollow ...
+echo   Starting Sir Loved Pumpkin Pie ...
 echo   Local address: http://127.0.0.1:4173
 echo   Close this window to stop the server.
 echo.
 
-start "Pumpkin Hollow Server" cmd /k node server.js
+start "Sir Loved Pumpkin Pie Server" cmd /k node server.js
 timeout /t 2 /nobreak >nul
 start "" http://127.0.0.1:4173

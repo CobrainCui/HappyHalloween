@@ -9,8 +9,10 @@
  * 读档时再还原成 Set。
  */
 
+import { COSTUME_BY_ID } from './collectibles.js';
+
 const STORAGE_KEY = 'pumpkin-hollow.save.v1';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 // 走路时每隔一段时间落一次盘；显式事件（落脚点、拾取、通关）也会触发，
 // 但都走同一个节流，最多每秒写一次 localStorage。
 const WRITE_INTERVAL = 1000;
@@ -74,11 +76,25 @@ export function setBackend(next) {
 }
 
 /**
- * 逐版迁移。当前只有第 1 版，第 0 版（没有 schemaVersion 的旧档）
- * 直接补上版本号；以后新版本在这里追加 `1: (data) => ...`。
+ * 逐版迁移。
+ *   第 0 版（没有 schemaVersion 的旧档）：直接补上版本号；
+ *   第 1 版：信是「弹出来就算看过」，没有打开 / 稍后再看的选择。
+ *            升成已读并收进背包，老玩家也能在背包里重新翻开它、和鞋说话。
  */
 const MIGRATIONS = {
   0: (data) => data,
+  1: (data) => {
+    if (!data.settings?.memorialLetterSeen) return data;
+    if (data.settings.memorialLetterRead !== undefined) return data;
+    return {
+      ...data,
+      settings: {
+        ...data.settings,
+        memorialLetterRead: true,
+        memorialLetterInBag: true,
+      },
+    };
+  },
 };
 
 function migrate(data) {
@@ -132,6 +148,11 @@ export function load() {
 
   readOnly = false;
   doc = migrate(parsed);
+  // 老存档里主线可能已经通关却没有这个标记：升成一次性的剧情标记，
+  // 免得重走主线时把皮鞋的合脚度和那封信又清零。
+  if (doc.routes?.memorial?.completed && !doc.settings?.memorialCleared) {
+    doc.settings = { ...(doc.settings ?? {}), memorialCleared: true };
+  }
   return doc;
 }
 
@@ -143,6 +164,80 @@ export function current() {
 /** 当前文档里是否有值得继续的进度。 */
 export function hasProgress(data = doc) {
   return Boolean(describeRun(data));
+}
+
+/**
+ * 新手教程是不是已经走完——起始页靠它决定主线开不开。
+ *
+ * 这一条只记在 settings.tutorialCleared 里，而且只往上翻：
+ * 重走教程、中途退出都不会把主线重新锁上。
+ * 老存档没有这个字段：只要其它线路留下过记录，就当成早就过了教程。
+ */
+export function tutorialCleared(data = doc) {
+  if (!data) return false;
+  if (data.settings?.tutorialCleared) return true;
+  const routes = data.routes ?? {};
+  return ['memorial', 'parade', 'trick'].some((key) => Boolean(routes[key]));
+}
+
+/**
+ * 主线「给老师送南瓜派」走完过一次没有。
+ *
+ * 和教程标记一样只往上翻：走完一次之后，皮鞋就永远合脚、之后每一趟都从 100% 起，
+ * 也不会再收到老师那封信。重走主线、中途退出都不会把它抹掉。
+ */
+export function memorialCleared(data = doc) {
+  if (!data) return false;
+  if (data.settings?.memorialCleared) return true;
+  // 兼容老存档：读档时通常已经被提升成 settings 里的标记，这里再兜一层。
+  return Boolean(data.routes?.memorial?.completed);
+}
+
+/** 老师那封信是不是已经递到玩家面前过了；递过一次就不再自动弹出。 */
+export function memorialLetterSeen(data = doc) {
+  return Boolean(data?.settings?.memorialLetterSeen);
+}
+
+/** 老师那封信递到玩家面前的那一刻记一次，并立刻落盘。 */
+export function markMemorialLetterSeen() {
+  return patchSettings({ memorialLetterSeen: true });
+}
+
+/** 信读过了没有。读过之后底部才会出现「与皮鞋对话」。 */
+export function memorialLetterRead(data = doc) {
+  return Boolean(data?.settings?.memorialLetterRead);
+}
+
+/** 信是不是收在背包里：选了「稍后再看」，或者后来读完了。 */
+export function memorialLetterInBag(data = doc) {
+  return Boolean(data?.settings?.memorialLetterInBag);
+}
+
+/** 把信收进背包（「稍后再看」时调用）。 */
+export function markMemorialLetterInBag() {
+  return patchSettings({ memorialLetterInBag: true });
+}
+
+/** 信被打开读完：既算已读，也从此收进背包，随时能再翻。 */
+export function markMemorialLetterRead() {
+  return patchSettings({ memorialLetterRead: true, memorialLetterInBag: true });
+}
+
+/** 写一条 settings 标记并立刻落盘。 */
+function patchSettings(patch) {
+  if (readOnly) return false;
+  if (!doc) doc = { schemaVersion: SCHEMA_VERSION, settings: {}, routes: {} };
+  doc.settings = { ...(doc.settings ?? {}), ...patch };
+  pending = true;
+  // 这些都是一辈子只发生一次的剧情标记：直接落盘，别等节流那一秒。
+  return flush();
+}
+
+/** 某条线路走到第几段；没有记录时按 1 算。 */
+export function routeStage(key, route) {
+  const stage = Math.max(1, route?.stage ?? 1);
+  // 旧存档里的第三段是电磁赛道；现在它顺延到第四段。
+  return key === 'memorial' && stage === 3 && route?.sneakCheckpointIndex === undefined ? 4 : stage;
 }
 
 function routeKeyOf(game) {
@@ -200,12 +295,22 @@ export function snapshot(game) {
     route.puzzles = JSON.parse(JSON.stringify(session.trickPuzzleStates ?? {}));
   }
 
+  // 主线通关是一次性的剧情标记：存档里已经有，或这一趟刚走完最后一段，
+  // 都算走过。它只往上翻，重走或中途退出都不会抹掉。
+  const memorialDone =
+    Boolean(doc?.settings?.memorialCleared) ||
+    (routeKey === 'memorial' && Boolean(session.completed));
+
   const data = {
     schemaVersion: SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
     settings: {
       audioMuted: Boolean(game.audio?.muted),
       lastRoute: routeKey,
+      // 教程通关是一条单向标记：重走教程、中途退出都不会把主线重新锁上。
+      ...(routeKey === 'tutorial' && session.completed ? { tutorialCleared: true } : {}),
+      // 主线通关同理：走完一次，皮鞋永远合脚，那封信也不再出现。
+      ...(memorialDone ? { memorialCleared: true } : {}),
     },
     routes: { [routeKey]: route },
   };
@@ -326,11 +431,17 @@ export function applyWallet(game, data) {
   session.bones = wallet.bones ?? 0;
   session.rightHandBones = wallet.rightHandBones ?? 0;
   session.boneTypes = { ...(session.boneTypes ?? {}), ...(wallet.boneTypes ?? {}) };
-  session.completedCostumes = [...(wallet.completedCostumes ?? [])];
-  session.equippedCostume = wallet.equippedCostume ?? null;
+  // 旧存档里可能还留着已经撤掉的时装（如南瓜巫师），读档时一并清掉。
+  session.completedCostumes = [...(wallet.completedCostumes ?? [])].filter((id) =>
+    COSTUME_BY_ID.has(id),
+  );
+  session.equippedCostume = COSTUME_BY_ID.has(wallet.equippedCostume)
+    ? wallet.equippedCostume
+    : null;
   session.joinedYokai = [...(wallet.joinedYokai ?? [])];
 
   game.player.costume = session.equippedCostume;
+  game.partner.costume = session.equippedCostume;
   game.player.shoeFit = game.getShoeFit?.() ?? game.player.shoeFit;
 }
 
@@ -377,11 +488,7 @@ export function describeRun(data = doc) {
   if (!entry) return null;
   const [key, route] = entry;
 
-  let stage = Math.max(1, route.stage ?? 1);
-  // 旧存档里的第三段是电磁赛道；现在它顺延到第四段。
-  if (key === 'memorial' && stage === 3 && route.sneakCheckpointIndex === undefined) {
-    stage = 4;
-  }
+  const stage = routeStage(key, route);
   let title = ROUTE_LABELS[key];
   if (key !== 'tutorial' && key !== 'trick') title += ` · 第 ${stage} 段`;
   if (key === 'trick' && route.room === 'witch') title += ' · 女巫的庭院';

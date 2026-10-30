@@ -27,7 +27,7 @@ export const SNEAK_STAGE = Object.freeze({
   subtitle: '你听见另一个自己在走',
   objective: '躲开提灯人的光，你和回音都走到墓园门口',
   intro:
-    '第三段路，你想起阿遥。她在山上守一台老无线电，能听见很远的声音，也听见一些别人听不见的。',
+    '第三段路，你想起冯桃。她的笔写尽人间悲欢，人却常年困在与自我剥离的雾里。',
   spec: {
     width: 74,
     height: 18,

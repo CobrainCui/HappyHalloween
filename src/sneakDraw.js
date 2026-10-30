@@ -999,17 +999,20 @@ export function drawSneakPlayerReadouts(renderer, game, time) {
 
   // 有谁出了画面：在屏幕边缘留一枚同色的箭头，方向就是他在的那边。
   // 两个人各看各的颜色，不会把同伴和自己弄混。
+  // 边界要用镜头当前能看到的范围，手机端放大了镜头，屏幕会窄一些。
+  const viewWidth = renderer.viewWidth ?? VIEW.WIDTH;
+  const viewHeight = renderer.viewHeight ?? VIEW.HEIGHT;
   const margin = 14;
   players.forEach((actor, index) => {
     const sx = actor.centerX - camX;
     const sy = actor.centerY - camY;
-    if (!(sx < -4 || sx > VIEW.WIDTH + 4 || sy < -4 || sy > VIEW.HEIGHT + 4)) return;
-    const px = Math.max(margin, Math.min(VIEW.WIDTH - margin, sx));
-    const py = Math.max(margin, Math.min(VIEW.HEIGHT - margin, sy));
-    const horizontal = sx < -4 || sx > VIEW.WIDTH + 4;
+    if (!(sx < -4 || sx > viewWidth + 4 || sy < -4 || sy > viewHeight + 4)) return;
+    const px = Math.max(margin, Math.min(viewWidth - margin, sx));
+    const py = Math.max(margin, Math.min(viewHeight - margin, sy));
+    const horizontal = sx < -4 || sx > viewWidth + 4;
     const dir = horizontal
-      ? Math.sign(sx - VIEW.WIDTH / 2) || 1
-      : Math.sign(sy - VIEW.HEIGHT / 2) || 1;
+      ? Math.sign(sx - viewWidth / 2) || 1
+      : Math.sign(sy - viewHeight / 2) || 1;
     const pulse = 0.6 + Math.sin(time * 3.2 + index) * 0.25;
     ctx.save();
     ctx.globalAlpha = 0.5 + pulse * 0.4;
@@ -1101,14 +1104,16 @@ export function drawSneakGoalState(renderer, game, time) {
 export function drawSneakAtmosphere(renderer, game, time) {
   if (!game.level?.sneak) return;
   const ctx = renderer.ctx;
+  const viewWidth = renderer.viewWidth ?? VIEW.WIDTH;
+  const viewHeight = renderer.viewHeight ?? VIEW.HEIGHT;
 
   const vignette = ctx.createRadialGradient(
-    VIEW.WIDTH / 2,
-    VIEW.HEIGHT / 2,
-    VIEW.WIDTH * 0.18,
-    VIEW.WIDTH / 2,
-    VIEW.HEIGHT / 2,
-    VIEW.WIDTH * 0.62,
+    viewWidth / 2,
+    viewHeight / 2,
+    viewWidth * 0.18,
+    viewWidth / 2,
+    viewHeight / 2,
+    viewWidth * 0.62,
   );
   vignette.addColorStop(0, 'rgba(3, 8, 12, 0)');
   vignette.addColorStop(0.72, 'rgba(3, 8, 12, 0.16)');
@@ -1123,12 +1128,12 @@ export function drawSneakAtmosphere(renderer, game, time) {
   if (exposure > 0.12) {
     const pulse = 0.55 + Math.sin(time * 10) * 0.45;
     const edge = ctx.createRadialGradient(
-      VIEW.WIDTH / 2,
-      VIEW.HEIGHT / 2,
-      VIEW.WIDTH * 0.24,
-      VIEW.WIDTH / 2,
-      VIEW.HEIGHT / 2,
-      VIEW.WIDTH * 0.64,
+      viewWidth / 2,
+      viewHeight / 2,
+      viewWidth * 0.24,
+      viewWidth / 2,
+      viewHeight / 2,
+      viewWidth * 0.64,
     );
     edge.addColorStop(0, 'rgba(255, 74, 58, 0)');
     edge.addColorStop(0.72, `rgba(214, 44, 38, ${0.04 + exposure * 0.1})`);

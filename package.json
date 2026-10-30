@@ -3,7 +3,7 @@
   "version": "0.9.0",
   "private": true,
   "type": "module",
-  "description": "南瓜小径：万圣节像素风网页横版小游戏。三条夜路：新手教程、给老师送南瓜派（四段，第三段双人潜行）、魑魅魍魉，外加糖纸街副本 Trick or Treat。南瓜能推、能抛、能叠。",
+  "description": "给老师送南瓜派：万圣节像素风网页横版小游戏。主线是四段墓园夜路（第三段双人潜行）；另有新手教程、魑魅魍魉，外加糖纸街副本 Trick or Treat。南瓜能推、能抛、能叠。",
   "scripts": {
     "start": "node server.js",
     "start:lan": "node server.js --lan"

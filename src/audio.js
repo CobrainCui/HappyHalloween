@@ -54,6 +54,25 @@ export class AudioKit {
     oscillator.stop(now + duration + 0.02);
   }
 
+  /** 面板开合：背包、名册、提示、暂停、赛道页共用的一声轻响。 */
+  panel(open = true) {
+    this.tone({
+      startFreq: open ? 300 : 470,
+      endFreq: open ? 470 : 300,
+      duration: 0.09,
+      type: 'triangle',
+      volume: 0.028,
+    });
+    this.tone({
+      startFreq: open ? 170 : 250,
+      endFreq: open ? 250 : 165,
+      duration: 0.12,
+      type: 'sine',
+      volume: 0.022,
+      delay: 0.04,
+    });
+  }
+
   jump() {
     this.tone({
       startFreq: 190,
@@ -83,6 +102,55 @@ export class AudioKit {
     });
   }
 
+  /** 推着南瓜挪动：很低的一声木头摩擦，由 PumpkinWorld 限流后才响。 */
+  push() {
+    this.tone({
+      startFreq: 96,
+      endFreq: 68,
+      duration: 0.07,
+      type: 'square',
+      volume: 0.012,
+    });
+  }
+
+  /** 南瓜落到另一颗上：轻轻一记木碰，叠高时听得见。 */
+  stack() {
+    this.tone({
+      startFreq: 176,
+      endFreq: 116,
+      duration: 0.07,
+      type: 'sine',
+      volume: 0.035,
+    });
+    this.tone({
+      startFreq: 300,
+      endFreq: 210,
+      duration: 0.05,
+      type: 'triangle',
+      volume: 0.018,
+      delay: 0.012,
+    });
+  }
+
+  /** 抛出南瓜：一下短促的破风。 */
+  toss() {
+    this.tone({
+      startFreq: 260,
+      endFreq: 92,
+      duration: 0.14,
+      type: 'sawtooth',
+      volume: 0.026,
+    });
+    this.tone({
+      startFreq: 720,
+      endFreq: 240,
+      duration: 0.09,
+      type: 'triangle',
+      volume: 0.016,
+      delay: 0.015,
+    });
+  }
+
   /** 指节敲木门：短、闷，两下叠在一起。 */
   knock() {
     this.tone({
@@ -99,6 +167,33 @@ export class AudioKit {
       type: 'sine',
       volume: 0.045,
       delay: 0.028,
+    });
+  }
+
+  /** 敲响石鼓：闷闷的一声鼓皮，后面拖一点余震。 */
+  drum() {
+    this.tone({
+      startFreq: 124,
+      endFreq: 52,
+      duration: 0.26,
+      type: 'sine',
+      volume: 0.085,
+    });
+    this.tone({
+      startFreq: 62,
+      endFreq: 40,
+      duration: 0.42,
+      type: 'triangle',
+      volume: 0.05,
+      delay: 0.03,
+    });
+    this.tone({
+      startFreq: 320,
+      endFreq: 170,
+      duration: 0.05,
+      type: 'square',
+      volume: 0.012,
+      delay: 0.02,
     });
   }
 
@@ -152,6 +247,52 @@ export class AudioKit {
         delay: 0.08,
       });
     }
+  }
+
+  /** 吃一颗糖：糖纸窸窣一下，接着一口脆响。 */
+  eat() {
+    this.tone({
+      startFreq: 980,
+      endFreq: 660,
+      duration: 0.045,
+      type: 'square',
+      volume: 0.02,
+    });
+    this.tone({
+      startFreq: 760,
+      endFreq: 520,
+      duration: 0.05,
+      type: 'square',
+      volume: 0.016,
+      delay: 0.055,
+    });
+    this.tone({
+      startFreq: 320,
+      endFreq: 500,
+      duration: 0.14,
+      type: 'triangle',
+      volume: 0.028,
+      delay: 0.11,
+    });
+  }
+
+  /** 换上一套时装：布料抖开的一声轻响。 */
+  equip() {
+    this.tone({
+      startFreq: 470,
+      endFreq: 640,
+      duration: 0.09,
+      type: 'triangle',
+      volume: 0.028,
+    });
+    this.tone({
+      startFreq: 700,
+      endFreq: 900,
+      duration: 0.1,
+      type: 'sine',
+      volume: 0.022,
+      delay: 0.07,
+    });
   }
 
   charge() {
@@ -220,6 +361,47 @@ export class AudioKit {
     });
   }
 
+  /** 谜题答对：两下干净的上行音，比 checkpoint 更亮。 */
+  answerRight() {
+    this.tone({
+      startFreq: 560,
+      endFreq: 560,
+      duration: 0.08,
+      type: 'triangle',
+      volume: 0.04,
+    });
+    this.tone({
+      startFreq: 840,
+      endFreq: 840,
+      duration: 0.12,
+      type: 'sine',
+      volume: 0.034,
+      delay: 0.075,
+    });
+  }
+
+  /** 谜题答错：只轻轻压一下，不吓人。 */
+  answerWrong() {
+    this.tone({
+      startFreq: 240,
+      endFreq: 190,
+      duration: 0.12,
+      type: 'triangle',
+      volume: 0.026,
+    });
+  }
+
+  /** 翻开一张牌：纸片弹起的一下。 */
+  flip() {
+    this.tone({
+      startFreq: 620,
+      endFreq: 480,
+      duration: 0.05,
+      type: 'triangle',
+      volume: 0.018,
+    });
+  }
+
   checkpoint() {
     this.tone({
       startFreq: 330,
@@ -227,6 +409,63 @@ export class AudioKit {
       duration: 0.16,
       type: 'sine',
       volume: 0.035,
+    });
+  }
+
+  /** 石门沉进地里：一整块石头往下磨。 */
+  stoneGate() {
+    this.tone({
+      startFreq: 74,
+      endFreq: 34,
+      duration: 0.9,
+      type: 'sawtooth',
+      volume: 0.045,
+    });
+    this.tone({
+      startFreq: 150,
+      endFreq: 58,
+      duration: 0.7,
+      type: 'triangle',
+      volume: 0.028,
+      delay: 0.14,
+    });
+  }
+
+  /** 旧灯亮起：暖一点的两声，比 tutorialChime 低而软。 */
+  lamp() {
+    this.tone({
+      startFreq: 330,
+      endFreq: 392,
+      duration: 0.22,
+      type: 'sine',
+      volume: 0.038,
+    });
+    this.tone({
+      startFreq: 494,
+      endFreq: 587,
+      duration: 0.3,
+      type: 'sine',
+      volume: 0.026,
+      delay: 0.12,
+    });
+  }
+
+  /** 送别一位同行者：一声很低的送别，不是庆祝。 */
+  farewell() {
+    this.tone({
+      startFreq: 220,
+      endFreq: 196,
+      duration: 0.5,
+      type: 'sine',
+      volume: 0.045,
+    });
+    this.tone({
+      startFreq: 165,
+      endFreq: 131,
+      duration: 0.7,
+      type: 'triangle',
+      volume: 0.03,
+      delay: 0.18,
     });
   }
 

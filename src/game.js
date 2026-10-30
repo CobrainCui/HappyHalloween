@@ -16,7 +16,7 @@ import {
   getItemDef,
   getRarity,
 } from './collectibles.js';
-import { FIELD, STEP, VIEW } from './config.js';
+import { FIELD, PHYSICS, STEP, VIEW } from './config.js';
 import { MemorialEnding } from './ending.js';
 import { Input } from './input.js';
 import { Level } from './level.js';
@@ -30,9 +30,11 @@ import {
 import {
   getPuzzleProgress,
   getTrickPuzzle,
+  isValidPuzzleState,
   normalizePuzzleState,
 } from './trickPuzzles.js';
 import {
+  MEMORIAL_CHAPTERS,
   MEMORIAL_ROUTE,
   MEMORIAL_TOTAL_MEMORIES,
   applyMemorialMods,
@@ -49,7 +51,7 @@ import {
   getYokai,
 } from './parade.js';
 import { getSetGateState, updateSetGates } from './setTheory.js';
-import { ShoeFollowers } from './shoeFollowers.js';
+import { ShoeFollowers, shoeRewardFor } from './shoeFollowers.js';
 import {
   createSneakInput,
   createSneakState,
@@ -62,7 +64,7 @@ import {
 } from './sneakMode.js';
 import { ParticleSystem } from './particles.js';
 import { Player } from './player.js';
-import { PumpkinWorld } from './pumpkins.js';
+import { PumpkinWorld, pumpkinLabel } from './pumpkins.js';
 import { Renderer } from './renderer.js';
 import {
   AUTOSAVE_SECONDS,
@@ -70,6 +72,7 @@ import {
   applyWallet,
   current as currentSave,
   flush as flushSave,
+  memorialCleared,
   save as saveGame,
 } from './save.js';
 
@@ -115,6 +118,7 @@ export class Game {
     this.particles = new ParticleSystem();
     this.level = new Level('tutorial');
     this.pumpkins = new PumpkinWorld(this.level);
+    this.bindPumpkinAudio();
     this.player = new Player(this.level.spawn.x, this.level.spawn.y);
     // 第三段的第二名玩家「回音」。其它线路里只创建、不更新、不绘制。
     this.partner = new Player(
@@ -127,6 +131,10 @@ export class Game {
     this.members = [this.player];
     // 魑魅魍魉的队伍支援：同伴会把自己的本事分给整支队伍。
     this.teamSupport = null;
+    // 镜头倍率（手机端放大画面用），桌面端是 1。
+    this.cameraZoom = 1;
+    // 镜头在最右端额外往右滚的比例（手机端给右手按键留白），桌面端是 0。
+    this.cameraRightPadding = 0;
     this.renderer = new Renderer(canvas, this.level, this.particles);
 
     this.state = 'title';
@@ -140,25 +148,35 @@ export class Game {
     this.damageFlash = 0;
     this.respawnGrace = 0;
     this.shoeDistance = 0;
-    // 每走过一段，那一段的人的皮鞋就跟在身后。只有追思小径用得上。
+    // 主线走完过一次之后，皮鞋就永远合脚：之后每一趟都从 100% 起。
+    this.shoeFitComplete = false;
+    // 每走过一段，那一段的人留下的鞋就跟在身后。只有追思小径用得上。
     this.shoeFollowers = new ShoeFollowers();
     // 第一次真正加载地图后才允许写存档，避免起始页的空白教程档盖掉真进度。
     this.started = false;
     this.saveClock = 0;
     // 跨线路保存的增益糖。只存数量，状态仍落在每一局的 session.candyEffects。
+    // 糖装在背包的糖袋里，按 Tab 打开背包就能吃。
     this.pouch = new CandyPouch();
-    // 从暂停面板打开糖袋时，关掉糖袋要回到暂停，而不是直接继续。
-    this.pouchReturnState = 'playing';
+    // 提示面板同理：从暂停打开，关掉后回到暂停。
+    this.hintReturnState = 'playing';
     // 走到终点门时先停一小会儿，让穿门的光效完整放完再换图。
     this.doorEntry = null;
     // 送完最后一盒南瓜派后的碑前长镜头；只在结尾这一段存在。
     this.ending = null;
     // 后巷竞速的追兵状态（只在捣蛋后的那一张图里存在）。
     this.race = null;
+    // 糖纸街的离开键：第一下只把门推开一条缝，几秒内再按一下才真的走。
+    this.trickExitArm = 0;
+    this.trickExitArmDevice = null;
 
     this.onStateChange = null;
     this.onNotice = null;
     this.onComplete = null;
+    // 糖进袋的那一刻：画面外由 main.js 播「拿到一颗糖」的动效。
+    this.onCandyReward = null;
+    // 走完一段、那双鞋跟到身后时：由 main.js 播「拿到一双鞋」的动效。
+    this.onShoeReward = null;
 
     this.activePickups = this.clonePickups(this.level);
     this.session = this.createSession(this.level.id, 'tutorial');
@@ -231,7 +249,7 @@ export class Game {
       memorialLift: 0,
       memorialDepth: 0,
       solacesLit: new Set(),
-      // 已经跟到身后的皮鞋：每双只在第一次跟上来时提一句。
+      // 已经跟到身后的鞋：每双只在第一次跟上来时提一句。
       shoeNotices: new Set(),
       // 第一段南瓜车：入场动画、检查任务与超时抓狂状态。
       carriageIntro: 0,
@@ -241,10 +259,17 @@ export class Game {
       carriageDustTimer: 0,
       carriageIntroSeen: false,
       carriageRiding: false,
+      // 提前按 Q 下车后，车程结束但开场白还要接着播完。
+      carriageIntroSkipped: false,
       carriageX: 0,
       carriageQuest: null,
       carriageAlarm: false,
       carriageHopTimer: 0,
+      // 开场的南瓜派教程默认折叠；展开时开场车程停住，等玩家读完再走。
+      carriageTutorialOpen: false,
+      // 第一段的故事路牌：读过哪几块、正在读哪一块。
+      readSigns: new Set(),
+      readingSign: null,
       // 第一段尽头挡住出口的南瓜高墙：只在第一次走近时提示一次。
       pumpkinHintShown: false,
       // 「魑魅魍魉」：被瘴气冲散的次数，以及最近一次撞碎石壁的时间（防重复提示）。
@@ -316,7 +341,10 @@ export class Game {
     session.carriageRolling = false;
     session.carriageDustTimer = 0;
     session.carriageRiding = false;
+    session.carriageIntroSkipped = false;
     session.carriageX = 0;
+    session.carriageTutorialOpen = false;
+    session.readingSign = null;
     session.pumpkinHintShown = false;
 
     const opening = chapter.opening;
@@ -336,7 +364,7 @@ export class Game {
   }
 
   /**
-   * 按当前段落排出身后已经跟着的皮鞋。
+   * 按当前段落排出身后已经跟着的鞋。
    * 先走过的那双离角色最近，后来跟上的接在队伍末尾；所有鞋共用同一条足迹链。
    */
   setupShoeFollowers() {
@@ -356,7 +384,7 @@ export class Game {
     window.setTimeout(() => {
       if (this.mode !== 'memorial' || this.state !== 'playing') return;
       this.notify(
-        `${latest.name}的皮鞋跟在你身后了。${latest.manner?.line ?? ''}`,
+        `${latest.name}的${latest.shoeName ?? '皮鞋'}跟在你身后了。${latest.manner?.line ?? ''}`,
         4200,
       );
     }, 7200);
@@ -366,6 +394,19 @@ export class Game {
   updateShoeFollowers(dt) {
     if (this.mode !== 'memorial') return;
     this.shoeFollowers.update(dt, this.player, this.level);
+  }
+
+  /**
+   * 走完一段：那一段的人留在了夜里，只剩下一双鞋从下一段起跟在身后。
+   * 这里把「第几段、谁的鞋」报给界面，由 main.js 播拿到鞋的动效；
+   * 顺手记进 shoeNotices，免得进新图后第七秒那句「跟在你身后了」再说一遍。
+   */
+  presentShoeReward(stage) {
+    const reward = shoeRewardFor(stage);
+    if (!reward) return null;
+    this.session.shoeNotices?.add(stage);
+    this.onShoeReward?.(reward);
+    return reward;
   }
 
   clonePickups(level) {
@@ -446,6 +487,20 @@ export class Game {
     // 教程用：按住 ↓ 从单向木板上落下去，算一次「穿过木板」。
     this.player.onDropThrough = () => {
       this.session.dropThroughs += 1;
+    };
+  }
+
+  /**
+   * 南瓜世界不直接依赖音效对象：推、叠高各给它一条回调。
+   * 推的那一声在 PumpkinWorld 里已经限流，这里只管放。
+   * 掉进岩浆这类地方就没了的南瓜，也在这里留一点碎屑。
+   */
+  bindPumpkinAudio() {
+    if (!this.pumpkins) return;
+    this.pumpkins.onPush = () => this.audio.push();
+    this.pumpkins.onStack = () => this.audio.stack();
+    this.pumpkins.onLost = (pumpkin) => {
+      this.particles.spawnDust(pumpkin.x + pumpkin.w / 2, pumpkin.y + pumpkin.h / 2, 0, 6);
     };
   }
 
@@ -727,7 +782,63 @@ export class Game {
   }
 
   getShoeFit() {
+    // 主线走过一次之后，皮鞋就彻底合脚：之后每一趟都从 100% 起，
+    // 不再靠里程慢慢磨。这一趟刚好走完最后一段时也一样。
+    if (this.shoeFitComplete || memorialCleared(currentSave())) return 1;
     return Math.min(0.99, 0.38 + this.shoeDistance / 38000);
+  }
+
+  /**
+   * 背包里的鞋架：脚上这双，和此刻跟在身后的每一双。
+   * 只取已经出现在这一趟路上的事实，卡片上的字由 main.js 排版。
+   */
+  getShoeRackState() {
+    // 主线走完过一次，四双鞋都算收进来了：重走时即使还没跟上来，也摆在鞋架上。
+    const cleared = memorialCleared(currentSave());
+    const following = new Map(
+      this.shoeFollowers.pairs.map((pair) => [pair.stage, pair]),
+    );
+    const stages =
+      this.mode !== 'memorial'
+        ? []
+        : cleared
+          ? MEMORIAL_CHAPTERS.map((chapter) => chapter.stage)
+          : [...following.keys()];
+
+    const followers = stages.map((stage) => {
+      const pair = following.get(stage);
+      const reward = shoeRewardFor(stage);
+      return {
+        kind: 'follower',
+        id: `stage-${stage}`,
+        stage,
+        patient: pair?.name ?? reward?.patient ?? '',
+        shoe: pair?.shoe ?? reward?.shoe ?? 'oxford',
+        shoeName: pair?.shoeName ?? reward?.shoeName ?? '鞋',
+        accent: pair?.accent ?? reward?.accent ?? '#c6b3e0',
+        stageLabel: reward?.stageLabel ?? `第 ${stage} 段`,
+        line: pair?.manner?.line ?? reward?.line ?? '',
+        bio: reward?.bio ?? reward?.intro ?? '',
+        bioEn: reward?.bioEn ?? '',
+        blessing: reward?.blessing ?? null,
+        // 这一双此刻是不是真的走在身后；只是收在鞋架上的也算。
+        following: Boolean(pair),
+      };
+    });
+
+    return {
+      mode: this.mode,
+      fit: this.getShoeFit(),
+      own: {
+        kind: 'own',
+        id: 'own',
+        shoe: 'oxford',
+        shoeName: '系带皮鞋',
+        accent: '#ffcf72',
+        fit: this.getShoeFit(),
+      },
+      followers,
+    };
   }
 
   /**
@@ -772,7 +883,13 @@ export class Game {
     if (!levelId) return false;
 
     this.audio.unlock();
-    this.loadTheme(levelId, routeKey);
+    // 读档直接落进后巷时，也要按那一户的巷子建图。
+    this.loadTheme(
+      levelId,
+      routeKey,
+      null,
+      routeKey === 'trick' ? { trickRaceHouse: route.raceHouse ?? null } : {},
+    );
     applySaveData(this, data);
     this.restoreRouteState(routeKey, route);
     this.setState('playing');
@@ -827,7 +944,10 @@ export class Game {
       // 重新按「这一段 + 送别名册」组队，读档后不会多出已离开的人。
       this.setupParadeParty();
     } else if (routeKey === 'tutorial') {
-      session.tutorialStep = route.step ?? 0;
+      // 教程改短过，旧存档的步数可能超出现在的步数；夹在最后一个可见步骤里。
+      const lastStep = Math.max(0, (this.level.tutorialSteps?.length ?? 1) - 1);
+      session.tutorialStep = Math.min(route.step ?? 0, lastStep);
+      this.level.syncTutorialGates(session.tutorialStep);
     } else if (routeKey === 'trick') {
       const houses = { ...(route.houses ?? {}) };
       // 兼容旧存档：doors 的键是 trick-door-<序号>，值是 treat / trick。
@@ -848,8 +968,7 @@ export class Game {
       session.trickCandies = route.trickCandies ?? 0;
       session.trickTricks = route.trickTricks ?? 0;
       session.trickPuzzleStates = { ...(route.puzzles ?? {}) };
-      const resolved = Object.keys(houses).length;
-      session.trickAllDoneNotified = resolved >= TRICK_HOUSES.length;
+      session.trickAllDoneNotified = Object.keys(houses).length >= TRICK_HOUSES.length;
       if (!session.trickRoom && !session.trickRaceHouse) this.syncTrickHouseDevices();
     }
 
@@ -896,7 +1015,7 @@ export class Game {
     });
   }
 
-  loadTheme(themeId, mode, carrySession = null) {
+  loadTheme(themeId, mode, carrySession = null, options = {}) {
     // 换图时门里的光效已经结束，别把上一步的停顿带进来。
     this.doorEntry = null;
     // 结尾长镜头只属于上一条走完的追思路；新开一局或换图都要收掉。
@@ -907,12 +1026,24 @@ export class Game {
     // 段落之间和重来本段则沿用 carrySession 里记下的那一条。
     const paradeTrackId =
       carrySession?.paradeTrack ?? (mode === 'parade' ? this.pendingParadeTrack : 'easy');
-    this.level = new Level(themeId, { paradeTrack: paradeTrackId });
+    // 后巷是十户各一条：读档进来时也要知道这次被谁追。
+    const trickRaceHouse =
+      options.trickRaceHouse ?? carrySession?.trickRaceHouse ?? null;
+    this.level = new Level(themeId, {
+      paradeTrack: paradeTrackId,
+      trickRaceHouse,
+    });
     // 第三段虽然属于 memorial，但要按潜行段来更新和绘制。
     const sneakStage = this.level.sneak;
     this.pumpkins = new PumpkinWorld(this.level);
+    this.bindPumpkinAudio();
+    const cameraZoom = this.cameraZoom ?? 1;
     this.renderer = new Renderer(this.canvas, this.level, this.particles);
+    // 换图会重建渲染器：镜头倍率（手机端放大）要跟着带过去。
+    this.renderer.setCameraZoom(cameraZoom);
     this.mode = mode;
+    // 主线走过一次之后皮鞋就永远合脚：这一趟从 100% 起，重走也一样。
+    this.shoeFitComplete = mode === 'memorial' && memorialCleared(currentSave());
     this.activePickups = this.clonePickups(this.level);
     this.player.reset(this.level.spawn.x, this.level.spawn.y);
     this.player.charge = 0;
@@ -987,6 +1118,8 @@ export class Game {
       this.player.crouchScale = null;
       this.partner.crouchScale = null;
     }
+    // 换段之后时装要从行囊里重新穿上；第三段的回音和你穿同一套。
+    this.syncCostumes();
 
     this.particles.clear();
 
@@ -998,6 +1131,9 @@ export class Game {
     this.respawnGrace = 0;
     this.introFlash = 0.9;
     this.damageFlash = 0;
+
+    // 教程门在当前步骤之前都打开；读档后教程进度可能不是 0。
+    this.level.syncTutorialGates(this.session.tutorialStep ?? 0);
 
     // 新的一段（或新开一局）立刻记下所在线路与起点；
     // 读档时随后的 restoreRouteState() 会再覆盖成存档里的落脚点。
@@ -1027,7 +1163,12 @@ export class Game {
     this.setState('playing');
     // 第一段开场由南瓜车上的几句独白来讲，下车时再提示这一段的目标。
     if (this.session.carriageIntro > 0) return;
-    this.notify(MEMORIAL_ROUTE.intro, 3600);
+    this.notify(
+      MEMORIAL_ROUTE.introEn
+        ? `${MEMORIAL_ROUTE.intro}\n${MEMORIAL_ROUTE.introEn}`
+        : MEMORIAL_ROUTE.intro,
+      4600,
+    );
     window.setTimeout(() => {
       const chapter = getMemorialChapter(1);
       if (chapter && this.mode === 'memorial' && this.state === 'playing') {
@@ -1039,11 +1180,15 @@ export class Game {
   /** 打开三条赛道的选择页。 */
   openParadeTracks() {
     if (this.state !== 'title') return;
+    // 这一下点击本身就可以解锁音频：赛道页的开合声从第一次点击就听得见。
+    this.audio.unlock();
+    this.audio.panel(true);
     this.setState('tracks');
   }
 
   closeParadeTracks() {
     if (this.state !== 'tracks') return;
+    this.audio.panel(false);
     this.setState('title');
   }
 
@@ -1114,7 +1259,7 @@ export class Game {
     this.session.paradeRescueReady = 0;
     this.rebuildPartySupport();
     this.accumulator = 0;
-    this.audio.checkpoint();
+    this.audio.farewell();
     this.notify(
       member.yokaiId === 'franken'
         ? '科学怪人留在了夜路。裂石以后要全队一起顶。'
@@ -1144,7 +1289,10 @@ export class Game {
     return Boolean(this.level?.sneak);
   }
 
-  /** Trick or Treat：一条没有危险的糖纸街，十扇门各给一种增益糖。 */
+  /**
+   * Trick or Treat：一条没有危险的糖纸街，十扇门各给一种增益糖。
+   * 每一趟都是新的：十户的糖可以一遍遍地拿，糖袋只管往上加。
+   */
   startTrickOrTreat() {
     this.audio.unlock();
     this.loadTheme('trick', 'trick');
@@ -1161,12 +1309,14 @@ export class Game {
   /** 百鬼名册：看当前队伍和还没遇到的客人。 */
   openRoster() {
     if (this.mode !== 'parade' || this.state !== 'playing') return;
+    this.audio.panel(true);
     this.setState('roster');
   }
 
   closeRoster() {
     if (this.state !== 'roster') return;
     this.accumulator = 0;
+    this.audio.panel(false);
     this.setState('playing');
   }
 
@@ -1193,6 +1343,7 @@ export class Game {
   pause() {
     if (this.state !== 'playing') return;
     this.persist(true);
+    this.audio.panel(true);
     this.setState('paused');
   }
 
@@ -1200,6 +1351,7 @@ export class Game {
     if (this.state !== 'paused') return;
     this.audio.unlock();
     this.accumulator = 0;
+    this.audio.panel(false);
     this.setState('playing');
   }
 
@@ -1207,28 +1359,35 @@ export class Game {
     if (this.state !== 'playing') return;
     this.session.backpackOpened = true;
     this.persist();
+    this.audio.panel(true);
     this.setState('inventory');
   }
 
   closeBackpack() {
     if (this.state !== 'inventory') return;
     this.accumulator = 0;
+    this.audio.panel(false);
     this.setState('playing');
   }
 
-  /** 糖袋：任何线路都能在游戏进行中打开；暂停时也能打开。 */
-  openPouch() {
+  /**
+   * 提示面板：可以在进行中或暂停时打开；
+   * 打开时玩法停住，关掉后回到打开前的状态。
+   */
+  openHint() {
     if (this.state !== 'playing' && this.state !== 'paused') return false;
-    this.pouchReturnState = this.state;
+    this.hintReturnState = this.state;
     this.accumulator = 0;
-    this.setState('pouch');
+    this.audio.panel(true);
+    this.setState('hint');
     return true;
   }
 
-  closePouch() {
-    if (this.state !== 'pouch') return;
+  closeHint() {
+    if (this.state !== 'hint') return;
     this.accumulator = 0;
-    this.setState(this.pouchReturnState === 'paused' ? 'paused' : 'playing');
+    this.audio.panel(false);
+    this.setState(this.hintReturnState === 'paused' ? 'paused' : 'playing');
   }
 
   getPouchState() {
@@ -1243,7 +1402,7 @@ export class Game {
   usePouchCandy(type) {
     const def = BUFF_CANDIES[type];
     if (!def) return { ok: false, message: '糖袋里没有这种糖。' };
-    if (this.state !== 'playing' && this.state !== 'pouch') {
+    if (this.state !== 'inventory' && this.state !== 'roster' && this.state !== 'playing') {
       return { ok: false, message: '现在不能吃糖。' };
     }
     if (!this.pouch.take(type)) {
@@ -1253,14 +1412,6 @@ export class Game {
     this.session.buffUses = (this.session.buffUses ?? 0) + 1;
     this.activateCandy(type, { source: 'pouch' });
     return { ok: true, def };
-  }
-
-  skipTutorial() {
-    if (this.mode !== 'tutorial' || this.state !== 'playing') return;
-    // 跳过教程后直接进入正式线路「给老师送南瓜派」，
-    // 不再把已经并进第四段的「电磁长夜」当成一条独立线路。
-    this.startMemorial();
-    this.notify('教程已跳过。给老师送南瓜派从墓园门口开始，跟着提示走。', 4200);
   }
 
   restart() {
@@ -1301,18 +1452,34 @@ export class Game {
   }
 
   /**
-   * E / 互动。传入 actor 时只让那一个角色动手——第三段里
+   * E：抱起 / 抛出身边的东西。传入 actor 时只让那一个角色动手——第三段里
    * 你按 E、回音按 /，各管各的南瓜；不传时沿用「谁最合适谁动手」。
+   * 装置归 Q、离开归 X、呼吸归空格，同一个键不兼两份差事。
    */
   interact(actor = null) {
     if (this.state !== 'playing') return;
-    // 惊恐发作时，E 只用来跟着呼吸；不抱南瓜、不碰装置。
-    if (this.mode === 'memorial' && this.session.memorialPanic) {
-      this.handlePanicPress();
+    // 惊恐发作时只认空格呼吸；坐在南瓜车上时只认 Q 下车。这两种时候 E 不抱东西。
+    if (this.isPanicActive()) return;
+    // 提前下车后开场白还在播，但人已经落地，E 照常可用。
+    if (this.mode === 'memorial' && this.session.carriageIntro > 0 && !this.session.carriageIntroSkipped) return;
+    // 抱着东西时，E 只负责把它抛出去。
+    if (!this.isSneakStage() && this.pumpkins?.getCarried(this.player)) {
+      this.interactWithPumpkin(this.player);
       return;
     }
-    if (this.mode === 'memorial' && this.session.carriageIntro > 0) {
-      // 坐在南瓜车上时，互动键用来直接下车。
+    this.interactWithPumpkin(actor);
+  }
+
+  /**
+   * Q：摸身边的装置——石鼓、铜球、南瓜车、糖门，以及半空中放掉身上的电荷。
+   * 抱 / 抛归 E，离开归 X，各按各的键。
+   */
+  useDevice() {
+    if (this.state !== 'playing') return;
+    // 惊恐发作时先呼吸，装置等平复了再摸。
+    if (this.mode === 'memorial' && this.session.memorialPanic) return;
+    if (this.mode === 'memorial' && this.session.carriageIntro > 0 && !this.session.carriageIntroSkipped) {
+      // 坐在南瓜车上时，Q 用来直接下车。
       this.skipCarriageIntro();
       return;
     }
@@ -1323,24 +1490,24 @@ export class Game {
           ? null
           : this.level.getNearbyDevice(this.player.bounds);
     if (!device) {
-      // 附近没有铜球、骨槽或南瓜车时，E 用来抱起 / 抛出地上的南瓜。
-      // 所有线路都支持；第三段里由按自己那个键的人动手。
-      this.interactWithPumpkin(actor);
+      // 半空里被电子拉住时，Q 用来放掉身上的电荷。
+      // 库仑力只跟电荷和距离有关，电荷一放，人就能落回去。
+      if (!this.player.onGround && this.player.charge !== 0) {
+        this.dischargePlayerCharge();
+        return;
+      }
+      this.notify('身边没有能摸的装置。抱起 / 抛出东西用 E。', 1600);
       return;
     }
 
-    if (device.type === 'trickRaceExit') {
-      this.quitTrickRace();
+    if (device.type === 'trickRaceExit' || device.type === 'trickExit') {
+      // 离开挂在 X 上：Q 只摸装置，免得在门边想摸东西的人手一抖就走出了这一关。
+      this.notify('要离开这里，按 X。', 1800);
       return;
     }
 
     if (device.type === 'candyDoor') {
       this.openTrickDoor(device);
-      return;
-    }
-
-    if (device.type === 'trickExit') {
-      this.leaveTrickRoom();
       return;
     }
 
@@ -1356,10 +1523,7 @@ export class Game {
 
     if (device.type === 'charger') {
       if (this.player.charge === device.charge) {
-        this.player.charge = 0;
-        this.audio.discharge();
-        this.particles.spawnElectric(this.player.centerX, this.player.centerY, 6);
-        this.notify('电荷已释放。你又是绝缘的了。');
+        this.dischargePlayerCharge();
       } else {
         this.player.charge = device.charge;
         this.audio.charge();
@@ -1370,29 +1534,49 @@ export class Game {
       return;
     }
 
-    if (device.type === 'boneSlot' && !device.solved) {
-      this.openBackpack();
-    }
+    // 骨槽只认 Tab：Q 不顺手打开背包，同一个键不兼两份差事。
   }
 
-  /** 抱起或抛出南瓜。传了 actor 就只让他动手，否则挑最合适的那一个。 */
+  /**
+   * 放掉身上的电荷。
+   * 铜球旁再按一次、或者在半空被电子拉住时按 Q，都走这里。
+   */
+  dischargePlayerCharge() {
+    if (this.player.charge === 0) return;
+    this.player.charge = 0;
+    this.audio.discharge();
+    this.particles.spawnElectric(this.player.centerX, this.player.centerY, 6);
+    this.notify('电荷已释放。你又是绝缘的了。');
+  }
+
+  /** 抱起或放下身边的东西。传了 actor 就只让他动手，否则挑最合适的那一个。 */
   interactWithPumpkin(actor = null) {
     const players = this.isSneakStage() ? [this.player, this.partner] : [this.player];
     const chosen = actor && players.includes(actor) ? actor : this.pumpkins?.pickPlayer(players);
-    if (!chosen) return;
+    if (!chosen) return false;
+    // 动手之前先记下这一颗：抛出去之后就找不回来了，名字还得照它自己的叫。
+    const subject = this.pumpkins.getCarried(chosen) ?? this.pumpkins.findNearby(chosen);
     const action = this.pumpkins.interact(chosen);
-    if (!action) return;
+    if (!action) return false;
     // 潜行段里回音用的是 /，提示里要说对他自己那个键。
     const key = this.isSneakStage() && chosen === this.partner ? '/' : 'E';
+    // 集合庭院里的元素按名字说（骷髅、眼睛……），只有普通南瓜才叫南瓜。
+    const name = pumpkinLabel(subject);
     if (action === 'pickup') {
       this.audio.pickup(false);
       this.particles.spawnDust(chosen.centerX, chosen.feetY, 0, 3);
-      this.notify(`抱起了一颗南瓜。按 ${key} 抛出；落到另一颗上就会叠起来。`, 2200);
+      this.notify(
+        name
+          ? `拿起了${name}。按 ${key} 放下；扔进属于它的坑里。`
+          : `抱起了一颗南瓜。按 ${key} 抛出；落到另一颗上就会叠起来。`,
+        2200,
+      );
     } else {
-      this.audio.jump();
+      this.audio.toss();
       this.particles.spawnDust(chosen.centerX, chosen.feetY, chosen.facing, 2);
-      this.notify('南瓜抛了出去。', 1500);
+      this.notify(name ? `${name}放了下来。` : '南瓜抛了出去。', 1500);
     }
+    return true;
   }
 
   /** 检查南瓜车的锁。任务期间检查会结束任务并解除报警。 */
@@ -1402,14 +1586,9 @@ export class Game {
    */
   openTrickDoor(device) {
     if (this.mode !== 'trick' || this.state !== 'playing') return;
-    if (device.done) {
-      this.notify(
-        device.tricked ? '门框上还挂着捣蛋的彩纸。' : '这户的糖已经收下了。',
-        1800,
-      );
-      return;
-    }
     this.session.trickDoorHouse = device.houseId;
+    // 走到门前按 Q：先敲两下门，门里的人才会应声。
+    this.audio.knock();
     this.setState('trickDoor');
   }
 
@@ -1417,6 +1596,7 @@ export class Game {
     if (this.state !== 'trickDoor') return;
     this.session.trickDoorHouse = null;
     this.accumulator = 0;
+    this.audio.panel(false);
     this.setState('playing');
   }
 
@@ -1459,6 +1639,7 @@ export class Game {
       this.ensureTrickPuzzleState(house.id);
       this.accumulator = 0;
       this.persist();
+      this.audio.panel(true);
       this.setState('trickPuzzle');
       return;
     }
@@ -1475,27 +1656,7 @@ export class Game {
     const states = this.session.trickPuzzleStates ?? (this.session.trickPuzzleStates = {});
     const existing = states[houseId];
     // 进度对象要一直用同一个引用：面板每帧都会被 HUD 查询，不能每查一次就换新对象。
-    const valid =
-      existing &&
-      typeof existing === 'object' &&
-      (puzzle.type === 'memory'
-        ? Array.isArray(existing.deck) &&
-          existing.deck.length === (puzzle.pairs ?? 0) * 2 &&
-          Array.isArray(existing.matched) &&
-          Array.isArray(existing.open) &&
-          existing.matched.every(
-            (index) => Number.isInteger(index) && index >= 0 && index < existing.deck.length,
-          ) &&
-          existing.open.every(
-            (index) => Number.isInteger(index) && index >= 0 && index < existing.deck.length,
-          )
-        : puzzle.type === 'spot'
-          ? Array.isArray(existing.found) &&
-            existing.found.every((index) => Number.isInteger(index))
-          : Number.isFinite(existing.step) &&
-            existing.step >= 0 &&
-            existing.step <= (puzzle.rounds?.length ?? 0));
-    if (valid) return existing;
+    if (isValidPuzzleState(puzzle, existing)) return existing;
     const current = normalizePuzzleState(puzzle, existing);
     states[houseId] = current;
     return current;
@@ -1526,6 +1687,7 @@ export class Game {
   closeTrickPuzzle() {
     if (this.state !== 'trickPuzzle') return;
     this.accumulator = 0;
+    this.audio.panel(false);
     this.setState('playing');
     this.syncTrickHouseDevices();
     this.persist();
@@ -1535,11 +1697,9 @@ export class Game {
   solveTrickPuzzle(houseId) {
     const house = getTrickHouse(houseId);
     if (!house || house.task.type !== 'puzzle') return;
-    if (this.session.trickHouses[house.id]) {
-      if (this.state === 'trickPuzzle') this.closeTrickPuzzle();
-      return;
-    }
     this.completeTrickTask(house, 'help', { silent: true });
+    // 下一次敲门从头再来：答完的题不留着，牌也重新洗过。
+    if (this.session.trickPuzzleStates) delete this.session.trickPuzzleStates[house.id];
     this.syncTrickHouseDevices();
     this.accumulator = 0;
     this.setState('playing');
@@ -1571,7 +1731,10 @@ export class Game {
     this.setState('playing');
     this.persist();
     this.audio.trick();
-    this.notify(`${house.name}追了出来。${TRICK_RACE.reminder}`, 4400);
+    this.notify(
+      `${house.name}追了出来。${house.raceTwist ?? ''}${TRICK_RACE.reminder}`,
+      4400,
+    );
   }
 
   /** 摆好起跑线、追兵与糖浆区。读档和 R 重来也走这里。 */
@@ -1624,18 +1787,19 @@ export class Game {
     } else {
       const span = Math.max(1, data.goalX - data.spawn.x);
       const progress = clamp((race.chaserX - data.spawn.x) / span, 0, 1);
-      let speed =
-        TRICK_RACE.chaserStartSpeed + TRICK_RACE.chaserSpeedGain * progress;
+      // 每一户的追兵速度曲线不一样：狼人最凶，德古越跑越快。
+      const chaser = data.chaser ?? TRICK_RACE;
+      let speed = chaser.startSpeed + chaser.speedGain * progress;
       // 按距离写的追赶曲线：甩得太远就加速，快贴上时稍微收力。
       // 追兵始终留在画面附近，玩家跑得再好也不会让它彻底消失。
       const leadTiles = (this.player.x - (race.chaserX + 8)) / VIEW.TILE;
-      if (leadTiles > TRICK_RACE.chaseLeadTiles) {
+      if (leadTiles > chaser.chaseLeadTiles) {
         speed *= Math.min(
-          TRICK_RACE.maxCatchUp,
-          1 + (leadTiles - TRICK_RACE.chaseLeadTiles) * TRICK_RACE.catchUpPerTile,
+          chaser.maxCatchUp,
+          1 + (leadTiles - chaser.chaseLeadTiles) * chaser.catchUpPerTile,
         );
-      } else if (leadTiles < TRICK_RACE.mercyTiles) {
-        speed *= TRICK_RACE.mercyScale;
+      } else if (leadTiles < chaser.mercyTiles) {
+        speed *= chaser.mercyScale;
       }
       race.chaserX += speed * dt;
     }
@@ -1700,6 +1864,7 @@ export class Game {
     const house = race.house;
     race.result = 'escaped';
 
+    // 副本可以反复玩：同一户再逃一次，糖就再加一颗。
     const added = this.pouch.add(house.candyType, 1);
     this.session.trickCandies += added;
     this.session.trickTricks += 1;
@@ -1714,20 +1879,109 @@ export class Game {
     const device = this.getTrickHouseDevice(house.id);
     if (device) {
       device.flash = 1;
-      this.particles.spawnCandyBurst(device.x, device.y - 30);
+      this.particles.spawnCandyBurst(device.x, device.y - 30, {
+        accent: house.candyAccent,
+        count: 14,
+      });
       this.particles.spawnSpark(device.x, device.y - 34, 18);
     }
     this.restoreStreetPosition(house, device, 26);
     this.persist();
+    this.presentCandyReward(house, { added, mode: 'trick' });
 
     const reward = added ? `糖袋 +1 · ${house.candyName}。` : '糖袋满了，糖没能装进去。';
     this.notify(`${TRICK_RACE.escape}${house.trickLine} ${reward}`, 5600);
     this.checkTrickProgress();
   }
 
+  /**
+   * 眼前这扇门能不能走。糖纸街副本里只有两种：房间的后门、后巷的掉头口。
+   * 离开单独用 X，不挂在 Q 或 E 上。
+   */
+  getTrickExitDevice() {
+    if (this.mode !== 'trick' || this.state !== 'playing') return null;
+    const device = this.getNearbyDevice();
+    return device?.type === 'trickExit' || device?.type === 'trickRaceExit' ? device : null;
+  }
+
+  /** 按 X 的提示已经亮过一次了吗？HUD 靠它改文案。 */
+  isTrickExitArmed(deviceId = this.getTrickExitDevice()?.id) {
+    return Boolean(deviceId) && this.trickExitArm > 0 && this.trickExitArmDevice === deviceId;
+  }
+
+  /**
+   * X：离开房间 / 掉头回街上。
+   *
+   * 第一下只是把手按在门上，2.6 秒内再按一下才真的走：离开这一关不可逆，
+   * 不该由一次走神决定。走开或换一扇门，要重新按两下。
+   */
+  requestTrickExit() {
+    const device = this.getTrickExitDevice();
+    if (!device) {
+      this.notify('附近没有能走的门。', 1400);
+      return;
+    }
+    if (this.isTrickExitArmed(device.id)) {
+      this.trickExitArm = 0;
+      this.trickExitArmDevice = null;
+      if (device.type === 'trickRaceExit') this.quitTrickRace();
+      else this.leaveTrickRoom();
+      return;
+    }
+    this.trickExitArm = 2.6;
+    this.trickExitArmDevice = device.id;
+    this.notify(
+      device.type === 'trickRaceExit' ? '再按一次 X，掉头回街上。' : '再按一次 X，回糖纸街。',
+      2000,
+    );
+  }
+
+  /**
+   * 任务面板上的「退出任务」：不必走回门口，手机上也一样。
+   *
+   * 房间任务直接回到街上（房间里的进度作废，和从后门走一样）；
+   * 屋顶追月把记号退回第一道，人和糖都留在原地；
+   * 后巷竞速掉头回街上。谜题面板有自己的「先离开」，不在这里。
+   */
+  exitTrickTask() {
+    if (this.state !== 'playing') return;
+    if (this.race && !this.race.result) {
+      this.quitTrickRace();
+      return;
+    }
+    if (this.mode !== 'trick') return;
+    if (this.session.trickRoom) {
+      this.leaveTrickRoom();
+      return;
+    }
+    const house = getTrickHouse(this.session.trickActiveHouse);
+    if (!house) return;
+    if (house.task.type === 'chase') {
+      const task = this.getTrickTaskForHouse(house.id);
+      if (task) {
+        task.running = false;
+        task.markIndex = 0;
+        task.progress = 0;
+        task.timeLeft = task.timeLimit ?? 30;
+        if (task.guard) {
+          task.guard.x = (task.guard.left + task.guard.right) / 2;
+          task.guard.dir = 1;
+        }
+      }
+    }
+    this.session.trickActiveHouse = null;
+    this.syncTrickHouseDevices();
+    this.accumulator = 0;
+    this.audio.panel(false);
+    this.persist();
+    this.notify('你把这一户的活儿先放下了。糖还在他们手里。', 2800);
+  }
+
   /** 掉头从后门回街上：不拿糖，这一户保持原样。 */
   quitTrickRace() {
     if (!this.race || this.race.result) return;
+    this.trickExitArm = 0;
+    this.trickExitArmDevice = null;
     const house = this.race.house;
     this.race.result = 'quit';
     this.returnFromTrickRace(house, 'quit');
@@ -1768,6 +2022,7 @@ export class Game {
   }
 
   enterTrickRoom(house) {
+    if (!house) return;
     this.session.trickRoom = house.task.room;
     this.session.trickActiveHouse = house.id;
     this.session.trickDoorHouse = null;
@@ -1783,6 +2038,8 @@ export class Game {
   /** 从房间回到街上；后门随时可用，任务没做完也可以走。 */
   leaveTrickRoom({ silent = false } = {}) {
     if (this.mode !== 'trick' || !this.session.trickRoom) return;
+    this.trickExitArm = 0;
+    this.trickExitArmDevice = null;
     const room = this.session.trickRoom;
     const house = getTrickHouseByRoom(room);
     this.session.trickRoom = null;
@@ -1844,9 +2101,12 @@ export class Game {
     }
   }
 
-  /** 这一户的固定糖，以及糖袋满了的情况。捣蛋不再走这里。 */
+  /**
+   * 这一户的固定糖，以及糖袋满了的情况。捣蛋不再走这里。
+   * 副本是独立的小副本，可以反复玩：同一户做几遍，糖就往袋里加几颗。
+   */
   completeTrickTask(house, mode = 'help', { silent = false } = {}) {
-    if (!house || this.session.trickHouses[house.id]) return;
+    if (!house) return;
     const device = this.getTrickHouseDevice(house.id);
 
     const added = this.pouch.add(house.candyType, 1);
@@ -1862,6 +2122,16 @@ export class Game {
       device.active = false;
       device.flash = 1;
     }
+    // 这一户可以再来一次：屋顶的月亮记号退回第一个；谜题在 solveTrickPuzzle 里重新洗过。
+    if (house.task.type === 'chase') {
+      const task = this.getTrickTaskForHouse(house.id);
+      if (task) {
+        task.running = false;
+        task.markIndex = 0;
+        task.progress = 0;
+        task.timeLeft = task.timeLimit ?? 30;
+      }
+    }
     this.session.checkpoint = {
       x: house.tile * VIEW.TILE + 26,
       y: TRICK_GROUND_Y - this.player.h,
@@ -1869,10 +2139,14 @@ export class Game {
     this.audio.checkpoint();
     this.audio.pickup(false);
     if (device) {
-      this.particles.spawnCandyBurst(device.x, device.y - 30);
+      this.particles.spawnCandyBurst(device.x, device.y - 30, {
+        accent: house.candyAccent,
+        count: 14,
+      });
       this.particles.spawnSpark(device.x, device.y - 34, 18);
     }
     this.persist();
+    this.presentCandyReward(house, { added, mode });
     if (!silent) {
       this.notify(
         added
@@ -1891,6 +2165,26 @@ export class Game {
     this.session.trickAllDoneNotified = true;
     this.audio.checkpoint();
     this.notify('十户都走过了。街尾的门一直开着。', 3200);
+  }
+
+  /**
+   * 一颗糖落进糖袋：把这一户、这颗糖和袋里现在的数报给界面。
+   * 提示条只说故事，这里负责把「拿到了什么」做大。
+   */
+  presentCandyReward(house, { added = 0, mode = 'help' } = {}) {
+    if (!house) return;
+    this.onCandyReward?.({
+      mode,
+      type: house.candyType,
+      name: house.candyName,
+      tag: house.candyTag,
+      glyph: house.candyGlyph,
+      accent: house.candyAccent,
+      houseName: house.name,
+      houseTitle: house.title,
+      added,
+      total: this.pouch.total,
+    });
   }
 
   /** 任务的当前进度。 */
@@ -2047,8 +2341,8 @@ export class Game {
   }
 
   updateChaseTask(task, dt) {
-    if (this.session.trickHouses[task.houseId]) return 'done';
-
+    // 阿嚎一直在自己那条屋脊上来回走，没开跑的时候也在走。
+    this.moveChaseGuard(task, dt);
     if (!task.running) {
       const first = task.zones?.[0];
       if (this.chaseZoneAt(first)) {
@@ -2059,7 +2353,7 @@ export class Game {
         this.audio.checkpoint();
         this.particles.spawnSpark(first.x + first.w / 2, first.y + first.h / 2, 14);
         this.notify(
-          `月亮记号 1/${task.need}。月亮开始落了——踩完屋顶上的记号。`,
+          `月亮记号 1/${task.need}。月亮开始落了——踩完屋顶上的记号，别碰上${task.house?.name ?? '阿嚎'}。`,
           3200,
         );
       }
@@ -2069,6 +2363,15 @@ export class Game {
     task.timeLeft = Math.max(0, task.timeLeft - dt);
     if (task.timeLeft <= 0) {
       this.resetChaseTask(task, '月亮落下去了。屋顶的记号重新开始。');
+      return null;
+    }
+
+    // 撞进阿嚎怀里：它把人在屋脊上按一下，记号全废，回到街面重来。
+    if (this.chaseGuardCatches(task)) {
+      this.resetChaseTask(
+        task,
+        `${task.house?.name ?? '阿嚎'}把你从屋脊上扑了下来。月亮记号重新开始。`,
+      );
       return null;
     }
 
@@ -2104,11 +2407,42 @@ export class Game {
     return null;
   }
 
+  /** 守着屋脊的阿嚎：在左右两个端点之间来回走，走到头就折返。 */
+  moveChaseGuard(task, dt) {
+    const guard = task.guard;
+    if (!guard) return;
+    guard.x += guard.dir * guard.speed * dt;
+    if (guard.x <= guard.left) {
+      guard.x = guard.left;
+      guard.dir = 1;
+    } else if (guard.x >= guard.right) {
+      guard.x = guard.right;
+      guard.dir = -1;
+    }
+  }
+
+  /** 人和阿嚎的身体有没有叠在一起。判断框比画上的狼窄一圈，擦身而过不算被扑。 */
+  chaseGuardCatches(task) {
+    const guard = task.guard;
+    if (!guard) return false;
+    return (
+      this.player.x + this.player.w > guard.x - 9 &&
+      this.player.x < guard.x + 9 &&
+      this.player.y + this.player.h > guard.y - 32 &&
+      this.player.y < guard.y
+    );
+  }
+
   resetChaseTask(task, message) {
     task.running = false;
     task.markIndex = 0;
     task.progress = 0;
     task.timeLeft = task.timeLimit ?? 30;
+    // 阿嚎也回到屋脊中间，下一次重来面对的是同一条路线。
+    if (task.guard) {
+      task.guard.x = (task.guard.left + task.guard.right) / 2;
+      task.guard.dir = 1;
+    }
     this.audio.death();
     if (task.start) {
       this.player.reset(task.start.x, task.start.y);
@@ -2126,12 +2460,11 @@ export class Game {
   getCandyDoorPrompt(device) {
     if (!device) return '';
     const house = getTrickHouse(device.houseId);
-    if (device.done) {
-      return device.tricked ? '这户已经捣过蛋了' : '这户已经帮过了';
-    }
     if (device.active || this.session.trickActiveHouse === device.houseId) {
       return `继续 · ${house?.taskTitle ?? '这户的任务'}`;
     }
+    // 副本可以反复玩：帮过、捣过蛋的门再敲一次，照样给一颗糖。
+    if (device.done) return '再敲一次 · 还能拿一颗';
     return `敲门 · 看看是谁`;
   }
 
@@ -2184,7 +2517,8 @@ export class Game {
     const last = joined[joined.length - 1];
     this.particles.spawnSpark(device.x, device.y - 28, 16);
     this.particles.spawnSpark(last.centerX, last.centerY, 10);
-    this.audio.checkpoint();
+    // 石鼓是敲出来的，不是走出来的：这一下用鼓声，而不是普通的通过音。
+    this.audio.drum();
   }
 
   getNearbyDevice() {
@@ -2198,6 +2532,33 @@ export class Game {
       if (device) return device;
     }
     return null;
+  }
+
+  /** 这一局此刻是否正被惊恐发作接管：这段时间只认空格呼吸。 */
+  isPanicActive() {
+    return (
+      this.mode === 'memorial' &&
+      this.state === 'playing' &&
+      Boolean(this.session?.memorialPanic)
+    );
+  }
+
+  /**
+   * 手机上的单个互动键要挑一件事做：身边有装置、手上却空着时先摸装置，
+   * 其余情况仍然交给 E 的抱 / 抛。
+   */
+  shouldUseDevice() {
+    if (this.state !== 'playing' || this.isPanicActive()) return false;
+    if (this.pumpkins?.getCarried(this.player)) return false;
+    const device =
+      this.mode === 'parade'
+        ? this.getNearbyParadeDevice()
+        : this.isSneakStage()
+          ? null
+          : this.getNearbyDevice();
+    if (!device) return false;
+    // 装置旁边还落着一颗能抱的南瓜时，仍然优先抱起它。
+    return !this.pumpkins?.findNearby(this.player);
   }
 
   getNearbyBoneSlot() {
@@ -2268,37 +2629,44 @@ export class Game {
 
     const opening = getMemorialChapter(1)?.opening ?? {};
     const total = session.carriageIntroTotal || opening.total || 2.4;
+    // 提前下车后车程已经结束，但开场白还按原来的节奏往下播，玩家先自由行动。
+    const narrating = session.carriageIntroSkipped;
+    // 教程展开时，车停在原地，独白也停在当前这一句，等玩家读完再走。
+    if (session.carriageTutorialOpen) {
+      if (!narrating) return true;
+      return false;
+    }
     session.carriageIntro = Math.max(0, session.carriageIntro - dt);
     const elapsed = total - session.carriageIntro;
 
-    // 车缓慢驶入：前面一段有速度，停稳后就不再晃。
-    const drive = opening.driveTime ?? 1.5;
-    const t = Math.min(1, elapsed / drive);
-    const ease = 1 - (1 - t) ** 3;
-    const fromX = carriage.x - 220;
-    session.carriageX = fromX + (carriage.x - fromX) * ease;
-    session.carriageRolling = elapsed < drive;
-    this.input.clearPressed();
+    if (!narrating) {
+      // 车缓慢驶入：前面一段有速度，停稳后就不再晃。
+      const drive = opening.driveTime ?? 1.5;
+      const t = Math.min(1, elapsed / drive);
+      const ease = 1 - (1 - t) ** 3;
+      const fromX = carriage.x - 220;
+      session.carriageX = fromX + (carriage.x - fromX) * ease;
+      session.carriageRolling = elapsed < drive;
+      this.input.clearPressed();
 
-    // 车轴扬起的尘土，让缓慢驶入有速度感。
-    if (session.carriageRolling) {
-      session.carriageDustTimer -= dt;
-      if (session.carriageDustTimer <= 0) {
-        session.carriageDustTimer = 0.1;
-        this.particles.spawnDust(session.carriageX - 16, carriage.y, -1, 1);
-        this.particles.spawnDust(session.carriageX + 16, carriage.y, -1, 1);
+      // 车轴扬起的尘土，让缓慢驶入有速度感。
+      if (session.carriageRolling) {
+        session.carriageDustTimer -= dt;
+        if (session.carriageDustTimer <= 0) {
+          session.carriageDustTimer = 0.1;
+          this.particles.spawnDust(session.carriageX - 16, carriage.y, -1, 1);
+          this.particles.spawnDust(session.carriageX + 16, carriage.y, -1, 1);
+        }
       }
     }
 
-    // 车上的独白：一句一句把故事背景讲完。
+    // 车上的开场白写在画面正上方，由界面层按 beat 显示；这里只记走到第几句。
     const beats = opening.beats ?? [];
     while (
       session.carriageBeatIndex < beats.length &&
       elapsed >= beats[session.carriageBeatIndex].at
     ) {
-      const beat = beats[session.carriageBeatIndex];
       session.carriageBeatIndex += 1;
-      this.notify(beat.text, beat.hold ?? 3000);
     }
 
     if (session.carriageRiding && elapsed >= (opening.alightAt ?? 1.6)) {
@@ -2308,7 +2676,7 @@ export class Game {
     if (session.carriageIntro <= 0) {
       this.finishCarriageIntro(carriage);
     }
-    return true;
+    return !narrating;
   }
 
   /** 从车上下来，落到车门右侧。重复调用不会把玩家再挪一次。 */
@@ -2339,14 +2707,25 @@ export class Game {
     session.carriageIntro = 0;
     session.carriageIntroTotal = 0;
     session.carriageRolling = false;
+    session.carriageIntroSkipped = false;
     session.carriageX = carriage.x;
     session.carriageIntroSeen = true;
+    session.carriageTutorialOpen = false;
     // 从落地开始重新计时，5 秒后才冒出第一句「回去看看」。
     session.memorialNext = 5;
-    this.notify(getMemorialChapter(1)?.intro ?? MEMORIAL_ROUTE.intro, 4600);
   }
 
-  /** 坐车时按互动键直接下车；开头几秒不接受，免得开场就误跳过独白。 */
+  /** 开场南瓜派教程：展开时停住车程（提前下车后停住独白），收起后接着走。 */
+  setOpeningTutorialOpen(open) {
+    if (this.mode !== 'memorial' || this.level.stage !== 1) return;
+    if (!(this.session.carriageIntro > 0)) return;
+    this.session.carriageTutorialOpen = Boolean(open);
+  }
+
+  /**
+   * 坐车时按 Q 直接下车；开头几秒不接受，免得开场就误跳过独白。
+   * 提前下车只是结束车程，剩下几句开场白继续播，不影响后面的文字。
+   */
   skipCarriageIntro() {
     if (this.mode !== 'memorial' || this.level.stage !== 1) return false;
     const session = this.session;
@@ -2356,12 +2735,90 @@ export class Game {
     if (elapsed < (opening?.skipAfter ?? 4.5)) return false;
     const carriage = this.level.devices.find((device) => device.type === 'carriage');
     if (!carriage) return false;
-    this.finishCarriageIntro(carriage);
+    // 已经站在地上时再按 Q，就是把剩下的独白收掉。
+    if (!session.carriageRiding) {
+      this.finishCarriageIntro(carriage);
+      return true;
+    }
+    // 提前下车只结束车程：人先落地，开场白照旧按自己的节奏播完，不跟着断掉。
+    session.carriageIntroSkipped = true;
+    session.carriageTutorialOpen = false;
+    this.alightFromCarriage(carriage);
     return true;
+  }
+
+  /**
+   * 身边的故事路牌：每段路上五块，一块一句，中文在上、英文在下。
+   * 只认横向距离，玩家站在台阶上也能读。
+   */
+  getNearbySign() {
+    if (this.mode !== 'memorial') return null;
+    const chapter = getMemorialChapter(this.level.stage);
+    if (!chapter?.roadSigns?.length) return null;
+    const signs = this.level.decorations.filter(
+      (decoration) => decoration.type === 'sign' && decoration.story,
+    );
+    if (!signs.length) return null;
+    const x = this.player.centerX;
+    let best = null;
+    let bestDistance = Infinity;
+    for (const sign of signs) {
+      const distance = Math.abs(sign.x - x);
+      if (distance > 30 || distance >= bestDistance) continue;
+      best = sign;
+      bestDistance = distance;
+    }
+    if (!best) return null;
+    const line = chapter?.roadSigns?.[best.signIndex];
+    if (!line) return null;
+    return {
+      id: best.signId,
+      index: best.signIndex,
+      total: chapter.roadSigns.length,
+      x: best.x,
+      cn: line.cn,
+      en: line.en,
+    };
+  }
+
+  /** 读路牌：停在原地，把这一句摊开给玩家看。 */
+  openSign() {
+    if (this.state !== 'playing') return false;
+    // 开场车程里先专心看开场白，路牌等下车再读；提前下车后就不拦了。
+    if (this.mode === 'memorial' && this.session.carriageIntro > 0 && !this.session.carriageIntroSkipped) {
+      return false;
+    }
+    const sign = this.getNearbySign();
+    if (!sign) {
+      this.notify('身边没有路牌。', 1400);
+      return false;
+    }
+    this.session.readingSign = sign;
+    this.session.readSigns.add(sign.id);
+    this.audio.panel(true);
+    this.setState('sign');
+    return true;
+  }
+
+  closeSign() {
+    if (this.state !== 'sign') return;
+    this.session.readingSign = null;
+    this.accumulator = 0;
+    this.audio.panel(false);
+    this.setState('playing');
+  }
+
+  toggleSign() {
+    if (this.state === 'sign') {
+      this.closeSign();
+      return true;
+    }
+    return this.openSign();
   }
 
   update(dt) {
     this.session.time += dt;
+    this.trickExitArm = Math.max(0, this.trickExitArm - dt);
     this.introFlash = Math.max(0, this.introFlash - dt);
     this.damageFlash = Math.max(0, this.damageFlash - dt);
     this.respawnGrace = Math.max(0, this.respawnGrace - dt);
@@ -2512,7 +2969,7 @@ export class Game {
           const hasInPouch = (this.pouch?.get?.(pickup.requiresBuff) ?? 0) > 0;
           this.notify(
             hasInPouch
-              ? `零件被一层糖光护着。打开糖袋吃一颗${buffName}才能拿。`
+              ? `零件被一层糖光护着。打开背包，在糖袋里吃一颗${buffName}才能拿。`
               : `零件被一层糖光护着。需要${buffName}——去糖纸街换一颗，再带回来。`,
             3200,
           );
@@ -2627,7 +3084,9 @@ export class Game {
     }
     if (effect.repeatJump) session.compulsionPending = false;
 
-    this.audio.tutorialChime();
+    // 从糖袋里吃：先咬开糖纸；路上捡到糖仍然用那声更亮的提示音。
+    if (source === 'pouch') this.audio.eat();
+    else this.audio.tutorialChime();
     return true;
   }
 
@@ -2725,9 +3184,11 @@ export class Game {
     if (!effects.lollipop) session.compulsionPending = false;
 
     // 后巷竞速：被追的人跑得比平时快；踩到糖浆再叠一段短冲刺。
+    // 每一户的巷子可以自己定快多少（狼人巷里跑得最快）。
     if (this.mode === 'trick' && this.race) {
-      mods.moveScale *= TRICK_RACE.playerSpeedScale;
-      if (this.race.boost > 0) mods.moveScale *= TRICK_RACE.boostScale;
+      const data = this.level?.race;
+      mods.moveScale *= data?.playerSpeedScale ?? TRICK_RACE.playerSpeedScale;
+      if (this.race.boost > 0) mods.moveScale *= data?.boostScale ?? TRICK_RACE.boostScale;
     }
 
     for (const target of this.candyTargets()) {
@@ -2897,7 +3358,7 @@ export class Game {
     mods.jumpVelocityScale *= 1 - depth * 0.05;
   }
 
-  /** 第二段：惊恐预兆 → 一次呼吸 → 平复。呼吸用互动键，按一下或按住都认。 */
+  /** 第二段：惊恐预兆 → 一次呼吸 → 平复。呼吸用空格，按一下或按住都认。 */
   updatePanicState(dt, mods, trigger) {
     const session = this.session;
     const panic = session.memorialPanic;
@@ -2913,7 +3374,12 @@ export class Game {
         panic.elapsed = 0;
         panic.missCooldown = 0;
         this.audio.heartbeat();
-        this.notify(trigger.notice ?? '心跳撞了起来。按住 E，慢慢呼吸。', 2600);
+        // 疾病发作照这一段的原文：中文一行、英文一行。原文比操作提示长，多停一会儿。
+        const line = trigger.line ?? trigger.notice ?? '心跳撞了起来。按住空格，慢慢呼吸。';
+        this.notify(
+          trigger.lineEn ? `${line}\n${trigger.lineEn}` : line,
+          trigger.line ? 4600 : 2600,
+        );
       }
       return;
     }
@@ -2926,11 +3392,11 @@ export class Game {
     mods.lockJump = true;
     player.vx = 0;
 
-    // 一次呼吸不需要卡拍子：按住 E 也算。留 0.3 秒让收拢先演出来。
+    // 一次呼吸不需要卡拍子：按住空格也算。留 0.3 秒让收拢先演出来。
     if (
       (panic.required ?? 3) <= 1 &&
       panic.elapsed > 0.3 &&
-      this.input.isDown('interact')
+      this.input.isDown('breath')
     ) {
       panic.breaths = 1;
       this.audio.breath(panic.breaths);
@@ -2961,9 +3427,9 @@ export class Game {
   }
 
   /**
-   * 玩家在惊恐发作时按 E：
+   * 玩家在惊恐发作时按空格：
    *   - 预兆期：稳住呼吸，直接平复（奖励一次更短的定神）；
-   *   - 发作期：一次呼吸——按一下就行，不用卡时机；按住 E 也能收到。
+   *   - 发作期：一次呼吸——按一下就行，不用卡时机；按住空格也能收到。
    */
   handlePanicPress() {
     const session = this.session;
@@ -2979,7 +3445,7 @@ export class Game {
       return true;
     }
 
-    // 一次呼吸：按一下 E 就够，不需要卡时机；按住 E 由 updatePanicState 收到。
+    // 一次呼吸：按一下空格就够，不需要卡时机；按住空格由 updatePanicState 收到。
     if ((panic.required ?? 3) <= 1) {
       panic.breaths = 1;
       this.audio.breath(panic.breaths);
@@ -3054,7 +3520,11 @@ export class Game {
       };
       session.carriageAlarm = false;
       this.audio.checkpoint();
-      this.notify(trigger.line ?? '我要回去看看南瓜车锁没锁。', 3000);
+      const line = trigger.line ?? '头痛来了，有预谋的逐渐弥漫的疼痛，像一块冰冷的金属片慢慢嵌入前额';
+      this.notify(
+        trigger.lineEn ? `${line}\n${trigger.lineEn}` : line,
+        3600,
+      );
     }
   }
 
@@ -3087,7 +3557,7 @@ export class Game {
 
     if (kind === 'panic') {
       // 惊恐发作：先给一秒多的心跳预兆，再把视野收拢成角色身边的一只小孔。
-      // 预兆期按 E 可以稳住；发作后按一下或按住 E 呼吸一次。
+      // 预兆期按空格可以稳住；发作后按一下或按住空格呼吸一次。
       player.vx = 0;
       session.memorialPanic = {
         phase: 'warn',
@@ -3131,7 +3601,7 @@ export class Game {
 
       session.solacesLit.add(solace.id);
       session.memorialLift = chapter?.solace?.duration ?? 9;
-      this.audio.tutorialChime();
+      this.audio.lamp();
       this.particles.spawnSpark(solace.x, solace.y - 14, 12);
       this.notify(solace.line ?? chapter?.solace?.line ?? '旧灯还亮着。', 2400);
     }
@@ -3150,7 +3620,10 @@ export class Game {
       session.litLights.add(memory.id);
       this.audio.tutorialChime();
       this.particles.spawnSpark(memory.x, memory.y - 16, 8);
-      this.notify(memory.line, 4800);
+      this.notify(
+        memory.lineEn ? `${memory.line}\n${memory.lineEn}` : memory.line,
+        5200,
+      );
       this.persist();
     }
   }
@@ -3170,12 +3643,26 @@ export class Game {
     }
 
     this.audio.complete();
+    // 这一段的人留在了夜里：先把他们的鞋报给界面，再换到下一张图。
+    // 顺序不能反——新图一加载就会把「跟在你身后了」的提示排上。
+    this.presentShoeReward(this.level.stage);
     // 新地图从一层暖光里浮出来，像是刚从门里穿过去。
     this.session.portalFlash = 0.8;
     this.loadTheme(chapter.levelId, 'memorial', this.session);
     this.introFlash = 0.9;
     this.accumulator = 0;
-    this.notify(chapter.intro, 5600);
+    // 上一段的鞋卡片和「送给主角的话」还要在画面上停一会儿；
+    // 换段的提示先让开，别和祝福挤在同一块地方。
+    const cleared = getMemorialChapter(this.level.stage - 1);
+    if (cleared?.blessing) {
+      window.setTimeout(() => {
+        if (this.mode === 'memorial' && this.state === 'playing') {
+          this.notify(chapter.intro, 5200);
+        }
+      }, 15200);
+    } else {
+      this.notify(chapter.intro, 5600);
+    }
   }
 
   checkCostumeCompletion() {
@@ -3187,7 +3674,7 @@ export class Game {
 
       session.completedCostumes.push(costume.id);
       session.equippedCostume = costume.id;
-      this.player.costume = costume.id;
+      this.syncCostumes();
       this.audio.tutorialChime();
       this.notify(
         `时装拼好了 · ${costume.name}（${costume.subtitle}）。已自动换上，打开背包可以换。`,
@@ -3208,16 +3695,27 @@ export class Game {
 
     if (this.session.equippedCostume === id) {
       this.session.equippedCostume = null;
-      this.player.costume = null;
+      this.syncCostumes();
+      this.audio.equip();
       this.persist();
       return { ok: true, message: `换下了${costume.name}。` };
     }
 
     this.session.equippedCostume = id;
-    this.player.costume = id;
-    this.audio.pickup(true);
+    this.syncCostumes();
+    this.audio.equip();
     this.persist();
     return { ok: true, message: `换上了${costume.name}。` };
+  }
+
+  /**
+   * 时装只改外观，不碰碰撞和物理。
+   * 第三段双人潜行里，回音和你穿同一套，两个人一起变。
+   */
+  syncCostumes() {
+    const id = this.session?.equippedCostume ?? null;
+    if (this.player) this.player.costume = id;
+    if (this.partner) this.partner.costume = id;
   }
 
   updateCheckpoints() {
@@ -3252,7 +3750,7 @@ export class Game {
   updatePumpkinHints() {
     if (this.mode !== 'memorial' || this.level.stage !== 1) return;
     if (this.session.pumpkinHintShown) return;
-    const wallX = 54 * VIEW.TILE;
+    const wallX = this.level.stackWallX ?? 38 * VIEW.TILE;
     if (this.player.centerX < wallX - 150 || this.player.centerX > wallX + 8) return;
     this.session.pumpkinHintShown = true;
     this.notify(
@@ -3283,15 +3781,14 @@ export class Game {
     } else if (step.id === 'collect') {
       complete = (this.session.bonesPicked ?? 0) > 0;
     } else if (step.id === 'pumpkin') {
-      complete = pumpkinStats.pushes > 12;
-    } else if (step.id === 'pumpkin-toss') {
-      complete = pumpkinStats.throws > 0;
+      // 推和抛要各做一次：南瓜既能被身体顶走，也能抱起来扔出去。
+      complete = pumpkinStats.pushes > 12 && pumpkinStats.throws > 0;
     } else if (step.id === 'pumpkin-stack') {
       // 叠高本身可以顺手做掉，但这一步要等玩家真的踩着南瓜翻过教学高墙。
-      complete = pumpkinStats.stacks > 0 && this.player.centerX > 41 * VIEW.TILE;
-    } else if (step.id === 'candy') {
-      complete = (this.session.candiesPicked ?? 0) > 0;
+      const wallX = (this.level.stackWallX ?? 40 * VIEW.TILE) + VIEW.TILE;
+      complete = pumpkinStats.stacks > 0 && this.player.centerX > wallX;
     } else if (step.id === 'backpack') {
+      // 糖果现在都从糖纸街来，装在背包的糖袋里：这一课要真的打开背包看一次。
       complete = this.session.backpackOpened;
     } else if (step.id === 'finish') {
       complete = this.player.centerX >= this.level.goalX - 6;
@@ -3303,6 +3800,8 @@ export class Game {
     this.audio.tutorialChime();
     this.session.tutorialStep += 1;
     this.session.tutorialStepCooldown = 0.7;
+    // 这一课的门打开，下一课的门还关着。
+    this.level.syncTutorialGates(this.session.tutorialStep);
     this.persist();
 
     if (this.session.tutorialStep >= steps.length) {
@@ -3571,6 +4070,9 @@ export class Game {
     if (this.level.stage >= MEMORIAL_ROUTE.totalStages) {
       this.shoeFollowers.setStage(MEMORIAL_ROUTE.totalStages + 1);
       this.shoeFollowers.resetAt(this.player.centerX, this.player.feetY, this.player.facing);
+      // 最后那双鞋的卡片赶在碑前那一幕之前：这一幕开场是全黑的，
+      // 卡片正好落在黑屏上，放完再让墓园淡进来。
+      this.presentShoeReward(MEMORIAL_ROUTE.totalStages);
     }
     this.ending = new MemorialEnding(this);
     this.doorEntry = null;
@@ -3598,13 +4100,16 @@ export class Game {
     this.player.vy = 0;
     this.input.releaseAll();
     this.audio.complete();
-    // 第四段也走完了：周叔的皮鞋最后跟上来，四双鞋一起停在碑前。
+    // 第四段也走完了：周叔的雨靴最后跟上来，四双鞋一起停在碑前。
     if (
       this.mode === 'memorial' &&
       this.level.stage >= MEMORIAL_ROUTE.totalStages
     ) {
       this.shoeFollowers.setStage(MEMORIAL_ROUTE.totalStages + 1);
       this.shoeFollowers.resetAt(this.player.centerX, this.player.feetY, this.player.facing);
+      // 四段走完，皮鞋恰好合脚：这一趟从 99% 跨到 100%，之后永远保持满。
+      this.shoeFitComplete = true;
+      this.player.shoeFit = 1;
     }
     // 通关要立刻落盘：之后停在结算页，不会再有行走中的自动保存。
     this.persist(true);
@@ -3639,7 +4144,7 @@ export class Game {
             : MEMORIAL_ROUTE.totalStages,
       memories: this.session.seenMemories.size,
       totalMemories: this.session.totalMemories,
-      // 结算页只用它写「身后的皮鞋 N 双」。
+      // 结算页只用它写「身后的鞋 N 双」。
       shoes: this.mode === 'memorial' ? this.shoeFollowers.getNames() : [],
       partySize: this.members.length,
       totalParty: PARADE_TOTAL_YOKAI,
@@ -3704,53 +4209,72 @@ export class Game {
       const panic = session.memorialPanic;
       interaction = {
         kind: 'panic',
-        key: 'E',
+        // 呼吸有自己的键，和抱南瓜的 E 分开。
+        key: 'Space',
         available: true,
         text:
           panic.phase === 'warn'
-            ? '稳住呼吸 · 按 E'
+            ? '稳住呼吸'
             : (panic.required ?? 3) <= 1
-              ? '按住 E 呼吸'
-              : `跟着呼吸 ${panic.breaths}/${panic.required} · 按 E`,
+              ? '按住呼吸'
+              : `跟着呼吸 ${panic.breaths}/${panic.required}`,
       };
-    } else if (this.mode === 'memorial' && session.carriageIntro > 0) {
-      // 坐车途中可以按互动键直接下车；先让第一句独白说完再提示。
+    } else if (this.mode === 'memorial' && session.carriageIntro > 0 && session.carriageRiding) {
+      // 坐车途中可以按 Q 直接下车；先让第一句独白说完再提示。
+      // 提前下车后开场白还在播，但人已经在走，这里不再提示下车。
       const opening = getMemorialChapter(1)?.opening;
       const elapsed = (session.carriageIntroTotal || 0) - session.carriageIntro;
       if (elapsed >= (opening?.skipAfter ?? 4.5)) {
         interaction = {
           kind: 'carriageRide',
-          key: 'E',
+          key: 'Q',
           available: true,
           text: '直接下车',
         };
       }
+    } else if (!this.isSneakStage() && this.pumpkins?.getCarried(this.player)) {
+      // 手里抱着东西时 E 只会把它抛出，提示也跟着说抛出，而不是门或装置。
+      interaction = this.pumpkins.getPrompt(this.player, 'E');
+    } else if (this.mode === 'memorial' && this.getNearbySign()) {
+      // 路牌有自己的键：E 抱南瓜、Q 摸装置、V 读路牌。
+      const sign = this.getNearbySign();
+      interaction = {
+        kind: 'sign',
+        key: 'V',
+        available: true,
+        text: `读路牌 · ${sign.index + 1}/${sign.total}`,
+      };
     } else if (device?.type === 'trickRaceExit') {
+      const armed = this.isTrickExitArmed(device.id);
       interaction = {
         kind: 'trickRaceExit',
-        key: 'E',
+        key: 'X',
         available: true,
-        text: '掉头回街上 · 不要这颗糖了',
+        armed,
+        text: armed ? '再按一次 · 掉头回街上' : '掉头回街上 · 不要这颗糖了',
       };
     } else if (device?.type === 'candyDoor') {
+      // 做完的门也能再敲：副本可以反复玩，Q 一直是可用的。
       interaction = {
         kind: 'candyDoor',
-        key: 'E',
-        available: !device.done,
+        key: 'Q',
+        available: true,
         text: this.getCandyDoorPrompt(device),
       };
     } else if (device?.type === 'trickExit') {
+      const armed = this.isTrickExitArmed(device.id);
       interaction = {
         kind: 'trickExit',
-        key: 'E',
+        key: 'X',
         available: true,
-        text: '回糖纸街 · 这户的糖先不拿',
+        armed,
+        text: armed ? '再按一次 · 回糖纸街' : '回糖纸街 · 这户的糖先不拿',
       };
     } else if (device?.type === 'mask') {
       if (!device.joined) {
         interaction = {
           kind: 'mask',
-          key: 'E',
+          key: 'Q',
           available: true,
           text: device.prompt ?? '敲响石鼓',
         };
@@ -3760,7 +4284,7 @@ export class Game {
       const label = device.charge > 0 ? '正电' : '负电';
       interaction = {
         kind: 'charger',
-        key: 'E',
+        key: 'Q',
         available: true,
         text: sameCharge ? `已带${label} · 再按一次释放电荷` : `握住铜球 · 带上${label}`,
       };
@@ -3775,7 +4299,7 @@ export class Game {
     } else if (device?.type === 'carriage') {
       interaction = {
         kind: 'carriage',
-        key: 'E',
+        key: 'Q',
         available: true,
         text: session.carriageQuest ? '检查南瓜车锁' : '摸摸南瓜车',
       };
@@ -3861,13 +4385,19 @@ export class Game {
         player.centerY,
         player.charge,
       );
+      // 力的方向与大小都直接来自库仑定律，HUD 只是把它画出来。
+      // forceG 是加速度相对重力的倍数：1.0 表示和体重一样大。
+      const forceMag = Math.hypot(electronForce.x, electronForce.y);
       electron = {
         charged: player.charge !== 0,
+        airborne: !player.onGround,
         distance: player.nearElectron.distance,
         radius: player.nearElectron.radius,
+        model: level.electronModel,
         forceX: electronForce.x,
         forceY: electronForce.y,
-        forceMag: Math.hypot(electronForce.x, electronForce.y),
+        forceMag,
+        forceG: forceMag / PHYSICS.gravity,
       };
     }
 
@@ -3895,6 +4425,7 @@ export class Game {
         code: chapter?.code ?? '',
         tag: chapter?.tag ?? '',
         body: chapter?.body ?? '',
+        bodyEn: chapter?.bodyEn ?? '',
         accent: chapter?.accent ?? '#d8b57a',
         memories: session.seenMemories.size,
         totalMemories: session.totalMemories,
@@ -3909,7 +4440,7 @@ export class Game {
         slump: session.memorialSlump,
         // 第二段的集合门：面板只留「解开几道 / 一共几道 · 现在在哪个区域」。
         setGates: getSetGateState(level),
-        // 已经跟到身后的皮鞋：面板只写名字，不写解释。
+        // 已经跟到身后的鞋：面板只写名字，不写解释。
         shoes: this.shoeFollowers.getNames(),
       };
     }
@@ -3924,6 +4455,33 @@ export class Game {
         alarm: session.carriageAlarm,
       };
     }
+
+    // 开场车程：画面上方的开场白、折叠的南瓜派教程，以及能不能直接下车。
+    let opening = null;
+    if (this.mode === 'memorial' && level.stage === 1 && session.carriageIntro > 0) {
+      const conf = getMemorialChapter(1)?.opening ?? {};
+      const beats = conf.beats ?? [];
+      const shown = session.carriageBeatIndex - 1;
+      const index = Math.max(0, Math.min(beats.length - 1, shown));
+      const beat = shown >= 0 ? beats[index] : null;
+      const elapsed = (session.carriageIntroTotal || 0) - session.carriageIntro;
+      // 南瓜派教程等第二句「你要知道……」出现后再露面，不抢第一句的开场白。
+      const tutorialBeat = beats.findIndex((entry) => entry.tutorial);
+      opening = {
+        cn: beat?.cn ?? '',
+        en: beat?.en ?? '',
+        index,
+        total: beats.length,
+        tutorialOpen: Boolean(session.carriageTutorialOpen),
+        tutorial: conf.tutorial ?? null,
+        tutorialVisible: tutorialBeat >= 0 && shown >= tutorialBeat,
+        // 提前下车后开场白继续播，但「直接下车」的提示就不必再挂了。
+        canSkip: !session.carriageIntroSkipped && elapsed >= (conf.skipAfter ?? 7),
+      };
+    }
+
+    // 正在读的路牌：一句中文、一句英文。
+    const sign = session.readingSign ?? null;
 
     let parade = null;
     if (this.mode === 'parade') {
@@ -3995,7 +4553,7 @@ export class Game {
       } else if (gateCount > 0) {
         body = `还差 ${count - gateCount} 名同行者到门。`;
       } else if (track.lossRule === 'sacrifice') {
-        body = '困难赛道：中瘴气后留下一人。';
+        body = '困难赛道：碰到瘴气，就要从名册里留下一名同行者。';
       }
 
       const supports = getParadeSupports(this.members);
@@ -4048,9 +4606,17 @@ export class Game {
         ? getTrickHouseByRoom(session.trickRoom)
         : null;
       const nearDoor = device?.type === 'candyDoor' ? device : null;
-      const nextDoor = (this.level.devices ?? [])
-        .filter((entry) => entry.type === 'candyDoor' && !entry.done)
-        .sort((a, b) => a.houseIndex - b.houseIndex)[0];
+      // 「下一户」只看前面还没敲过的门：走过的留在身后。
+      // 按门号取第一扇没做完的门会让提示在整条街上一直停在女巫那户。
+      const doors = (this.level.devices ?? [])
+        .filter((entry) => entry.type === 'candyDoor')
+        .sort((a, b) => a.x - b.x);
+      const aheadDoor =
+        doors.find(
+          (entry) => !entry.done && entry.x + VIEW.TILE * 0.5 >= this.player.centerX,
+        ) ?? null;
+      const behindDoor = [...doors].reverse().find((entry) => !entry.done) ?? null;
+      const nextDoor = aheadDoor ?? behindDoor;
 
       let body = '';
       const race = this.race;
@@ -4124,10 +4690,15 @@ export class Game {
         body = `第 ${nearDoor.houseIndex} 户 · ${house?.title ?? '客人'}${
           state === 'help' ? ' · 已经帮过' : state === 'trick' ? ' · 捣过蛋' : ''
         }`;
+      } else if (aheadDoor) {
+        const house = getTrickHouse(aheadDoor.houseId);
+        body = `下一户：第 ${aheadDoor.houseIndex} 户 · ${house?.title ?? '客人'} · ${
+          house?.taskTitle ?? ''
+        }`;
       } else if (nextDoor) {
         const house = getTrickHouse(nextDoor.houseId);
-        body = `下一户：第 ${nextDoor.houseIndex} 户 · ${house?.title ?? '客人'} · ${
-          house?.taskTitle ?? ''
+        body = `前面没有没敲的门了 · 身后还有第 ${nextDoor.houseIndex} 户 · ${
+          house?.title ?? '客人'
         }`;
       } else {
         body = '十户都走过了。街尾随时可以走。';
@@ -4250,6 +4821,8 @@ export class Game {
         : null,
       tutorial,
       memorial,
+      opening,
+      sign,
       parade,
       trick,
       sneak,
@@ -4296,19 +4869,43 @@ export class Game {
     return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 - 4 };
   }
 
+  /** 镜头倍率：手机端放大画面用。记在这里，换图重建渲染器时按它恢复。 */
+  setCameraZoom(zoom) {
+    this.renderer?.setCameraZoom(zoom);
+    this.cameraZoom = this.renderer?.cameraZoom ?? 1;
+  }
+
+  /**
+   * 手机端的镜头取景：放大倍率，加上最右端给右手按键留出的空白。
+   * rightPadding 是占可见宽度的比例，0 就是原来的贴边取景。
+   */
+  setCameraFraming({ zoom = 1, rightPadding = 0 } = {}) {
+    this.setCameraZoom(zoom);
+    const padding = Number(rightPadding);
+    this.cameraRightPadding = Number.isFinite(padding)
+      ? Math.min(0.5, Math.max(0, padding))
+      : 0;
+  }
+
   updateCamera(dt, snap = false) {
-    const maxX = Math.max(0, this.level.pixelWidth - VIEW.WIDTH);
-    const maxY = Math.max(0, this.level.pixelHeight - VIEW.HEIGHT);
+    // 镜头放大时可见范围变窄，贴边和跟随都要按可见尺寸算。
+    const viewWidth = this.renderer?.viewWidth ?? VIEW.WIDTH;
+    const viewHeight = this.renderer?.viewHeight ?? VIEW.HEIGHT;
+    // 手机端在最右端再多滚一截：右手按键盖住的那一条留成夜空，
+    // 门和走到头的主角就不会压在按键底下。
+    const rightPad = viewWidth * (this.cameraRightPadding ?? 0);
+    const maxX = Math.max(0, this.level.pixelWidth - viewWidth + rightPad);
+    const maxY = Math.max(0, this.level.pixelHeight - viewHeight);
     const focus = this.getFocus();
     const lookAhead = clamp(this.player.vx * 0.24, -22, 22);
     const targetX = clamp(
-      focus.x - VIEW.WIDTH * 0.43 + lookAhead,
+      focus.x - viewWidth * 0.43 + lookAhead,
       0,
       maxX,
     );
     // 整体取景上移两格，让头顶的尖刺与高层路线更早进入画面。
     const targetY = clamp(
-      focus.y - VIEW.HEIGHT * 0.56 - VIEW.TILE * 2,
+      focus.y - viewHeight * 0.56 - VIEW.TILE * 2,
       0,
       maxY,
     );

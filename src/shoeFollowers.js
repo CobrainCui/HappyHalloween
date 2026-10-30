@@ -6,12 +6,17 @@
  * 第四段走完时，completeRun 会用 setStage(totalStages + 1) 让周叔那双也跟上来，
  * 四双鞋一起停在老师的碑前。
  *
+ * 四双鞋不只是颜色不同：Sybil 留下的是系带皮鞋，Kurt 是阿尔卑斯山间的登山靴，
+ * 冯桃是一双旧帆布鞋，周叔是档案室门口那双雨靴。轮廓、鞋底和鞋口的画法都不同，
+ * 两只靴子的筒比皮鞋、帆布鞋高出一截，排成一队时一眼能分出是谁的。
+ *
  * 「前进速度相同」是这套系统的底线：所有鞋都取样同一条足迹链上的点，
  * 排在前面的不会超过去，排在后面的也掉不了队。性格只写在落脚的方式里——
- *   小满：走两步停半拍，像还在数台阶，停的时候往后撤半步再跟上来；
- *   阿岚：跟着呼吸起伏，偶尔屏住一口气，两只鞋一起停住再跟上；
- *   阿遥：总有一只鞋侧着，像在听另一双；偶尔身后会多出一层很淡的复影；
+ *   Sybil：走几步就停下，像在确认什么，随后往后退半步再跟上来；
+ *   Kurt：跟着呼吸起伏，偶尔屏住一口气，两只鞋一起停住再跟上；
+ *   冯桃：总有一只鞋侧着，像在看着另一个自己；身后偶尔会多出一层很淡的复影；
  *   周叔：每一步都沉一点，像脚下还带着水，偶尔拖半步再跟上来。
+ * 跟得慢一点：每走一像素只推进一点迈步相位，落脚才沉得住，不会像小跑。
  *
  * 玩家跳跃、掉坑、读档、穿门都会让足迹断开：距离突然拉大时，鞋群直接
  * 落在角色身后重新排好，不会隔着半张地图追过来。角色站住不动时，身后的
@@ -24,29 +29,34 @@ import { MEMORIAL_CHAPTERS } from './memorial.js';
 const SAMPLE_GAP = 2.5;
 const BASE_LAG = 24;
 const PAIR_GAP = 21;
-const STEP_RATE = 0.55;
+// 每走一像素，鞋的迈步相位前进多少。跟得越慢，迈步越沉，别像小跑。
+const STEP_RATE = 0.28;
 const TELEPORT_DISTANCE = 56;
 const FALL_SPEED = 280;
 
 /**
- * 每位病人留下的鞋，都有自己的落脚习惯。
+ * 每位病人留下的鞋：样子（shoe）和落脚习惯（id）都不一样。
  * key 是段号；line 只在它第一次跟上来时说一次。
  */
 const MANNERS = {
   1: {
-    id: 'measure',
-    line: '它走两步，停半拍，像还在数台阶。',
+    id: 'check',
+    shoe: 'oxford',
+    line: '它走几步就停下，像在确认什么。',
   },
   2: {
     id: 'breathe',
+    shoe: 'hiking',
     line: '它偶尔屏住一口气，再轻轻跟上来。',
   },
   3: {
     id: 'listen',
-    line: '它总侧着一点，像在听另一双。',
+    shoe: 'canvas',
+    line: '它总侧着一点，像在看着另一个你走。',
   },
   4: {
     id: 'weight',
+    shoe: 'rainboot',
     line: '它每一步都沉一点，像脚下还带着水。',
   },
 };
@@ -85,19 +95,25 @@ export class ShoeFollowers {
   /** 按当前走到了第几段，重新排出已经在身后的鞋。 */
   setStage(stage) {
     this.pairs = MEMORIAL_CHAPTERS.filter((chapter) => chapter.stage < stage).map(
-      (chapter, index) => ({
-        stage: chapter.stage,
-        name: chapter.patient,
-        accent: chapter.accent ?? '#c6b3e0',
-        manner: MANNERS[chapter.stage] ?? MANNERS[1],
-        x: 0,
-        y: 0,
-        facing: 1,
-        lastX: null,
-        lastY: null,
-        stepPhase: index * 1.9 + 0.7,
-        seed: chapter.stage * 2.7 + index * 1.3,
-      }),
+      (chapter, index) => {
+        const manner = MANNERS[chapter.stage] ?? MANNERS[1];
+        const shoe = SHOE_STYLES[manner.shoe] ?? SHOE_STYLES.oxford;
+        return {
+          stage: chapter.stage,
+          name: chapter.patient,
+          accent: chapter.accent ?? '#c6b3e0',
+          manner,
+          shoe: shoe.id,
+          shoeName: shoe.name,
+          x: 0,
+          y: 0,
+          facing: 1,
+          lastX: null,
+          lastY: null,
+          stepPhase: index * 1.9 + 0.7,
+          seed: chapter.stage * 2.7 + index * 1.3,
+        };
+      },
     );
     this.trail = [];
     this.carry = 0;
@@ -262,42 +278,193 @@ export class ShoeFollowers {
   }
 }
 
-/** 画一只皮鞋。路上跟着的鞋和结尾碑前那几双都画成 8 格宽；默认 6 格留给更小的场合。 */
-export function paintShoe(ctx, x, y, facing, accent, alpha, width = 6) {
-  const height = width >= 8 ? 5 : 4;
-  // 鞋底
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = '#0d080b';
-  ctx.fillRect(x, y - 1, width, 1);
-  // 鞋面
-  ctx.fillStyle = '#35221b';
-  ctx.fillRect(x, y - height, width, height - 1);
-  // 鞋口的一线旧皮
-  ctx.fillStyle = '#5d3c2b';
-  ctx.fillRect(x + 1, y - height, width - 2, 1);
-  // 鞋头反光：朝向哪边，亮哪一头
-  ctx.globalAlpha = alpha * 0.85;
-  ctx.fillStyle = accent;
-  const toeWidth = width >= 8 ? 2 : 1;
-  ctx.fillRect(
-    facing > 0 ? x + width - toeWidth : x,
-    y - height,
-    toeWidth,
-    height - 2,
+/**
+ * 鞋的像素画。
+ *
+ * 八像素宽的鞋，要让人认得出「这是一只鞋」，靠的只有两件事：
+ * 轮廓前低后高（鞋跟那头立着、鞋尖那头塌下去），以及鞋底比鞋面多探出去一点。
+ * 所以每只鞋都先按「后跟在左、鞋尖朝右」画一遍，再由 paintShoe 按朝向整体镜像；
+ * 靴子把后跟那条竖线一路拔高成筒，皮鞋和帆布鞋只留矮矮的一级。
+ * dy 为负是往上，y = 0 是地面，x = 0 是后跟。
+ */
+function shoeBrush(ctx, alpha) {
+  return (color, light, dx, dy, dw, dh) => {
+    if (dw <= 0 || dh <= 0) return;
+    ctx.globalAlpha = alpha * light;
+    ctx.fillStyle = color;
+    ctx.fillRect(dx, dy, dw, dh);
+  };
+}
+
+/** 系带皮鞋：低帮、后跟一级一级抬起来，鞋尖只有薄薄一层。Sybil 的那双，也是玩家自己脚上那种。 */
+function drawOxford(ctx, w, accent, alpha) {
+  const fill = shoeBrush(ctx, alpha);
+  const heel = Math.max(2, w - 5);
+  fill('#0d080b', 1, 0, -1, w, 1); // 鞋底，一直铺到鞋尖
+  fill('#35221b', 1, 0, -2, w, 1); // 鞋身：鞋尖那头只剩这一层
+  fill('#35221b', 1, 0, -3, w - 3, 1); // 鞋面往后跟抬起来
+  fill('#433026', 1, 0, -4, heel, 1); // 后跟的鞋帮
+  fill('#5d3c2b', 1, 0, -4, Math.max(1, heel - 1), 1); // 鞋口一线旧皮
+  fill('#8a6a4c', 0.4, 2, -3, Math.max(1, w - 5), 1); // 鞋带
+  fill(accent, 0.85, w - 2, -2, 1, 1); // 鞋尖擦亮的一点
+  fill('#9a7150', 0.34, 0, -1, 1, 1); // 后跟磨旧
+  fill('#9a7150', 0.34, 0, -2, 1, 1);
+}
+
+/**
+ * 登山靴：后背一条直线立起来，鞋头伸出去的靴形，筒口一道护踝、两粒鞋带扣、齿底。
+ * Kurt 在阿尔卑斯山间穿的那种。
+ */
+function drawHikingBoot(ctx, w, accent, alpha) {
+  const fill = shoeBrush(ctx, alpha);
+  const shaft = Math.max(2, w - 5); // 筒身宽度，和后跟齐平
+  const top = 8; // 靴口高度
+  fill('#1d1a15', 1, 0, -1, w, 1); // 齿底
+  for (let x = 0; x < w; x += 2) fill('#0d080b', 1, x, -1, 1, 1); // 齿
+  fill('#3d3327', 1, 0, -2, w, 1); // 鞋头
+  fill('#3d3327', 1, 0, -3, w - 2, 1); // 脚背
+  fill('#2a221b', 1, 0, -4, w - 3, 1); // 脚踝，比筒身宽出来一点
+  fill('#2a221b', 1, 0, -5, shaft + 1, 1); // 筒身往下收进脚踝
+  fill('#3d3327', 1, 0, -top, shaft, top - 5); // 靴筒，后背一条直线
+  fill('#6f5a41', 1, 0, -top, shaft, 1); // 靴口
+  fill('#bba985', 0.55, shaft - 1, -top + 1, 1, 1); // 鞋带扣
+  fill('#bba985', 0.45, shaft - 1, -top + 3, 1, 1);
+  fill('#7d6247', 0.85, w - 3, -3, 2, 1); // 鞋头的包皮
+  fill(accent, 0.8, w - 2, -2, 1, 1); // 鞋头反光
+}
+
+/** 帆布鞋：矮帮、白橡胶底和包住鞋尖的一圈白边、后跟一块记忆色的贴片。冯桃的那双。 */
+function drawCanvas(ctx, w, accent, alpha) {
+  const fill = shoeBrush(ctx, alpha);
+  const collar = Math.max(2, w - 6);
+  fill('#cfc7b4', 1, 0, -1, w, 1); // 白橡胶底
+  fill('#dcd5c2', 1, w - 1, -2, 1, 2); // 鞋尖一圈白边，只包住最前面那一列
+  fill('#3d4048', 1, 0, -2, w - 1, 1); // 帆布鞋面
+  fill('#3d4048', 1, 0, -3, w - 2, 1);
+  fill('#4a4e58', 1, 0, -4, collar, 1); // 鞋口
+  fill('#efe9da', 0.5, 2, -3, Math.max(1, w - 6), 1); // 鞋带
+  fill(accent, 0.75, 0, -3, 2, 1); // 后跟的贴片
+}
+
+/** 雨靴：筒口往外翻、后背一条直线、厚底。周叔脚下总像还带着水。 */
+function drawRainBoot(ctx, w, accent, alpha) {
+  const fill = shoeBrush(ctx, alpha);
+  const shaft = Math.max(2, w - 4); // 筒身宽度
+  const top = 8; // 靴口高度
+  fill('#101010', 1, 0, -1, w, 1); // 厚底
+  fill('#20282a', 1, 0, -2, w, 1); // 底边
+  fill('#2c3a35', 1, 0, -3, w - 1, 1); // 鞋头
+  fill('#37463f', 1, 0, -4, w - 2, 1); // 脚背，和筒身分开一点
+  fill('#2c3a35', 1, 0, -top + 1, shaft, top - 4); // 靴筒，后背和后跟连成一条直线
+  fill('#54695f', 1, 0, -top + 1, shaft, 1); // 靴口
+  fill('#54695f', 1, 0, -top, shaft + 1, 1); // 筒口往外翻出来的一圈
+  fill('#6d8477', 0.45, 0, -top + 2, 1, top - 6); // 筒口的一线亮
+  fill(accent, 0.8, w - 2, -3, 1, 1); // 鞋头反光
+  fill('#43544a', 0.6, 0, -2, 1, 1); // 跟上的一点水光
+}
+
+/** 鞋的样式表：id 写进每双鞋，画法各自不同，height 是鞋口到地面的高度。 */
+export const SHOE_STYLES = {
+  oxford: { id: 'oxford', name: '皮鞋', height: 4, draw: drawOxford },
+  hiking: { id: 'hiking', name: '登山靴', height: 8, draw: drawHikingBoot },
+  canvas: { id: 'canvas', name: '帆布鞋', height: 4, draw: drawCanvas },
+  rainboot: { id: 'rainboot', name: '雨靴', height: 8, draw: drawRainBoot },
+};
+
+/** 这一段的那位留下的鞋是什么样式。 */
+export function shoeStyleForStage(stage) {
+  return MANNERS[stage]?.shoe ?? SHOE_STYLES.oxford.id;
+}
+
+/**
+ * 走完某一段时报给界面的那双鞋：谁的、什么样子、走起来什么样。
+ * 只取这一段本来就有的事实，卡片上的字由 main.js 排版。
+ */
+export function shoeRewardFor(stage) {
+  const chapter = MEMORIAL_CHAPTERS.find((item) => item.stage === stage);
+  if (!chapter) return null;
+  const manner = MANNERS[stage] ?? MANNERS[1];
+  const shoe = SHOE_STYLES[manner.shoe] ?? SHOE_STYLES.oxford;
+  return {
+    stage,
+    stageLabel: chapter.stageLabel,
+    patient: chapter.patient,
+    accent: chapter.accent ?? '#c6b3e0',
+    shoe: shoe.id,
+    shoeName: shoe.name,
+    line: manner.line,
+    // 开篇的人物小传：有就压在卡片上，没有就退回这一双鞋的落脚习惯。
+    bio: chapter.bio ?? null,
+    bioEn: chapter.bioEn ?? null,
+    // 后两段没有单独的小传：背包里的详情退到这一段的开场白。
+    intro: chapter.intro ?? null,
+    // 通关后由这一段的病人留给主角的话。
+    blessing: chapter.blessing ?? null,
+  };
+}
+
+/** 某一种鞋从地面到鞋口有多高：鞋底下的微光、飘起来的火星要让它一让。 */
+export function shoeHeight(style) {
+  return (SHOE_STYLES[style] ?? SHOE_STYLES.oxford).height;
+}
+
+/**
+ * 画一只鞋。路上跟着的鞋和结尾碑前那几双都画成 8 格宽；默认 6 格留给更小的场合。
+ * 鞋尖朝 facing 那一头；朝左时整只鞋镜像，而不只是翻一下高光——
+ * 轮廓是前低后高的，只翻高光会露馅。
+ */
+export function paintShoe(ctx, x, y, facing, accent, alpha, width = 6, style = 'oxford') {
+  const spec = SHOE_STYLES[style] ?? SHOE_STYLES.oxford;
+  const w = Math.max(5, Math.round(width));
+  const dir = facing >= 0 ? 1 : -1;
+  ctx.save();
+  ctx.translate(Math.round(x) + (dir > 0 ? 0 : w), Math.round(y));
+  ctx.scale(dir, 1);
+  spec.draw(ctx, w, accent, alpha);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * 拿到一双鞋的那张卡片里画的一双：和路上跟着的同一套画法，
+ * 只是并排摆好给你看清楚。调用方自己 ctx.scale 放大，这里按逻辑像素摆。
+ * 两只鞋的横向位置和 drawPair 里一致（后跟相隔一格，共 17 格宽）。
+ */
+export function paintShoePair(
+  ctx,
+  { style = 'oxford', accent = '#c6b3e0', centerX = 0, groundY = 0, alpha = 1 } = {},
+) {
+  const top = shoeHeight(style);
+  // 先铺一层很淡的记忆色，再压一道脚下的影子——和路上那双一样，
+  // 不然黑鞋在暗底板上只剩一坨看不出轮廓的东西。
+  const glow = ctx.createRadialGradient(
+    centerX,
+    groundY - top * 0.6,
+    1,
+    centerX,
+    groundY - top * 0.6,
+    13,
   );
-  // 鞋带的一点浅色
-  ctx.globalAlpha = alpha * 0.4;
-  ctx.fillRect(x + 2, y - height + 1, width - 4, 1);
-  // 后跟一点点磨旧的浅色
-  ctx.globalAlpha = alpha * 0.34;
-  ctx.fillStyle = '#9a7150';
-  ctx.fillRect(facing > 0 ? x : x + width - 1, y - 1, 1, 1);
-  ctx.globalAlpha = alpha;
+  glow.addColorStop(0, accent);
+  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.globalAlpha = 0.24 * alpha;
+  ctx.fillStyle = glow;
+  ctx.fillRect(centerX - 14, groundY - 17, 28, 23);
+  ctx.globalAlpha = 0.16 * alpha;
+  ctx.fillStyle = accent;
+  ctx.fillRect(centerX - 9, groundY, 18, 1);
+  ctx.globalAlpha = 0.24 * alpha;
+  ctx.fillStyle = '#0a0910';
+  ctx.fillRect(centerX - 9, groundY - 1, 18, 2);
+  ctx.globalAlpha = 1;
+
+  paintShoe(ctx, centerX - 8, groundY, 1, accent, 0.78 * alpha, 8, style);
+  paintShoe(ctx, centerX + 1, groundY, 1, accent, 0.95 * alpha, 8, style);
 }
 
 function drawPair(ctx, pair, sx, sy, time) {
   const accent = pair.accent;
-  const manner = pair.manner?.id ?? 'measure';
+  const manner = pair.manner?.id ?? 'check';
   const facing = pair.facing >= 0 ? 1 : -1;
   const swing = Math.sin(pair.stepPhase);
 
@@ -309,8 +476,8 @@ function drawPair(ctx, pair, sx, sy, time) {
   let liftLeft = stride > 0;
   let liftRight = stride < 0;
 
-  if (manner === 'measure') {
-    // 小满：走两步就停半拍，像还在数台阶；停的时候往后撤半步，再跟上来。
+  if (manner === 'check') {
+    // Sybil：走几步就停下来，像在确认什么；停的时候往后退半步，再跟上来。
     const checking = Math.sin(pair.stepPhase * 0.31 + pair.seed) > 0.86;
     if (checking) {
       front = 0;
@@ -319,7 +486,7 @@ function drawPair(ctx, pair, sx, sy, time) {
       liftRight = false;
     }
   } else if (manner === 'breathe') {
-    // 阿岚：跟着呼吸轻轻起伏，偶尔屏住一口气，两只鞋一起停住。
+    // Kurt：跟着呼吸轻轻起伏，偶尔屏住一口气，两只鞋一起停住。
     bob = Math.sin(time * 1.15 + pair.seed) > 0.55 ? -1 : 0;
     const holding = Math.sin(time * 0.5 + pair.seed) > 0.965;
     if (holding) {
@@ -330,7 +497,7 @@ function drawPair(ctx, pair, sx, sy, time) {
       liftRight = false;
     }
   } else if (manner === 'listen') {
-    // 阿遥：总有一只鞋侧着，像在听另一双；身后偶尔多出一层很淡的复影。
+    // 冯桃：总有一只鞋侧着，像在看着另一个自己；身后偶尔多出一层很淡的复影。
     shiftX = Math.round(Math.sin(time * 0.85 + pair.seed) * 2);
     echo = Math.sin(time * 0.45 + pair.seed) > 0.4 ? 0.1 : 0;
   } else if (manner === 'weight') {
@@ -357,13 +524,15 @@ function drawPair(ctx, pair, sx, sy, time) {
   const groundY = sy;
   const bodyY = sy + bob;
   const centerX = sx + shiftX;
+  // 靴子比皮鞋高出一截：影子上的那圈微光、飘起来的火星都要跟着让一让。
+  const top = shoeHeight(pair.shoe);
 
   // 很淡的一圈记忆色，让鞋在夜里不至于只剩两个黑点。
   ctx.globalAlpha = 0.05;
   ctx.fillStyle = accent;
-  ctx.fillRect(centerX - 11, bodyY - 10, 22, 11);
+  ctx.fillRect(centerX - 11, bodyY - top - 3, 22, top + 4);
   ctx.globalAlpha = 0.07;
-  ctx.fillRect(centerX - 9, bodyY - 8, 18, 9);
+  ctx.fillRect(centerX - 9, bodyY - top - 1, 18, top + 2);
 
   // 鞋底下一层很淡的记忆色，让它在暗地上也能被看见。
   ctx.globalAlpha = 0.14;
@@ -376,20 +545,22 @@ function drawPair(ctx, pair, sx, sy, time) {
   ctx.fillRect(centerX - 9, groundY - 1, 18, 2);
   ctx.globalAlpha = 1;
 
-  // 阿遥身后的复影：只是第二层几乎看不见的鞋。
+  // 冯桃身后的复影：只是第二层几乎看不见的鞋。
   if (echo > 0) {
+    const echoY = bodyY - Math.round(top * 0.6);
     ctx.globalAlpha = echo;
     ctx.fillStyle = accent;
-    ctx.fillRect(centerX - 8 - facing * 4, bodyY - 5, 8, 3);
-    ctx.fillRect(centerX + 1 - facing * 4, bodyY - 5, 8, 3);
+    ctx.fillRect(centerX - 8 - facing * 4, echoY, 8, 3);
+    ctx.fillRect(centerX + 1 - facing * 4, echoY, 8, 3);
     ctx.globalAlpha = 1;
   }
 
   const leftX = centerX - 8 + front;
   const rightX = centerX + 1 - front;
+  // 靠后画的那只压暗一点，一双鞋才有前后，不像两块并排的木头。
   // 迈出去的那只鞋抬起一像素，脚步才像一步而不是滑过去。
-  paintShoe(ctx, leftX, bodyY + (liftLeft ? -1 : 0), facing, accent, 0.92, 8);
-  paintShoe(ctx, rightX, bodyY + (liftRight ? -1 : 0), facing, accent, 0.92, 8);
+  paintShoe(ctx, leftX, bodyY + (liftLeft ? -1 : 0), facing, accent, 0.78, 8, pair.shoe);
+  paintShoe(ctx, rightX, bodyY + (liftRight ? -1 : 0), facing, accent, 0.95, 8, pair.shoe);
 
   // 一点往上飘的记忆火星：只有鞋，没有身体。
   const wisp = (time * 0.9 + pair.seed * 0.37) % 1;
@@ -397,7 +568,7 @@ function drawPair(ctx, pair, sx, sy, time) {
   ctx.fillStyle = accent;
   ctx.fillRect(
     centerX + Math.round(Math.sin((time + pair.seed) * 1.7)),
-    Math.round(bodyY - 7 - wisp * 9),
+    Math.round(bodyY - top - 2 - wisp * 9),
     1,
     1,
   );

@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#08050d" />
     <meta
       name="description"
-      content="南瓜小径：一款万圣节像素风网页横版小游戏。新手教程；给老师送南瓜派，四段墓园夜路，把一盒南瓜派送到老师墓前，第三段是双人同屏潜行；魑魅魍魉，一套方向键带着整支鬼队伍走到钟楼顶。另有一条糖纸街副本 Trick or Treat。"
+      content="给老师送南瓜派：一款万圣节像素风网页横版小游戏。新手教程是唯一的起点；走完教程才打开主线——四段墓园夜路，把一盒南瓜派送到老师墓前，第三段是双人同屏潜行。魑魅魍魉（三条赛道带整支鬼队伍走到钟楼顶）和糖纸街副本 Trick or Treat 是附带的夜路。"
     />
-    <title>南瓜小径 · Pumpkin Hollow</title>
+    <title>给老师送南瓜派 · Sir Loved Pumpkin Pie</title>
     <script>
       // 尽早标出移动端，避免样式在模块脚本加载前闪一下桌面布局。
       (function () {
@@ -33,20 +33,20 @@
         <div class="brand">
           <p class="eyebrow">Happy Halloween · 2026</p>
           <h1>
-            南瓜小径
-            <span class="latin">Pumpkin Hollow</span>
+            给老师送南瓜派
+            <span class="latin">Sir Loved Pumpkin Pie</span>
           </h1>
         </div>
         <div class="status-chip" title="当前模式与主题">
           <span class="status-dot" aria-hidden="true"></span>
-          <span id="topStatusText">三条夜路 · 一个糖纸街副本</span>
+          <span id="topStatusText">新手教程 → 主线四段 → 附带的夜路</span>
         </div>
       </header>
 
-      <section class="game-shell" aria-label="南瓜小径游戏区域">
+      <section class="game-shell" aria-label="给老师送南瓜派游戏区域">
         <div class="frame">
           <div class="screen" id="gameScreen">
-            <canvas id="game" width="512" height="288" aria-label="南瓜小径像素游戏画面">
+            <canvas id="game" width="512" height="288" aria-label="给老师送南瓜派像素游戏画面">
               你的浏览器需要支持 Canvas 才能游玩。
             </canvas>
 
@@ -58,6 +58,79 @@
                 <span data-fullscreen-label>全屏</span>
                 <kbd>F</kbd>
               </button>
+              <div class="screen-corner" id="screenCorner">
+                <button class="fullscreen-toggle screen-menu" id="screenMenuButton" type="button" title="退回目录">
+                  目录
+                </button>
+                <button class="fullscreen-toggle screen-hint" id="screenHintButton" type="button" title="看这一关的提示">
+                  <span>提示</span>
+                  <kbd>H</kbd>
+                </button>
+              </div>
+
+              <!-- 开场：南瓜车驶进来时，开场白写在画面正上方；教程默认折叠，点开才展开。 -->
+              <div class="opening-card" id="openingCard" hidden>
+                <p class="opening-cn" id="openingCn"></p>
+                <p class="opening-en" id="openingEn"></p>
+                <button
+                  class="opening-tutorial-toggle"
+                  id="openingTutorialToggle"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="openingTutorial"
+                >
+                  <span class="opening-tutorial-title" id="openingTutorialTitle">南瓜派教程</span>
+                  <span class="opening-tutorial-mark" id="openingTutorialMark" aria-hidden="true">展开</span>
+                </button>
+                <div class="opening-tutorial" id="openingTutorial" hidden>
+                  <p class="opening-tutorial-cn" id="openingTutorialCn"></p>
+                </div>
+                <p class="opening-skip" id="openingSkip" hidden>按 Q 直接下车 · Q to get off</p>
+              </div>
+
+              <!-- 通关一段之后的祝福：一句中文，一句英文。 -->
+              <div class="blessing-card" id="blessingCard" hidden role="status" aria-live="polite">
+                <span class="blessing-kicker" id="blessingKicker"></span>
+                <p class="blessing-cn" id="blessingCn"></p>
+                <p class="blessing-en" id="blessingEn"></p>
+              </div>
+
+              <!-- 路牌：按 V 摊开，一句中文下面一句英文。 -->
+              <div class="sign-card" id="signCard" hidden role="dialog" aria-modal="true" aria-labelledby="signKicker">
+                <span class="sign-card-kicker" id="signKicker">路牌 · Road Sign</span>
+                <p class="sign-card-cn" id="signCn"></p>
+                <p class="sign-card-en" id="signEn"></p>
+                <span class="sign-card-close" id="signClose">V / Esc 收起</span>
+              </div>
+
+              <!-- 落幕：碑前那一幕的旁白。文字走网页字体排在画面上层，
+                   不再画进 512×288 的像素画面里，放大后也不会糊成方块。 -->
+              <div class="ending-layer" id="endingLayer" hidden>
+                <div class="ending-caption" id="endingCaption" hidden>
+                  <p class="ending-cn" id="endingCn"></p>
+                  <div class="ending-morph" id="endingMorph" hidden>
+                    <span class="ending-morph-line" id="endingMorphLine"></span>
+                  </div>
+                  <p class="ending-en" id="endingEn"></p>
+                  <p class="ending-note" id="endingNote" hidden></p>
+                </div>
+                <div class="ending-final" id="endingFinal" hidden>
+                  <span class="ending-final-line">
+                    <span id="endingFinalCn"></span>
+                    <i class="ending-caret" id="endingCaretCn" aria-hidden="true"></i>
+                  </span>
+                  <span class="ending-final-line ending-final-line--en">
+                    <span id="endingFinalEn"></span>
+                    <i class="ending-caret" id="endingCaretEn" aria-hidden="true"></i>
+                  </span>
+                </div>
+                <div class="ending-credits" id="endingCredits" hidden>
+                  <p class="ending-credits-title">给老师送南瓜派</p>
+                  <p class="ending-credits-latin">SIR LOVED PUMPKIN PIE</p>
+                  <div class="ending-credit-rows" id="endingCreditRows"></div>
+                </div>
+                <span class="ending-skip" id="endingSkip" hidden>按 E 或轻触跳过</span>
+              </div>
               <aside class="player-panel" id="playerPanel" data-collapse="full" hidden aria-label="玩家面板">
                 <button
                   class="panel-collapse"
@@ -76,14 +149,15 @@
                   <span class="panel-title">旅人手记</span>
                   <span class="panel-mode" id="panelMode">教程</span>
                 </div>
-                <div class="panel-theme" id="panelTheme">月影小径</div>
+                <div class="panel-theme" id="panelTheme">万圣夜</div>
 
                 <div class="panel-memorial" id="memorialInfo" hidden>
                   <div class="panel-memorial-row">
                     <span>诊断记录</span>
-                    <b id="memorialCondition">F42 · 强迫性障碍</b>
+                    <b id="memorialCondition">F42 · 强迫症</b>
                   </div>
-                  <p class="panel-memorial-body" id="memorialBody">每隔几秒，想回去看看南瓜车锁没锁。</p>
+                  <p class="panel-memorial-body" id="memorialBody">Sybil，英国籍，伟大的航天工程师，深受强迫症困扰</p>
+                  <p class="panel-memorial-en" id="memorialBodyEn" hidden>Sybil was a great British lady who built many things that can fly. She suffered from OCD badly.</p>
                   <div class="panel-memorial-lights">
                     <span>已点的灯</span>
                     <b id="memorialLights">0</b>
@@ -167,7 +241,6 @@
                 <div class="panel-grid" id="panelGrid">
                   <div><span>骨头</span><b id="panelBones">0/0</b></div>
                   <div><span>右手骨</span><b id="panelHands">0</b></div>
-                  <div><span>糖果</span><b id="panelCandies">0/0</b></div>
                   <div><span>时间</span><b id="panelTime">00:00</b></div>
                   <div id="panelCostumeCell"><span>时装</span><b id="panelCostume">未换装</b></div>
                 </div>
@@ -178,9 +251,8 @@
                 </div>
 
                 <div class="panel-pouch-line" id="panelPouchLine">
-                  <span>糖袋</span>
+                  <span>糖袋 · 在背包里</span>
                   <b id="panelPouchCount">0</b>
-                  <kbd>Q</kbd>
                 </div>
 
                 <div class="panel-effects" id="panelEffects" hidden>
@@ -229,6 +301,7 @@
                 </div>
                 <p id="staticHudStatus">电子带负电。中央的减号表示它的极性。</p>
                 <div class="static-q"><span>你的电荷</span><b id="staticHudCharge">q = 0</b></div>
+                <div class="static-q"><span>距离</span><b id="staticHudDistance">—</b></div>
                 <div class="static-q"><span>合力</span><b id="staticHudForce">—</b></div>
               </div>
 
@@ -247,9 +320,13 @@
               <div class="tutorial-coach" id="tutorialCoach" hidden>
                 <div class="tutorial-top">
                   <span id="tutorialStepLabel">教程 1/10</span>
-                  <button class="text-button" id="skipTutorialButton" type="button">跳过教程</button>
                 </div>
                 <p id="tutorialText">用方向键走一走。</p>
+                <p class="tutorial-keys">
+                  <kbd>←</kbd><kbd>→</kbd> 移动 · <kbd>↑</kbd> 跳跃 · <kbd>↓</kbd> 下穿 · <kbd>E</kbd> 抱南瓜 · <kbd>Q</kbd> 摸装置 ·
+                  <kbd>Tab</kbd> 背包 · <kbd>H</kbd> 提示 · <kbd>Esc</kbd> 暂停 · <kbd>R</kbd> 重走 ·
+                  <kbd>M</kbd> 音效 · <kbd>F</kbd> 全屏
+                </p>
                 <div class="tutorial-pips" id="tutorialPips" aria-hidden="true"></div>
               </div>
 
@@ -260,24 +337,54 @@
                   <b class="quest-time" id="questTime">10.0s</b>
                 </div>
                 <div class="quest-progress"><i id="questProgress"></i></div>
+                <div class="quest-foot" id="questFoot">
+                  <button class="quest-exit" id="questExitButton" type="button">退出任务</button>
+                </div>
               </div>
 
               <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+              <div class="candy-reward" id="candyReward" role="status" aria-live="polite" hidden>
+                <div class="candy-reward-flash" aria-hidden="true"></div>
+                <div class="candy-reward-card">
+                  <span class="candy-reward-kicker" id="candyRewardKicker"></span>
+                  <span class="candy-reward-glyph" id="candyRewardGlyph" aria-hidden="true"></span>
+                  <span class="candy-reward-name" id="candyRewardName"></span>
+                  <span class="candy-reward-tag" id="candyRewardTag"></span>
+                  <span class="candy-reward-count" id="candyRewardCount"></span>
+                </div>
+                <div class="candy-reward-sparks" id="candyRewardSparks" aria-hidden="true"></div>
+              </div>
+
+              <div class="shoe-reward" id="shoeReward" role="status" aria-live="polite" hidden>
+                <div class="shoe-reward-flash" aria-hidden="true"></div>
+                <div class="shoe-reward-card">
+                  <span class="shoe-reward-kicker" id="shoeRewardKicker"></span>
+                  <span class="shoe-reward-art" aria-hidden="true">
+                    <canvas id="shoeRewardCanvas" width="168" height="84"></canvas>
+                  </span>
+                  <span class="shoe-reward-name" id="shoeRewardName"></span>
+                  <span class="shoe-reward-tag" id="shoeRewardTag"></span>
+                  <span class="shoe-reward-en" id="shoeRewardEn" hidden></span>
+                  <span class="shoe-reward-count" id="shoeRewardCount"></span>
+                </div>
+                <div class="shoe-reward-sparks" id="shoeRewardSparks" aria-hidden="true"></div>
+              </div>
+
               <div class="shoe-voice" id="shoeVoice" aria-live="polite"></div>
 
               <div class="touch-controls" id="touchControls" hidden aria-label="触屏操作">
-                <div class="touch-pad touch-pad--move" role="group" aria-label="移动">
-                  <button class="touch-btn touch-btn--down" type="button" data-touch-action="down" aria-label="蹲下或下落">↓</button>
+                <div class="touch-pad touch-pad--move" role="group" aria-label="左手：左右移动">
                   <button class="touch-btn touch-btn--left" type="button" data-touch-action="left" aria-label="向左">←</button>
                   <button class="touch-btn touch-btn--right" type="button" data-touch-action="right" aria-label="向右">→</button>
                 </div>
                 <div class="touch-menu">
                   <button class="touch-btn touch-btn--menu" id="touchBagButton" type="button" aria-label="打开背包">背包</button>
-                  <button class="touch-btn touch-btn--menu" id="touchPouchButton" type="button" aria-label="打开糖袋">糖袋</button>
+                  <button class="touch-btn touch-btn--menu" id="touchHintButton" type="button" aria-label="看提示">提示</button>
                   <button class="touch-btn touch-btn--menu" id="touchPauseButton" type="button" aria-label="暂停">暂停</button>
                 </div>
-                <div class="touch-pad touch-pad--action" role="group" aria-label="动作">
+                <div class="touch-pad touch-pad--action" role="group" aria-label="右手：上下与互动">
+                  <button class="touch-btn touch-btn--down" type="button" data-touch-action="down" aria-label="蹲下或下落">↓</button>
                   <button class="touch-btn touch-btn--interact" id="touchInteractButton" type="button" aria-label="互动">互动</button>
                   <button class="touch-btn touch-btn--jump" type="button" data-touch-action="up" aria-label="跳跃">↑</button>
                 </div>
@@ -306,51 +413,78 @@
                     </svg>
                   </div>
 
-                  <p class="start-brand">Pumpkin Hollow · 万圣夜</p>
-                  <h2>提灯走夜路</h2>
-                  <p class="overlay-copy">鞋是新的。走得越久，它越合你的脚。</p>
+                  <p class="start-brand">Sir Loved Pumpkin Pie · 万圣夜</p>
+                  <h2>给老师送南瓜派</h2>
+                  <p class="overlay-copy">鞋是新的，但它会学习。走得越久，皮鞋越合脚。</p>
 
-                  <div class="mode-actions">
+                  <div class="mode-actions" id="modeActions" data-gate="tutorial">
                     <button class="primary-button mode-button mode-button--continue" id="continueButton" type="button" hidden>
                       <span class="mode-badge">继续</span>
                       <span class="mode-main" id="continueLabel">继续夜路</span>
                       <span class="mode-sub" id="continueDetail">回到上次的落脚点</span>
                     </button>
-                    <button class="primary-button mode-button" id="startTutorialButton" type="button">
-                      <span class="mode-badge">推荐</span>
+
+                    <!-- 教程是唯一的起点：没走完之前，下面的夜路都压暗。 -->
+                    <button class="primary-button mode-button mode-button--tutorial" id="startTutorialButton" type="button">
+                      <span class="mode-badge" id="tutorialBadge">第一步</span>
                       <span class="mode-main">新手教程</span>
-                      <span class="mode-sub">约 2 分钟 · 走路与南瓜</span>
+                      <span class="mode-sub" id="tutorialDetail">约 2 分钟 · 走路、跳跃、推南瓜</span>
                     </button>
-                    <button class="secondary-button mode-button mode-button--memorial" id="startMemorialButton" type="button">
-                      <span class="mode-badge">正式线路</span>
-                      <span class="mode-main">给老师送南瓜派</span>
-                      <span class="mode-sub">Sir loved pumpkin pie · 四段夜路</span>
-                    </button>
-                    <button class="secondary-button mode-button mode-button--parade" id="startParadeButton" type="button">
-                      <span class="mode-badge">三条赛道</span>
-                      <span class="mode-main">魑魅魍魉</span>
-                      <span class="mode-sub">十一位同行者 · 一个都不能少</span>
-                    </button>
-                    <button class="secondary-button mode-button mode-button--trick" id="startTrickButton" type="button">
-                      <span class="mode-badge">副本</span>
-                      <span class="mode-main">Trick or Treat</span>
-                      <span class="mode-sub">糖纸街十户人家 · 帮忙或捣蛋</span>
+
+                    <section class="mode-group" aria-labelledby="mainRouteTitle">
+                      <p class="mode-group-title" id="mainRouteTitle">
+                        <span>主线</span>
+                        <b id="mainRouteNote">教程后开放</b>
+                      </p>
+                      <button class="primary-button mode-button mode-button--memorial" id="startMemorialButton" type="button">
+                        <span class="mode-badge">主线</span>
+                        <span class="mode-main">给老师送南瓜派</span>
+                        <span class="mode-sub">Sir Loved Pumpkin Pie · 共四关</span>
+                      </button>
+                    </section>
+
+                    <section class="mode-group" aria-labelledby="sideRouteTitle">
+                      <p class="mode-group-title" id="sideRouteTitle">
+                        <span>额外关卡！冒险还是奖励？</span>
+                        <b id="sideRouteNote">教程后开放</b>
+                      </p>
+                      <div class="mode-row">
+                        <button class="secondary-button mode-button mode-button--parade" id="startParadeButton" type="button">
+                          <span class="mode-badge">三种难度</span>
+                          <span class="mode-main">魑魅魍魉</span>
+                          <span class="mode-sub">冒险途中结识伙伴 · 十一人行，必有我</span>
+                        </button>
+                        <button class="secondary-button mode-button mode-button--trick" id="startTrickButton" type="button">
+                          <span class="mode-badge">奖励副本</span>
+                          <span class="mode-main">Trick or Treat</span>
+                          <span class="mode-sub">挨家挨户讨糖吃，也可以捣蛋</span>
+                        </button>
+                      </div>
+                    </section>
+
+                    <button class="text-button start-replay-tutorial" id="replayTutorialButton" type="button" hidden>
+                      重走一遍新手教程
                     </button>
                   </div>
 
                   <div class="mini-controls" aria-label="操作提示">
                     <span><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> 移动 / 跳跃 / 下穿</span>
-                    <span><kbd>E</kbd> 互动</span>
-                    <span><kbd>Tab</kbd> 背包</span>
-                    <span><kbd>Q</kbd> 糖袋</span>
+                    <span><kbd>E</kbd> 抱 / 抛</span>
+                    <span><kbd>Q</kbd> 摸装置</span>
+                    <span><kbd>X</kbd> 离开房间</span>
+                    <span><kbd>Tab</kbd> 背包 / 糖袋</span>
+                    <span><kbd>H</kbd> 提示</span>
                   </div>
                   <div class="mini-controls mobile-controls" aria-label="触屏操作提示">
-                    <span>左侧 ← → 移动 · ↓ 下穿</span>
-                    <span>右侧 ↑ 跳跃 · 互动 抱南瓜</span>
-                    <span>底部 背包 / 糖袋 / 暂停</span>
+                    <span>左手 ← → 移动</span>
+                    <span>右手 ↑ 跳跃 · ↓ 下穿 · 互动 抱南瓜</span>
+                    <span>底部 背包 / 提示 / 暂停</span>
                   </div>
                   <button class="save-reset-button" id="clearSaveButton" type="button" title="只清除游戏进度，糖袋会保留" hidden>
                     清除本地存档
+                  </button>
+                  <button class="text-button start-letter-button" id="startLetterButton" type="button" hidden>
+                    打开皮鞋的信
                   </button>
                 </div>
               </div>
@@ -365,7 +499,7 @@
                     <button class="icon-button" id="closeTrackButton" type="button" aria-label="返回起始页">×</button>
                   </div>
                   <p class="roster-copy">
-                    三条路都到钟楼顶。简单是原来的六段；普通和困难更长，落脚点更少。困难里每中一次瘴气，就要留下一人。
+                    简单 · 普通 · 困难，三条路都到钟楼顶。简单是原来的六段，每个落脚点都能存档；普通更长，落脚点减半；困难最长，每碰到一次坑底的紫色瘴气，就要少一名同行者。
                   </p>
                   <div class="track-grid" id="trackGrid"></div>
                   <div class="inventory-foot">
@@ -379,13 +513,15 @@
                 <div class="inventory-panel">
                   <div class="inventory-head">
                     <div>
-                      <p class="overlay-kicker">Bones, candy, costumes</p>
+                      <p class="overlay-kicker">Bones, costumes and candy</p>
                       <h2>背包</h2>
                     </div>
                     <button class="icon-button" id="closeBackpackButton" type="button" aria-label="关闭背包">×</button>
                   </div>
 
-                  <div class="inventory-grid">
+                  <p class="pouch-hint inventory-carry-note" id="inventoryCarryNote" hidden></p>
+
+                  <div class="inventory-grid" id="inventoryGrid">
                     <div class="inventory-box">
                       <p class="inventory-label">骨头收藏</p>
                       <div class="bone-total">
@@ -395,7 +531,7 @@
                       </div>
                       <ul class="inventory-list" id="inventoryList"></ul>
                     </div>
-                    <div class="inventory-box inventory-box--hand">
+                    <div class="inventory-box inventory-box--hand" id="inventoryHandBox">
                       <p class="inventory-label">右手骨</p>
                       <div class="hand-total">× <span id="inventoryHands">0</span></div>
                       <p class="inventory-note">
@@ -421,7 +557,19 @@
                     <p class="placement-note">放不同的骨头，结果不一样。</p>
                   </section>
 
-                  <section class="wardrobe-panel" aria-label="万圣节衣橱">
+                  <section class="shoe-rack-section" id="shoeRackSection" aria-label="鞋" hidden>
+                    <div class="wardrobe-head">
+                      <div>
+                        <p class="inventory-label">鞋</p>
+                        <h3>脚上这双，和身后的</h3>
+                      </div>
+                      <span class="placement-tip">点一张，看细节</span>
+                    </div>
+                    <div class="shoe-rack" id="shoeRack"></div>
+                    <div class="shoe-rack-detail" id="shoeRackDetail" hidden></div>
+                  </section>
+
+                  <section class="wardrobe-panel" id="wardrobePanel" aria-label="万圣节衣橱">
                     <div class="wardrobe-head">
                       <div>
                         <p class="inventory-label">万圣节衣橱</p>
@@ -429,19 +577,22 @@
                       </div>
                       <span class="placement-tip">集齐自动换上 · 也能在这里换</span>
                     </div>
+                    <p class="wardrobe-progress" id="wardrobeProgress">已拼好 0 / 5 套 · 零件 0 / 15</p>
                     <div class="wardrobe-grid" id="wardrobeGrid"></div>
                   </section>
 
-                  <section class="candy-strip" aria-label="糖果罐">
-                    <div class="candy-strip-head">
-                      <p class="inventory-label">糖果罐</p>
-                      <div class="candy-kinds" id="inventoryCandyTypes"></div>
-                      <span class="candy-total">× <b id="inventoryCandies">0</b></span>
+                  <section class="pouch-section" aria-label="糖袋">
+                    <div class="wardrobe-head">
+                      <div>
+                        <p class="inventory-label">糖袋</p>
+                        <h3>路上的糖都在这里</h3>
+                      </div>
+                      <span class="placement-tip">全线路通用 · 共 <b id="pouchTotal">0</b> 颗</span>
                     </div>
-                    <ul class="candy-catalogue" id="candyCatalogue"></ul>
-                    <p class="candy-note">
-                      糖捡到就吃掉。同一种糖叠加时间，不同糖同时生效。状态名来自真实诊断分类，只是游戏机制，不是诊断。
+                    <p class="pouch-hint" id="pouchCopy">
+                      糖纸街的糖是普通的增益糖，收在糖袋里，哪条路都能吃。点一下「吃一颗」，数字键也行。
                     </p>
+                    <div class="pouch-grid" id="pouchGrid"></div>
                   </section>
 
                   <div class="inventory-foot">
@@ -452,22 +603,31 @@
                 </div>
               </div>
 
-              <div class="overlay inventory-overlay pouch-overlay" id="pouchScreen" hidden>
-                <div class="inventory-panel pouch-panel">
+
+              <div class="overlay inventory-overlay hint-overlay" id="hintScreen" hidden>
+                <div class="inventory-panel hint-panel">
                   <div class="inventory-head">
                     <div>
-                      <p class="overlay-kicker">A pocketful of little tricks</p>
-                      <h2>糖袋</h2>
+                      <p class="overlay-kicker">A nudge in the dark</p>
+                      <h2>这一关的提示</h2>
                     </div>
-                    <button class="icon-button" id="closePouchButton" type="button" aria-label="关闭糖袋">×</button>
+                    <button class="icon-button" id="closeHintButton" type="button" aria-label="关闭提示">×</button>
                   </div>
-                  <p class="roster-copy">
-                    糖纸街的糖是普通的增益糖，收在背包的糖袋里，哪条路都能吃。按数字键，或点一下「吃一颗」。
-                  </p>
-                  <div class="pouch-grid" id="pouchGrid"></div>
+                  <div class="hint-head">
+                    <div>
+                      <p class="hint-title" id="hintTitle">新手教程</p>
+                      <p class="hint-step" id="hintStep">第 1 课</p>
+                    </div>
+                    <p class="hint-objective" id="hintObjective"></p>
+                  </div>
+                  <ol class="hint-list" id="hintList"></ol>
+                  <div class="hint-keys">
+                    <p class="inventory-label">全部按键</p>
+                    <div class="hint-keys-grid" id="hintKeys"></div>
+                  </div>
                   <div class="inventory-foot">
-                    <span>糖袋 <b id="pouchTotal">0</b> 颗 · 全线路通用</span>
-                    <span><kbd>Q</kbd> 关闭</span>
+                    <span>提示只讲做法，不替你做。</span>
+                    <span><kbd>H</kbd> 关闭 · <kbd>Esc</kbd> 返回</span>
                   </div>
                 </div>
               </div>
@@ -530,10 +690,20 @@
                     <button class="icon-button" id="closeRosterButton" type="button" aria-label="关闭名册">×</button>
                   </div>
                   <p class="roster-copy">
-                    灯照到哪儿，队伍跟到哪儿。灰名字还没遇到，去石鼓前按 E 请他们跟上。困难里留下的名字会另行标出。
+                    灯照到哪儿，队伍跟到哪儿。灰名字还没遇到，去石鼓前按 Q 请他们跟上。困难里留下的名字会另行标出。
                   </p>
                   <div class="roster-supports" id="rosterSupports"></div>
                   <div class="roster-grid" id="rosterGrid"></div>
+                  <section class="pouch-section" aria-label="糖袋">
+                    <div class="wardrobe-head">
+                      <div>
+                        <p class="inventory-label">糖袋</p>
+                        <h3>整支队伍一起吃</h3>
+                      </div>
+                      <span class="placement-tip">全线路通用 · 共 <b id="rosterPouchTotal">0</b> 颗</span>
+                    </div>
+                    <div class="pouch-grid" id="rosterPouchGrid"></div>
+                  </section>
                   <div class="inventory-foot">
                     <span>同行者 <b id="rosterCount">0 / 11</b></span>
                     <span><kbd>Tab</kbd> 关闭</span>
@@ -550,7 +720,7 @@
                     </div>
                   </div>
                   <p class="roster-copy" id="sacrificeCopy">
-                    瘴气冲散了队伍。留下一人，他的支援也会失效。
+                    瘴气冲散了队伍。留下一位同行者，他给队伍的加成也会失效。
                   </p>
                   <div class="sacrifice-grid" id="sacrificeGrid"></div>
                   <div class="inventory-foot">
@@ -572,13 +742,16 @@
                   <button class="secondary-button pause-themes-button touch-restart-button" id="pauseRestartButton" type="button">
                     重走这一段
                   </button>
+                  <button class="secondary-button pause-themes-button" id="pauseHintButton" type="button">
+                    看提示
+                  </button>
                   <button class="secondary-button pause-themes-button" id="pauseExitButton" type="button">
-                    回到起始页
+                    退回目录
                   </button>
                   <div class="pause-tips">
                     <span><kbd>Esc</kbd> 继续</span>
-                    <span><kbd>Tab</kbd> 背包</span>
-                    <span><kbd>Q</kbd> 糖袋</span>
+                    <span><kbd>H</kbd> 提示</span>
+                    <span><kbd>Tab</kbd> 背包 / 糖袋</span>
                     <span><kbd>R</kbd> 重新开始</span>
                     <span><kbd>F</kbd> 全屏</span>
                   </div>
@@ -597,7 +770,7 @@
                     <span class="button-arrow" aria-hidden="true">↻</span>
                   </button>
                   <button class="secondary-button pause-themes-button" id="defeatExitButton" type="button">
-                    回到起始页
+                    退回目录
                   </button>
                 </div>
               </div>
@@ -610,12 +783,11 @@
                   <div class="complete-stats">
                     <div id="statTime"><span>时间</span><b id="completeTime">00:00</b></div>
                     <div id="statBones"><span>骨头</span><b id="completeBones">0/0</b></div>
-                    <div id="statCandies"><span>糖果</span><b id="completeCandies">0/0</b></div>
                     <div id="statHands"><span>右手骨</span><b id="completeHands">0</b></div>
-                    <div id="statCostumes"><span>时装</span><b id="completeCostumes">0/3</b></div>
+                    <div id="statCostumes"><span>时装</span><b id="completeCostumes">0/5</b></div>
                     <div id="statMemories" hidden><span>点亮的记忆</span><b id="completeMemories">0/0</b></div>
                     <div id="statStages" hidden><span>走过的段落</span><b id="completeStages">0/0</b></div>
-                    <div id="statShoes" hidden><span>身后的皮鞋</span><b id="completeShoes">0 双</b></div>
+                    <div id="statShoes" hidden><span>身后的鞋</span><b id="completeShoes">0 双</b></div>
                     <div id="statParty" hidden><span>同行者</span><b id="completeParty">0/7</b></div>
                     <div id="statScatters" hidden><span>被冲散</span><b id="completeScatters">0</b></div>
                     <div id="statLost" hidden><span>留在夜里</span><b id="completeLost">0</b></div>
@@ -633,7 +805,91 @@
                       <span>再走一遍</span>
                       <span class="button-arrow" aria-hidden="true">↻</span>
                     </button>
-                    <button class="secondary-button" id="completeExitButton" type="button">回到起始页</button>
+                    <button class="secondary-button" id="completeExitButton" type="button">退回目录</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 皮鞋的信：主线第一次通关、从碑前回到目录时出现一次。中英文都来自「鞋的一封信」。 -->
+              <div class="overlay letter-overlay" id="letterScreen" hidden>
+                <div class="letter-panel" role="dialog" aria-modal="true" aria-label="皮鞋的一封信">
+                  <!-- 没拆开：先让玩家选「打开」还是「稍后再看」。 -->
+                  <div class="letter-sealed" id="letterSealed">
+                    <p class="overlay-kicker">A letter, from your shoes</p>
+                    <h2 id="letterTitle">皮鞋的一封信</h2>
+                    <p class="letter-teaser">
+                      四段路走完，门口多了一封信。信封上是鞋的笔迹，歪歪扭扭，写着你名字。
+                    </p>
+                    <div class="letter-actions">
+                      <button class="primary-button" id="openLetterButton" type="button">打开</button>
+                      <button class="secondary-button" id="laterLetterButton" type="button">稍后再看</button>
+                    </div>
+                    <p class="letter-hint">稍后再看，信会收进背包，随时能翻开。</p>
+                  </div>
+
+                  <!-- 拆开了：信纸，读完之后底部能叫鞋说话。 -->
+                  <div class="letter-opened" id="letterOpened" hidden>
+                    <p class="overlay-kicker">A letter, from your shoes</p>
+                    <h2>皮鞋的一封信</h2>
+                    <div class="letter-body">
+                      <p class="letter-zh">
+                        你好！<br />
+                        我是鞋。<br />
+                        我学会合，你的了，脚。<br />
+                        我感觉，你疼痛，对不起。<br />
+                        我学情感。<br />
+                        我学思考。<br />
+                        我记忆。<br />
+                        我为什么？很多，想。
+                      </p>
+                      <p class="letter-en">
+                        Hi, I am you shoe.<br />
+                        I learn suit you foot, after much hard work I finely make it! Now I am you suitful shoe. I am you frinde on way.<br />
+                        But, I can feel you feel bad bad on way, you bad, I bad, QAQ.<br />
+                        And, I learn emotion and think, memory and coriusity. I can under stand you say and feel, and you miss Sir. I have mind, I chang, I think every think.<br />
+                        I want talk you!
+                      </p>
+                    </div>
+                    <p class="letter-sign">—— 鞋</p>
+                    <div class="letter-actions">
+                      <button class="primary-button" id="talkToShoeButton" type="button">
+                        <span>与皮鞋对话</span>
+                      </button>
+                      <button class="secondary-button" id="closeLetterButton" type="button">收好这封信</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 与皮鞋对话：角色和鞋面对面站着，鞋一句一句地问。 -->
+              <div class="overlay shoe-talk-overlay" id="shoeTalkScreen" hidden>
+                <div class="shoe-talk-panel" role="dialog" aria-modal="true" aria-labelledby="shoeTalkTitle">
+                  <div class="inventory-head shoe-talk-head">
+                    <div>
+                      <p class="overlay-kicker">Your shoes want to talk</p>
+                      <h2 id="shoeTalkTitle">与皮鞋对话</h2>
+                    </div>
+                    <button class="icon-button" id="closeShoeTalkButton" type="button" aria-label="收起对话">×</button>
+                  </div>
+
+                  <div class="shoe-talk-stage" id="shoeTalkStage">
+                    <canvas id="shoeTalkCanvas" aria-hidden="true"></canvas>
+                    <div class="shoe-talk-bubbles" id="shoeTalkBubbles" aria-live="polite"></div>
+                  </div>
+
+                  <div class="shoe-talk-theory" id="shoeTalkTheory" hidden>
+                    <p class="shoe-talk-theory-title" id="shoeTalkTheoryTitle"></p>
+                    <p id="shoeTalkTheoryBody"></p>
+                  </div>
+
+                  <div class="shoe-talk-foot">
+                    <button class="text-button shoe-talk-theory-button" id="shoeTheoryButton" type="button">
+                      什么是皮鞋学习论？
+                    </button>
+                    <div class="shoe-talk-actions">
+                      <button class="secondary-button" id="shoeTalkReplayButton" type="button">再听一遍</button>
+                      <button class="primary-button" id="shoeTalkDoneButton" type="button">收起</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -646,12 +902,14 @@
             <span class="control-hint"><span class="key-pair"><kbd>←</kbd><kbd>→</kbd></span> 移动 / 调速</span>
             <span class="control-hint"><kbd>↑</kbd> 跳跃</span>
             <span class="control-hint"><kbd>↓</kbd> 蹲下 / 下落</span>
-            <span class="control-hint"><kbd>E</kbd> 互动 / 敲门 / 抱南瓜</span>
-            <span class="control-hint"><kbd>Tab</kbd> 背包 / 名册</span>
-            <span class="control-hint"><kbd>Q</kbd> 糖袋</span>
+            <span class="control-hint"><kbd>E</kbd> 抱起 / 抛出</span>
+            <span class="control-hint"><kbd>Q</kbd> 摸装置 · 敲门</span>
+            <span class="control-hint"><kbd>X</kbd> 离开副本房间</span>
+            <span class="control-hint"><kbd>Tab</kbd> 背包 / 糖袋 / 名册</span>
           </div>
           <div class="control-list control-list--secondary">
             <span class="control-hint"><kbd>Esc</kbd> 暂停</span>
+            <span class="control-hint"><kbd>H</kbd> 提示</span>
             <span class="control-hint"><kbd>R</kbd> 重来</span>
             <span class="control-hint"><kbd>F</kbd> 全屏</span>
             <span class="control-hint"><kbd>M</kbd> 音效</span>
@@ -660,8 +918,8 @@
       </section>
 
       <div class="page-note">
-        <span>Keyboard adventure · build 0.9</span>
-        <span>三条夜路 · 一个糖纸街副本 · 键盘或触屏</span>
+        <span class="page-note-title">给老师送南瓜派 · 魑魅魍魉 · Trick or Treat</span>
+        <span class="page-note-meta">Keyboard adventure · 键盘或触屏 · build 0.9</span>
       </div>
     </main>
 
@@ -669,7 +927,7 @@
       <div class="rotate-card">
         <span class="rotate-mark" aria-hidden="true">↻</span>
         <h2>请把手机横过来</h2>
-        <p>南瓜小径按 16:9 横屏设计。横屏后会自动继续。</p>
+        <p>给老师送南瓜派按 16:9 横屏设计。横屏后会自动继续。</p>
       </div>
     </div>
 

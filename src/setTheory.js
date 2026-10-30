@@ -1,7 +1,7 @@
 /**
  * 追思小径第二、三段 · 集合庭院；糖纸街女巫房间沿用同一套规则，只留一道门。
  *
- * 阿岚在高原气象站值冬时读一本集合论笔记。她后来常说，集合论只问一件事：
+ * Kurt 把数学当作锚点：在混沌里推演久了，集合论只问他一件最朴素的事：
  * 「在不在里面」。这些门考交集、差集、补集和接龙映射：
  * A 里的每样东西都接到它后面的那一样，最后一样接回第一样。
  *
@@ -13,9 +13,24 @@
  *     一颗元素只有进了自己归属对应的格子才算数；随便一颗放进去不算。
  *   - 映射门：地面是一排小台，每个台上立着 A 里的一个元素；门楣只画前几段
  *     接龙，其余留问号。玩家把 B 里的每样东西放到它前面那一样的小台下。
- *   - 元素放对了会亮起来。全部分对，整扇石门缓缓沉进地里，门才真正打开。
+ *   - 一个萝卜一个坑：每格按该进这一格的东西数挖好坑，一个坑只收一颗。
+ *     放对了东西沉进坑里，坑盖上盖子、和地面齐平，人可以踩着走过去；
+ *     放错了东西会被坑弹出来，捡起来可以再放。全部分对，石门缓缓沉进地里。
  *   - 不写算式、不按键、不失败。门锁一次，之后一直开着。
  */
+
+/**
+ * 每样东西的名字。提示面板、互动提示和门楣上的成员板共用这一份，
+ * 免得同一颗骷髅在一处叫「骷髅」、在另一处被笼统叫成「南瓜」。
+ */
+export const SET_ELEMENT_NAMES = Object.freeze({
+  skull: '骷髅',
+  ghost: '幽灵',
+  eye: '眼睛',
+  candle: '蜡烛',
+  hand: '手',
+  bone: '骨头',
+});
 
 export const SET_OPERATIONS = Object.freeze({
   intersect: {
@@ -101,11 +116,65 @@ export function trayAt(element, gate) {
 }
 
 /**
+ * 一个萝卜一个坑：对的一颗落进这一格里空着的坑。
+ * 落进去就看不见了，坑立刻盖上盖子，谁都能从上面走过去。
+ * 同一格里的几颗从左到右填坑，一格放满了就把整格封住。
+ */
+function fillPit(element, tray, game) {
+  const free = (tray.pits ?? []).filter((candidate) => !candidate.filled);
+  if (!free.length) return false;
+  // 落点在哪半边，就填最近的那个空坑。
+  const cx = element.x + element.w / 2;
+  const pit = free.reduce((best, candidate) =>
+    Math.abs(candidate.x + candidate.w / 2 - cx) <
+    Math.abs(best.x + best.w / 2 - cx)
+      ? candidate
+      : best,
+  );
+
+  const now = performance.now();
+  pit.filled = true;
+  pit.filledAt = now;
+  pit.element = element;
+
+  element.locked = true;
+  element.inPit = true;
+  element.pit = pit;
+  element.sinkAt = now;
+  element.vx = 0;
+  element.vy = 0;
+  element.onGround = true;
+  // 落点已经在这一格里，这里只把它摆正到坑的中心。
+  element.x = pit.x + (pit.w - element.w) / 2;
+  element.y = pit.y - element.h;
+
+  game.particles?.spawnSpark(element.x + element.w / 2, pit.y - 5, 6);
+  game.audio?.answerRight?.();
+  return true;
+}
+
+/**
+ * 放错的一颗被坑弹出来：朝远离石门的方向弹回地面，玩家可以再捡起来重放。
+ * 冷却的一小段时间里它不会被同一个坑连着弹，免得在原地抖。
+ */
+function rejectElement(element, gate, game) {
+  const dir = element.x + element.w / 2 < gate.centerX ? -1 : 1;
+  element.vx = dir * 120;
+  element.vy = -210;
+  element.onGround = false;
+  element.rejectT = 0.55;
+  game.audio?.error?.();
+  game.particles?.spawnDust(element.x + element.w / 2, element.y + element.h, dir, 3);
+}
+
+/**
  * 每帧检查每一座集合门。
  *
  * 每颗被门盯着的元素都会拿到一份 setMarks：
  *   want = 按归属应去的格子，have = 现在实际所在的格子，correct = 两者一致。
  * 渲染层用它让放对了的元素亮起来；标记本身不画在元素身上。
+ * 地面每一格按「该进这一格的元素数」挖出同样多的坑：对的一颗落进空坑，
+ * 坑盖上盖子、人可以直接走过去；错的一颗被弹出来。全部分对，石门下沉。
  * 只有玩家走到门附近，门才会开始下沉——这样门不会在远处自己先开。
  */
 export function updateSetGates(game, dt = 0) {
@@ -137,16 +206,42 @@ export function updateSetGates(game, dt = 0) {
     let placed = 0;
 
     for (const pumpkin of watched) {
+      // 已经落进坑里的，不再重算，也算作放好了。
+      if (pumpkin.inPit) {
+        placed += 1;
+        continue;
+      }
+
       const want = correctTrayId(pumpkin, gate);
       const have = trayAt(pumpkin, gate);
-      const correct = want !== null && have === want;
-      if (correct) placed += 1;
+
+      if (pumpkin.rejectT > 0) {
+        // 刚被弹出来的一颗还在空中，等它落稳再接下一次。
+        pumpkin.rejectT = Math.max(0, pumpkin.rejectT - dt);
+      } else if (have) {
+        const tray = gate.trays.find((candidate) => candidate.id === have);
+        if (want === have && tray && fillPit(pumpkin, tray, game)) {
+          placed += 1;
+        } else {
+          // 进错了格，或者这一格的坑已经满了：弹出去。
+          rejectElement(pumpkin, gate, game);
+          if (!gate.rejectHinted) {
+            gate.rejectHinted = true;
+            game.notify(
+              gate.rejectHint ||
+                '放错了。这一格不收它，东西会被坑弹出来。看看门楣上 A、B 的归属，再把它放回去。',
+              4200,
+            );
+          }
+        }
+      }
+
       pumpkin.setMarks = {
         // 映射门的 membership 在建造关卡时由接龙算出，这里只作为调试信息。
         membership: pumpkin.membership ?? 'none',
         want,
         have,
-        correct,
+        correct: Boolean(want && have === want),
         gateId: gate.id,
       };
     }
@@ -164,7 +259,8 @@ export function updateSetGates(game, dt = 0) {
     if (placed < watched.length) continue;
 
     game.level.beginGateSink(gate);
-    game.audio.checkpoint();
+    // 石门开始往地里沉：一整块石头的摩擦声，比通过音更重。
+    game.audio.stoneGate();
     game.notify(gate.success || operation?.success || '门开了。', 3600);
   }
 }

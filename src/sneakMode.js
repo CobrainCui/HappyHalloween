@@ -159,7 +159,7 @@ export function updateSneak(game, dt) {
   updateSneakCamera(game, dt);
   game.particles.update(dt);
 
-  // 这一段仍然是追思路线：经过阿遥的记忆时会点灯，皮鞋也照样磨。
+  // 这一段仍然是追思路线：经过冯桃的记忆时会点灯，皮鞋也照样磨。
   if (game.mode === 'memorial') {
     game.updateMemorialMemories();
     const walked = game.player.onGround ? Math.abs(game.player.vx) * dt : 0;
@@ -773,7 +773,7 @@ export function respawnSneakPair(game) {
   sneak.rope.otherIndex = -1;
   sneak.goalTimer = 0;
   sneak.goalReady = [false, false];
-  // 回到影子记号的这一下，身后的皮鞋也在落脚点重新排队。
+  // 回到影子记号的这一下，身后的鞋也在落脚点重新排队。
   game.shoeFollowers?.resetAt(game.player.centerX, game.player.feetY, game.player.facing);
   updateSneakCamera(game, 0, true);
 }
@@ -831,19 +831,24 @@ function checkHazards(game) {
 
 export function updateSneakCamera(game, dt, snap = false) {
   const level = game.level;
-  const maxX = Math.max(0, level.pixelWidth - VIEW.WIDTH);
-  const maxY = Math.max(0, level.pixelHeight - VIEW.HEIGHT);
+  // 和普通镜头一样按当前可见范围算（手机端镜头放大了，范围会窄一些）。
+  const viewWidth = game.renderer?.viewWidth ?? VIEW.WIDTH;
+  const viewHeight = game.renderer?.viewHeight ?? VIEW.HEIGHT;
+  // 手机端和普通镜头一样，在最右端给右手按键留一条空白。
+  const rightPad = viewWidth * (game.cameraRightPadding ?? 0);
+  const maxX = Math.max(0, level.pixelWidth - viewWidth + rightPad);
+  const maxY = Math.max(0, level.pixelHeight - viewHeight);
   const mid = (game.player.centerX + game.partner.centerX) / 2;
   const avgVx = (game.player.vx + game.partner.vx) / 2;
   const lookAhead = Math.max(-20, Math.min(20, avgVx * 0.16));
-  const targetX = Math.max(0, Math.min(maxX, mid - VIEW.WIDTH * 0.5 + lookAhead));
+  const targetX = Math.max(0, Math.min(maxX, mid - viewWidth * 0.5 + lookAhead));
   // 地图比一屏高时：镜头要同时框住两个人，
   // 而不是只盯着高的那一个，否则站在低处的同伴会从画面下方掉出去。
   const topY = Math.min(game.player.centerY, game.partner.centerY);
   const bottomY = Math.max(game.player.centerY, game.partner.centerY);
   const targetY = Math.max(
     0,
-    Math.min(maxY, (topY + bottomY) / 2 - VIEW.HEIGHT * 0.5 - VIEW.TILE),
+    Math.min(maxY, (topY + bottomY) / 2 - viewHeight * 0.5 - VIEW.TILE),
   );
 
   if (snap || dt <= 0) {

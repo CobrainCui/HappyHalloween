@@ -14,3 +14,6 @@ Thumbs.db
 *.zip
 _visualcheck/
 
+# agent 工作树（内部工具产物，非项目内容）
+.claude/
+

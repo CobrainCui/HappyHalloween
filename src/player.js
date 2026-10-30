@@ -30,6 +30,12 @@ const PILGRIM_COLORS = {
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+/**
+ * 这几套时装自己把整个头包住（床单、背头、绷带、宽檐帽），
+ * 画的时候就不再画主角那顶紫色尖帽，免得从帽顶露出来。
+ */
+const HEAD_COVERING_COSTUMES = new Set(['ghost', 'skeleton', 'vampire', 'mummy', 'witch']);
+
 function approach(value, target, amount) {
   if (value < target) return Math.min(value + amount, target);
   return Math.max(value - amount, target);
@@ -634,8 +640,9 @@ export class Player {
   applyElectricForce(dt, level) {
     if (this.charge === 0 || level.electrons.length === 0) return;
 
-    // 电子带负电：正电荷沿电场线被吸引，负电荷逆电场线被排斥。
-    // 多个电子的场按矢量叠加，符号统一由 getElectronAcceleration 处理。
+    // 电子带负电：同号相斥、异号相吸，力的大小与方向全部由
+    // getElectronAcceleration 按库仑定律给出（1/r²，越近越强）。
+    // 多个电子的场按矢量叠加。
     const acceleration = level.getElectronAcceleration(
       this.centerX,
       this.centerY,
@@ -652,6 +659,7 @@ export class Player {
       }
     }
 
+    // 只是速度上限，防止贴到电子表面时数值炸掉，不影响力的大小本身。
     this.vx = clamp(this.vx, -250, 250);
     this.vy = clamp(this.vy, -500, PHYSICS.maxFall);
   }
@@ -968,21 +976,23 @@ export class Player {
     ctx.fillRect(3, -16, 1, 1);
     ctx.globalAlpha = alpha;
 
-    // 歪歪的尖顶帽
-    ctx.fillStyle = colors.hat;
-    ctx.fillRect(-7, -22, 14, 2);
-    ctx.fillRect(-4, -24, 8, 2);
-    ctx.fillRect(-3, -25, 7, 1);
-    ctx.fillRect(-2, -26, 5, 1);
-    ctx.fillRect(-1, -27, 3, 1);
-    ctx.fillRect(-3, -28, 2, 1);
-    ctx.fillStyle = colors.hatBand;
-    ctx.fillRect(-7, -22, 14, 1);
-    ctx.fillRect(-3, -24, 4, 1);
-    ctx.fillStyle = colors.pumpkin;
-    ctx.fillRect(-4, -23, 8, 1);
-    ctx.fillStyle = colors.pumpkinLight;
-    ctx.fillRect(-4, -23, 3, 1);
+    // 歪歪的尖顶帽（戴满整个头的时装自己带帽檐或头巾，就不再画这顶）
+    if (!HEAD_COVERING_COSTUMES.has(this.costume)) {
+      ctx.fillStyle = colors.hat;
+      ctx.fillRect(-7, -22, 14, 2);
+      ctx.fillRect(-4, -24, 8, 2);
+      ctx.fillRect(-3, -25, 7, 1);
+      ctx.fillRect(-2, -26, 5, 1);
+      ctx.fillRect(-1, -27, 3, 1);
+      ctx.fillRect(-3, -28, 2, 1);
+      ctx.fillStyle = colors.hatBand;
+      ctx.fillRect(-7, -22, 14, 1);
+      ctx.fillRect(-3, -24, 4, 1);
+      ctx.fillStyle = colors.pumpkin;
+      ctx.fillRect(-4, -23, 8, 1);
+      ctx.fillStyle = colors.pumpkinLight;
+      ctx.fillRect(-4, -23, 3, 1);
+    }
 
     this.drawCostume(ctx, time);
 
@@ -1030,7 +1040,9 @@ export class Player {
   drawCostume(ctx, time) {
     if (this.costume === 'ghost') this.drawGhostCostume(ctx, time);
     else if (this.costume === 'skeleton') this.drawSkeletonCostume(ctx, time);
-    else if (this.costume === 'pumpkinWizard') this.drawWizardCostume(ctx, time);
+    else if (this.costume === 'vampire') this.drawVampireCostume(ctx, time);
+    else if (this.costume === 'mummy') this.drawMummyCostume(ctx, time);
+    else if (this.costume === 'witch') this.drawWitchCostume(ctx, time);
   }
 
   drawGhostCostume(ctx, time) {
@@ -1089,48 +1101,147 @@ export class Player {
     ctx.fillRect(4, -12, 2, 2);
   }
 
-  drawWizardCostume(ctx, time) {
-    // 星纹斗篷
-    ctx.fillStyle = '#2b1a4d';
-    ctx.fillRect(-6, -13, 12, 4);
-    ctx.fillRect(-5, -9, 10, 5);
-    ctx.fillStyle = '#3d276b';
-    ctx.fillRect(-4, -12, 2, 6);
-    ctx.fillRect(2, -12, 2, 6);
-    ctx.fillStyle = Math.sin(time * 4) > 0 ? '#ffe6a3' : '#ffd678';
-    ctx.fillRect(-3, -11, 1, 1);
-    ctx.fillRect(3, -8, 1, 1);
-    ctx.fillRect(-1, -6, 1, 1);
-    ctx.fillRect(1, -10, 1, 1);
+  drawVampireCostume(ctx, time) {
+    // 高竖领先画：立起来的领子藏在脑袋后面，只从两侧露出来
+    ctx.fillStyle = '#2a0f1a';
+    ctx.fillRect(-8, -22, 3, 11);
+    ctx.fillRect(5, -22, 3, 11);
+    ctx.fillStyle = '#5c1f2e';
+    ctx.fillRect(-7, -21, 1, 9);
+    ctx.fillRect(6, -21, 1, 9);
 
-    // 比原来更高、更歪的尖帽
-    ctx.fillStyle = '#241542';
-    ctx.fillRect(-7, -23, 14, 2);
-    ctx.fillRect(-5, -25, 10, 2);
-    ctx.fillRect(-4, -27, 8, 2);
-    ctx.fillRect(-3, -29, 6, 2);
-    ctx.fillRect(-2, -31, 4, 2);
+    // 苍白的脸盖住南瓜脸，嘴边长出两颗尖牙
+    ctx.fillStyle = '#e8ded2';
+    ctx.fillRect(-4, -20, 8, 8);
+    ctx.fillRect(-3, -12, 6, 1);
+    ctx.fillStyle = '#1b1220';
+    ctx.fillRect(-5, -24, 10, 3);
+    ctx.fillRect(-6, -21, 2, 3);
+    ctx.fillRect(4, -21, 2, 3);
+    ctx.fillRect(-3, -21, 2, 1);
+    ctx.fillRect(1, -21, 2, 1);
+    ctx.fillStyle = '#3a2b3d';
+    ctx.fillRect(-3, -24, 4, 1);
+
+    // 眼睛和一点红色反光
+    ctx.fillStyle = '#2a1020';
+    ctx.fillRect(-3, -18, 2, 2);
+    ctx.fillRect(1, -18, 2, 2);
+    ctx.fillStyle = '#e04a5a';
+    ctx.fillRect(-3, -18, 1, 1);
+    ctx.fillRect(1, -18, 1, 1);
+    ctx.fillStyle = '#4a1520';
+    ctx.fillRect(-2, -14, 4, 1);
+    ctx.fillStyle = '#f7f1e7';
+    ctx.fillRect(-1, -14, 1, 2);
+    ctx.fillRect(1, -14, 1, 2);
+
+    // 燕尾披风
+    ctx.fillStyle = '#1d0e1a';
+    ctx.fillRect(-6, -14, 12, 3);
+    ctx.fillRect(-7, -11, 14, 5);
+    ctx.fillRect(-6, -6, 12, 3);
+    ctx.fillRect(-6, -3, 4, 3);
+    ctx.fillRect(2, -3, 4, 3);
+    ctx.fillStyle = '#5c1f2e';
+    ctx.fillRect(-4, -13, 2, 9);
+    ctx.fillRect(3, -12, 1, 8);
+    ctx.fillStyle = '#e0b35c';
+    ctx.fillRect(-1, -14, 2, 2);
+  }
+
+  drawMummyCostume(ctx, time) {
+    const sway = Math.round(Math.sin(time * 2.1));
+
+    // 从头到脚缠满的旧绷带
+    ctx.fillStyle = '#d9cba6';
+    ctx.fillRect(-5, -23, 10, 12);
+    ctx.fillRect(-6, -21, 1, 4);
+    ctx.fillRect(5, -21, 1, 4);
+    ctx.fillRect(-7, -13, 14, 11);
+    ctx.fillRect(-6, -3, 12, 3);
+
+    // 一层层错开的布和底下的阴影
+    ctx.fillStyle = '#c6b58d';
+    ctx.fillRect(-5, -20, 10, 1);
+    ctx.fillRect(-5, -17, 10, 1);
+    ctx.fillRect(-7, -14, 14, 1);
+    ctx.fillRect(-7, -10, 14, 1);
+    ctx.fillRect(-7, -6, 14, 1);
+    ctx.fillRect(-6, -3, 12, 1);
+    ctx.fillStyle = '#f0e5c6';
+    ctx.fillRect(-4, -22, 8, 1);
+    ctx.fillRect(-6, -18, 8, 1);
+    ctx.fillRect(-3, -15, 9, 1);
+    ctx.fillRect(-6, -12, 7, 1);
+    ctx.fillRect(-2, -8, 9, 1);
+    ctx.fillRect(-6, -4, 8, 1);
+
+    // 只留一条看路的缝
+    ctx.fillStyle = '#171020';
+    ctx.fillRect(-4, -19, 8, 2);
+    ctx.fillStyle = '#ffd678';
+    ctx.fillRect(-2, -19, 1, 1);
+
+    // 松开的布尾拖在身后
+    ctx.fillStyle = '#d9cba6';
+    ctx.fillRect(-9, -12 + sway, 3, 1);
+    ctx.fillRect(-10, -11 + sway, 2, 6);
+    ctx.fillRect(-9, -5 + sway, 1, 2);
+    ctx.fillStyle = '#c6b58d';
+    ctx.fillRect(-10, -8 + sway, 1, 2);
+  }
+
+  drawWitchCostume(ctx, time) {
+    const bob = Math.round(Math.sin(time * 2.6));
+
+    // 长袍：盖住原来的斗篷，一直垂到鞋面
+    ctx.fillStyle = '#22392c';
+    ctx.fillRect(-6, -14, 12, 3);
+    ctx.fillRect(-7, -11, 14, 7);
+    ctx.fillRect(-8, -4, 16, 2);
+    ctx.fillStyle = '#33523d';
+    ctx.fillRect(-4, -13, 2, 9);
+    ctx.fillRect(3, -12, 1, 8);
+    ctx.fillStyle = '#16261c';
+    ctx.fillRect(-8, -3, 16, 1);
+
+    // 宽檐尖帽：帽檐比原来宽一圈
+    ctx.fillStyle = '#1a1420';
+    ctx.fillRect(-9, -24, 18, 2);
+    ctx.fillRect(-6, -26, 12, 2);
+    ctx.fillRect(-5, -28, 10, 2);
+    ctx.fillRect(-4, -30, 8, 2);
+    ctx.fillRect(-3, -32, 6, 2);
     ctx.fillRect(-1, -33, 3, 1);
-    ctx.fillStyle = '#43286f';
-    ctx.fillRect(-7, -23, 14, 1);
-    ctx.fillRect(-3, -29, 2, 1);
-    ctx.fillStyle = PALETTE.pumpkin;
-    ctx.fillRect(-5, -23, 10, 1);
-    ctx.fillStyle = '#ffd678';
-    ctx.fillRect(0, -28, 1, 1);
-    ctx.fillRect(-2, -25, 1, 1);
+    ctx.fillStyle = '#31243f';
+    ctx.fillRect(-9, -24, 18, 1);
+    ctx.fillStyle = '#d79b3f';
+    ctx.fillRect(-6, -26, 12, 1);
+    ctx.fillStyle = '#f0c060';
+    ctx.fillRect(-1, -26, 2, 1);
+    ctx.fillStyle = '#8bbf9a';
+    ctx.fillRect(-2, -30, 1, 1);
 
-    // 假胡子
-    ctx.fillStyle = '#ded5e4';
-    ctx.fillRect(-3, -12, 6, 2);
-    ctx.fillRect(-2, -10, 4, 1);
+    // 旧扫帚立在手边
+    ctx.fillStyle = '#6b4a2b';
+    ctx.fillRect(-11, -25, 2, 19);
+    ctx.fillStyle = '#c9a35b';
+    ctx.fillRect(-13, -29, 7, 3);
+    ctx.fillRect(-12, -31, 5, 2);
+    ctx.fillStyle = '#8a6a35';
+    ctx.fillRect(-13, -27, 7, 1);
 
-    // 左手的南瓜魔杖
-    ctx.fillStyle = '#5d3a2a';
-    ctx.fillRect(-9, -10, 1, 7);
-    ctx.fillStyle = '#ff9b3d';
-    ctx.fillRect(-10, -12, 3, 2);
+    // 抱在臂弯里的黑猫布偶
+    ctx.fillStyle = '#141018';
+    ctx.fillRect(5, -13 + bob, 4, 5);
+    ctx.fillRect(5, -17 + bob, 4, 4);
+    ctx.fillRect(5, -19 + bob, 1, 2);
+    ctx.fillRect(8, -19 + bob, 1, 2);
     ctx.fillStyle = '#ffd678';
-    ctx.fillRect(-9, -12, 1, 1);
+    ctx.fillRect(6, -16 + bob, 1, 1);
+    ctx.fillRect(8, -16 + bob, 1, 1);
+    ctx.fillStyle = '#141018';
+    ctx.fillRect(9, -10 + bob, 1, 3);
   }
 }

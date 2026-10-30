@@ -521,6 +521,17 @@ kbd {
   letter-spacing: 0.02em;
 }
 
+/* 人物小传的英文一行：只比中文小一点，颜色压一档，和中文同一段。 */
+.panel-memorial-en {
+  margin: -5px 0 9px;
+  color: #9c8aa8;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-style: italic;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
 .panel-memorial-lights b {
   color: #ffd894;
   font-weight: 700;
@@ -1174,28 +1185,64 @@ kbd {
   outline-offset: 4px;
 }
 
+/* 起始页的入口竖着按主次排开：教程 → 主线 → 附带的夜路。 */
 .mode-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.mode-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 2px;
+}
+
+.mode-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 分组标题：左边是类别，右边是这一组的状态（走到第几段 / 是否开放）。 */
+.mode-group-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 2px 2px 0;
+  color: #a58bb4;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.2em;
+}
+
+.mode-group-title b {
+  color: #d6c1e2;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+}
+
+/* 教程还没走完：分组标题跟着压暗，视线留在教程那一块上。 */
+.mode-actions[data-gate="tutorial"] .mode-group-title {
+  color: #6e5a7c;
+}
+
+.mode-actions[data-gate="tutorial"] .mode-group-title b {
+  color: #8a7398;
 }
 
 .primary-button.mode-button,
 .secondary-button.mode-button {
   width: 100%;
   min-width: 0;
-  min-height: 70px;
+  min-height: 64px;
   flex-direction: column;
   gap: 3px;
-  padding: 10px 18px;
+  padding: 8px 18px;
   letter-spacing: 0.08em;
-}
-
-/* 继续在上、副本在下，各占一整行；中间四条线路两两并排。 */
-.mode-button--continue,
-.mode-button--trick {
-  grid-column: 1 / -1;
 }
 
 .primary-button.mode-button {
@@ -1213,17 +1260,35 @@ kbd {
   filter: drop-shadow(0 4px 0 rgba(7, 3, 11, 0.65));
 }
 
-/* 追思路线：南瓜派的暖金，在整片紫黑里亮半格。 */
-.mode-button--memorial {
-  color: #ffe8c6;
-  border-color: rgba(226, 158, 76, 0.5);
-  background:
-    linear-gradient(160deg, rgba(64, 39, 26, 0.97), rgba(24, 15, 22, 0.99));
+/* 教程、主线是起始页的两根主心骨：走教程时教程在上，
+   教程走完之后主线顶上来，两块都比旁边高一号。 */
+.primary-button.mode-button.mode-button--tutorial {
+  min-height: 78px;
 }
 
-.mode-button--memorial:hover {
+.primary-button.mode-button.mode-button--tutorial .mode-main,
+.primary-button.mode-button.mode-button--memorial .mode-main {
+  font-size: 20px;
+  letter-spacing: 0.14em;
+}
+
+/* 追思路线：南瓜派的暖金，在整片紫黑里亮半格。 */
+.primary-button.mode-button.mode-button--memorial {
+  min-height: 78px;
+  color: #ffe8c6;
+  border: 1px solid rgba(255, 190, 108, 0.62);
+  background:
+    linear-gradient(160deg, rgba(78, 46, 28, 0.98), rgba(26, 16, 24, 0.99));
+  box-shadow:
+    0 5px 0 #2d1608,
+    0 14px 34px rgba(255, 150, 60, 0.16),
+    inset 0 1px 0 rgba(255, 214, 150, 0.14);
+}
+
+.primary-button.mode-button.mode-button--memorial:hover {
   color: #fff5e2;
-  border-color: rgba(255, 190, 108, 0.78);
+  border-color: rgba(255, 196, 118, 0.9);
+  filter: brightness(1.05) drop-shadow(0 6px 0 rgba(83, 31, 5, 0.6));
 }
 
 .mode-button--memorial .mode-badge {
@@ -1299,6 +1364,23 @@ kbd {
 
 .mode-button--continue .mode-sub {
   opacity: 0.78;
+}
+
+/* 教程没走完：主线与两条附带的夜路压暗、不跟手，点了只给一句提示。 */
+.mode-actions .mode-button.is-locked,
+.mode-actions .mode-button.is-locked:hover,
+.mode-actions .mode-button.is-locked:active {
+  transform: none;
+  cursor: not-allowed;
+  opacity: 0.58;
+  filter: grayscale(0.6);
+}
+
+/* 教程走完以后它收成一行小字，把位置让给主线。 */
+.start-replay-tutorial {
+  align-self: center;
+  margin-top: 1px;
+  font-size: 12.5px;
 }
 
 /* 清档入口只在小字区域出现，不抢主按钮。 */
@@ -1485,6 +1567,202 @@ kbd {
 .theme-panel > .overlay-copy,
 .complete-panel > .overlay-copy {
   margin-bottom: 12px;
+}
+
+/* ---------- 皮鞋的信：主线第一次通关、回到目录时出现一次 ---------- */
+
+.letter-overlay {
+  /* 盖在起始页之上；读完才回到目录。 */
+  z-index: 9;
+  /* 信比较长：矮屏幕从顶上开始排，超出的部分由遮罩自己滚动。 */
+  align-items: safe center;
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(120, 84, 40, 0.22), transparent 55%),
+    rgba(5, 2, 8, 0.84);
+}
+
+.letter-panel {
+  width: min(100%, 800px);
+  padding: clamp(26px, 4vw, 44px);
+  color: #3a2a1c;
+  text-align: left;
+  background:
+    linear-gradient(160deg, #f4e8ca 0%, #ecdbb4 55%, #e2cf9f 100%);
+  border: 1px solid #c9a86e;
+  box-shadow:
+    0 26px 60px rgba(0, 0, 0, 0.56),
+    inset 0 0 68px rgba(122, 86, 40, 0.16);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  animation: panel-in 0.42s steps(6, end) both;
+}
+
+.letter-panel .overlay-kicker {
+  color: #9a7b4c;
+}
+
+.letter-panel h2 {
+  margin: 10px 0 8px;
+  color: #4a3218;
+  font-size: clamp(31px, 3.8vw, 44px);
+  letter-spacing: 0.1em;
+  text-shadow: none;
+}
+
+.letter-body {
+  margin: 14px 0 16px;
+  display: grid;
+  gap: 14px;
+  font-size: clamp(15px, 1.5vw, 18px);
+  line-height: 2;
+  letter-spacing: 0.02em;
+}
+
+.letter-body p {
+  margin: 0 0 12px;
+}
+
+.letter-body .letter-zh {
+  margin: 0;
+  line-height: 1.85;
+}
+
+.letter-body .letter-en {
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(122, 86, 40, 0.35);
+  color: #6b4f2c;
+  font-size: 0.94em;
+  font-style: italic;
+  line-height: 1.7;
+}
+
+.letter-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* 宽屏把中文和英文并排成左右两页，免得信太长要滚动。 */
+@media (min-width: 620px) {
+  .letter-body {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .letter-body .letter-en {
+    padding: 0 0 0 24px;
+    border-top: 0;
+    border-left: 1px dashed rgba(122, 86, 40, 0.35);
+  }
+}
+
+.letter-sign {
+  margin: 0 0 22px;
+  color: #6b4f2c;
+  font-style: italic;
+  text-align: right;
+}
+
+.letter-panel .letter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.letter-panel .letter-actions .primary-button,
+.letter-panel .letter-actions .secondary-button {
+  flex: 1 1 200px;
+  width: auto;
+  min-width: 0;
+}
+
+/* 没拆开的信封：一段引子，两个选择。 */
+.letter-teaser {
+  margin: 4px 0 6px;
+  color: #5a4022;
+  font-size: clamp(16px, 1.7vw, 19px);
+  line-height: 1.9;
+}
+
+.letter-hint {
+  margin: 12px 0 0;
+  color: #8a6a44;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+/* 横屏手机只有三百多像素高：把信排紧，别让「收好这封信」掉到画面外。 */
+@media (max-height: 520px) {
+  .letter-panel {
+    padding: 16px 20px;
+  }
+
+  .letter-panel .overlay-kicker {
+    display: none;
+  }
+
+  .letter-panel h2 {
+    margin: 0 0 6px;
+    font-size: 24px;
+  }
+
+  .letter-body {
+    margin: 8px 0;
+    gap: 16px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .letter-body .letter-zh {
+    line-height: 1.5;
+  }
+
+  .letter-body .letter-en {
+    padding-top: 8px;
+    font-size: 0.94em;
+    line-height: 1.45;
+  }
+
+  .letter-sign {
+    margin: 0 0 8px;
+    font-size: 13px;
+  }
+
+  .letter-panel .primary-button {
+    min-height: 40px;
+  }
+}
+
+/* 再矮的老手机：字号和留白一起收，保证按钮还在画面里。 */
+@media (max-height: 440px) {
+  .letter-panel {
+    padding: 12px 16px;
+  }
+
+  .letter-panel h2 {
+    font-size: 22px;
+  }
+
+  .letter-body {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .letter-body .letter-zh {
+    line-height: 1.42;
+  }
+
+  .letter-body .letter-en {
+    line-height: 1.4;
+  }
+
+  .letter-sign {
+    font-size: 12px;
+  }
+
+  .letter-panel .primary-button {
+    min-height: 36px;
+    font-size: 14px;
+  }
 }
 
 .theme-grid {
@@ -2299,17 +2577,24 @@ kbd {
 
 .page-note {
   display: flex;
-  justify-content: space-between;
-  gap: 20px;
+  flex-direction: column;
+  gap: 3px;
   width: min(100%, var(--shell-width));
   margin: 14px auto 0;
   padding: 0 3px;
   color: #5f4e6a;
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 0.13em;
   line-height: 1.5;
   text-transform: uppercase;
+}
+
+/* 页脚第一行是三条线路的名字，比下面的英文类型行大一档。 */
+.page-note-title {
+  color: #9b86a2;
+  font-size: 15px;
+  letter-spacing: 0.16em;
 }
 
 .quest-track {
@@ -2380,6 +2665,44 @@ kbd {
   transition: width 120ms linear;
 }
 
+/* 任务面板底下的「退出任务」：面板本身不吃指针，只有这颗按钮吃。 */
+.quest-foot {
+  display: none;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.quest-foot.is-open {
+  display: flex;
+}
+
+.quest-exit {
+  pointer-events: auto;
+  padding: 3px 10px;
+  color: #ffd9a6;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  background: rgba(58, 30, 22, 0.86);
+  border: 1px solid rgba(214, 160, 84, 0.55);
+  cursor: pointer;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+.quest-exit:hover,
+.quest-exit:focus-visible {
+  color: #fff1d2;
+  background: rgba(96, 54, 30, 0.94);
+  border-color: #f0b45a;
+}
+
+.quest-exit.is-armed {
+  color: #24130a;
+  background: #f0b45a;
+  border-color: #f0b45a;
+  font-weight: 700;
+}
+
 .quest-track.is-alarm {
   color: #ffe1dd;
   background:
@@ -2443,6 +2766,7 @@ kbd {
   letter-spacing: 0.03em;
   line-height: 1.65;
   text-align: left;
+  white-space: pre-line;
   pointer-events: none;
   background: rgba(13, 7, 19, 0.9);
   border: 1px solid #493056;
@@ -2457,6 +2781,1050 @@ kbd {
 .toast.is-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* ---------- 开场车程：画面正上方的开场白与折叠教程 ---------- */
+
+.opening-card {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  /* 开场白尽量铺开：中文一行放得下整句，换行不会只剩两三个字。 */
+  width: min(1160px, calc(100% - 64px));
+  max-height: calc(100% - 32px);
+  padding: 16px 32px 13px;
+  text-align: center;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(10, 7, 15, 0.9), rgba(10, 7, 15, 0.72) 68%, rgba(10, 7, 15, 0));
+  transform: translateX(-50%);
+}
+
+.opening-card[hidden] {
+  display: none;
+}
+
+.opening-cn {
+  margin: 0;
+  color: #ffedcd;
+  font-family: var(--sans);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 2px 0 rgba(8, 5, 10, 0.9),
+    0 0 22px rgba(255, 207, 114, 0.28);
+}
+
+.opening-en {
+  margin: -2px 0 0;
+  color: #d8c5d7;
+  font-family: var(--sans);
+  font-size: 23px;
+  font-style: italic;
+  line-height: 1.55;
+  letter-spacing: 0.015em;
+  text-shadow: 0 1px 0 rgba(8, 5, 10, 0.9);
+}
+
+.opening-card.is-new-beat .opening-cn,
+.opening-card.is-new-beat .opening-en {
+  animation: opening-beat-in 460ms ease-out both;
+}
+
+@keyframes opening-beat-in {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.opening-tutorial-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+  margin-top: 2px;
+  padding: 6px 14px;
+  color: #cfe3dc;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  pointer-events: auto;
+  background: rgba(9, 18, 18, 0.78);
+  border: 1px solid rgba(159, 199, 196, 0.5);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.opening-tutorial-toggle:hover,
+.opening-tutorial-toggle:focus-visible {
+  color: #fff3d2;
+  background: rgba(28, 42, 38, 0.9);
+  border-color: rgba(255, 207, 114, 0.66);
+}
+
+.opening-tutorial-toggle[hidden] {
+  display: none;
+}
+
+.opening-tutorial-mark {
+  padding-left: 7px;
+  color: #ffcf72;
+  font-size: 11px;
+  border-left: 1px solid rgba(159, 199, 196, 0.35);
+}
+
+.opening-tutorial {
+  width: 100%;
+  max-height: 42vh;
+  padding: 14px 20px 15px;
+  overflow-y: auto;
+  text-align: left;
+  pointer-events: auto;
+  background: rgba(7, 12, 16, 0.95);
+  border: 1px solid rgba(159, 199, 196, 0.42);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.opening-tutorial[hidden] {
+  display: none;
+}
+
+.opening-tutorial-cn {
+  margin: 0;
+  color: #dfece7;
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.85;
+  letter-spacing: 0.03em;
+}
+
+.opening-skip {
+  margin: 2px 0 0;
+  color: rgba(220, 205, 230, 0.62);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+.opening-skip[hidden] {
+  display: none;
+}
+
+/* 开场白需要整个画面上方，右上角的旅人手记先让开。 */
+.player-panel.is-opening-hidden {
+  display: none;
+}
+
+/* ---------- 通关一段之后的祝福 ---------- */
+
+.blessing-card {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  z-index: 5;
+  width: min(600px, calc(100% - 40px));
+  padding: 14px 24px 16px;
+  text-align: center;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(17, 10, 22, 0.95), rgba(10, 6, 14, 0.9));
+  border: 1px solid rgba(159, 199, 196, 0.55);
+  box-shadow:
+    0 0 34px -12px rgba(159, 199, 196, 0.85),
+    0 18px 40px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  transition: opacity 320ms ease, transform 320ms ease;
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+}
+
+.blessing-card[hidden] {
+  display: none;
+}
+
+.blessing-card.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.blessing-kicker {
+  display: block;
+  color: #93b8b0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.16em;
+}
+
+.blessing-cn {
+  margin: 7px 0 0;
+  color: #fff0d5;
+  font-family: var(--sans);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+}
+
+.blessing-en {
+  margin: 5px 0 0;
+  color: #b9c9c4;
+  font-family: var(--sans);
+  font-size: 19px;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.blessing-en[hidden] {
+  display: none;
+}
+
+/* ---------- 路牌：一句中文，下面一句英文 ---------- */
+
+.sign-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 8;
+  width: min(680px, calc(100% - 48px));
+  max-height: calc(100% - 48px);
+  padding: 22px 28px 18px;
+  overflow-y: auto;
+  color: #ffe6c4;
+  background:
+    linear-gradient(165deg, rgba(28, 18, 21, 0.97), rgba(9, 7, 12, 0.97));
+  border: 1px solid rgba(180, 128, 82, 0.72);
+  box-shadow:
+    0 0 42px -14px rgba(255, 207, 114, 0.55),
+    0 22px 50px rgba(0, 0, 0, 0.62);
+  transform: translate(-50%, -50%);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+}
+
+.sign-card[hidden] {
+  display: none;
+}
+
+.sign-card-kicker {
+  display: block;
+  color: #c8a37c;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+
+.sign-card-cn {
+  margin: 12px 0 0;
+  color: #ffe9c9;
+  font-family: var(--sans);
+  font-size: 22px;
+  line-height: 1.75;
+  letter-spacing: 0.03em;
+}
+
+.sign-card-en {
+  margin: 13px 0 0;
+  padding-top: 13px;
+  color: #c3b0c8;
+  font-family: var(--sans);
+  font-size: 20px;
+  font-style: italic;
+  line-height: 1.65;
+  border-top: 1px dashed rgba(200, 163, 124, 0.38);
+}
+
+.sign-card-close {
+  display: block;
+  margin-top: 16px;
+  color: #8f7d97;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-align: right;
+  cursor: pointer;
+}
+
+/* ---------- 落幕：碑前那一幕的旁白与片尾名单 ---------- */
+
+/* 这一幕的文字全部排在 HUD 层：网页字体，清晰，不跟像素画面一起放大。 */
+.ending-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 旁白压在画面上方：墓园和坐在碑前的人留在下面。
+   字后面垫一圈夜色，雪光和月亮不会把字吃掉。 */
+.ending-caption {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  width: min(1040px, calc(100% - 96px));
+  padding: 10px 30px;
+  text-align: center;
+  transform: translateX(-50%);
+  opacity: 0;
+}
+
+.ending-cn {
+  margin: 0;
+  color: #ffedcd;
+  font-family: var(--sans);
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.75;
+  letter-spacing: 0.03em;
+  text-shadow:
+    0 0 1px rgba(4, 3, 8, 0.95),
+    0 0 8px rgba(4, 3, 8, 0.85),
+    0 2px 0 rgba(6, 4, 10, 0.9),
+    0 0 26px rgba(255, 207, 114, 0.16);
+}
+
+.ending-en {
+  margin: 10px 0 0;
+  color: #d8c5d7;
+  font-family: var(--sans);
+  font-size: 19px;
+  line-height: 1.7;
+  letter-spacing: 0.015em;
+  text-shadow:
+    0 0 1px rgba(4, 3, 8, 0.95),
+    0 0 8px rgba(4, 3, 8, 0.8),
+    0 1px 0 rgba(6, 4, 10, 0.85);
+}
+
+.ending-en:empty {
+  display: none;
+}
+
+/* 「We are the Pharmakon」→「Pumpkin Avatar」：字母一个个挪到新位置。 */
+.ending-morph {
+  position: relative;
+  height: 46px;
+  margin: 12px 0 4px;
+}
+
+.ending-morph-line {
+  position: absolute;
+  inset: 0;
+}
+
+.ending-morph-char {
+  position: absolute;
+  top: 0;
+  color: #ffdf9e;
+  font-family: var(--sans);
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow:
+    0 2px 0 rgba(6, 4, 10, 0.9),
+    0 0 24px rgba(255, 207, 114, 0.4);
+  transition:
+    left 1.05s cubic-bezier(0.22, 0.9, 0.24, 1),
+    transform 1.05s cubic-bezier(0.22, 0.9, 0.24, 1),
+    opacity 0.55s linear;
+  will-change: left, transform, opacity;
+}
+
+.ending-note {
+  max-width: 860px;
+  margin: 10px auto 0;
+  color: #93a6bd;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.75;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(4, 3, 8, 0.9);
+}
+
+/* 最后一句：打字机效果，一中文一英文。 */
+.ending-final {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(1000px, calc(100% - 100px));
+  color: #fff3dc;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.ending-final-line {
+  display: block;
+  font-family: var(--sans);
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 2px 0 rgba(5, 4, 10, 0.9),
+    0 0 28px rgba(255, 207, 114, 0.22);
+}
+
+.ending-final-line--en {
+  margin-top: 18px;
+  color: #d9c9dd;
+  font-size: 21px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.ending-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: -0.12em;
+  background: currentColor;
+  animation: ending-caret 0.9s steps(1) infinite;
+}
+
+.ending-caret[hidden] {
+  display: none;
+}
+
+@keyframes ending-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 片尾名单：和游戏里的字一样用网页字体，不再画像素字。 */
+.ending-credits {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  width: min(760px, calc(100% - 120px));
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.ending-credits-title {
+  margin: 0;
+  color: #faefdd;
+  font-family: var(--sans);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 24px rgba(255, 207, 114, 0.28);
+}
+
+.ending-credits-latin {
+  margin: 8px 0 0;
+  color: #9b7fac;
+  font-family: var(--sans);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+}
+
+.ending-credit-rows {
+  margin-top: 34px;
+}
+
+.ending-credit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 56px;
+  align-items: start;
+  margin-top: 14px;
+}
+
+.ending-credit-role,
+.ending-credit-name {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.7;
+  letter-spacing: 0.06em;
+  white-space: pre-line;
+}
+
+.ending-credit-role {
+  color: #c9a970;
+  text-align: right;
+}
+
+.ending-credit-name {
+  color: #f0e9d9;
+  text-align: left;
+}
+
+.ending-skip {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  color: #cdd5e6;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 0 rgba(4, 3, 8, 0.9);
+  animation: ending-skip-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ending-skip-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* 手机横屏：画面只有 844×390 左右，HUD 不缩放，落幕的字要自己小一档。 */
+html.is-mobile .ending-caption {
+  top: 8px;
+  width: calc(100% - 20px);
+  padding: 4px 8px;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 4, 10, 0.72),
+    rgba(5, 4, 10, 0.4) 68%,
+    rgba(5, 4, 10, 0)
+  );
+}
+
+html.is-mobile .ending-cn {
+  font-size: 14px;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+}
+
+html.is-mobile .ending-morph {
+  height: 26px;
+  margin: 6px 0 2px;
+}
+
+html.is-mobile .ending-morph-char {
+  font-size: 19px;
+}
+
+html.is-mobile .ending-en {
+  margin-top: 5px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+html.is-mobile .ending-note {
+  max-width: 94%;
+  margin-top: 5px;
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+html.is-mobile .ending-final {
+  width: calc(100% - 28px);
+}
+
+html.is-mobile .ending-final-line {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+html.is-mobile .ending-final-line--en {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+html.is-mobile .ending-credits {
+  top: 16px;
+  width: calc(100% - 40px);
+}
+
+html.is-mobile .ending-credits-title {
+  font-size: 20px;
+}
+
+html.is-mobile .ending-credits-latin {
+  margin-top: 4px;
+  font-size: 9px;
+}
+
+html.is-mobile .ending-credit-rows {
+  margin-top: 14px;
+}
+
+html.is-mobile .ending-credit-row {
+  column-gap: 28px;
+  margin-top: 7px;
+}
+
+html.is-mobile .ending-credit-role,
+html.is-mobile .ending-credit-name {
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+html.is-mobile .ending-skip {
+  top: auto;
+  right: 10px;
+  bottom: 8px;
+  font-size: 10.5px;
+}
+
+/* ---------- 拿到一颗糖：卡片弹出，再缩着飞进糖袋的计数 ---------- */
+
+.candy-reward {
+  --accent: #ffcf72;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.candy-reward[hidden] {
+  display: none;
+}
+
+.candy-reward-flash {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  background: radial-gradient(circle, var(--accent), transparent 68%);
+  border-radius: 50%;
+  opacity: 0;
+  animation: candy-reward-flash 620ms ease-out both;
+}
+
+.candy-reward-card {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 190px;
+  padding: 14px 26px 12px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(38, 21, 46, 0.96), rgba(12, 6, 17, 0.95));
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  box-shadow:
+    0 0 30px -8px var(--accent),
+    0 18px 40px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  animation: candy-reward-pop 460ms cubic-bezier(0.18, 1.4, 0.42, 1) both;
+  will-change: transform, opacity;
+}
+
+.candy-reward-glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 5px;
+  color: #1a0f20;
+  font-family: var(--sans);
+  font-size: 28px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  background: radial-gradient(circle at 34% 26%, #fffdf4, var(--accent) 70%);
+  border-radius: 50%;
+  box-shadow: 0 0 22px -2px var(--accent);
+}
+
+.candy-reward-glyph::before {
+  position: absolute;
+  inset: -8px;
+  content: "";
+  border: 2px dashed var(--accent);
+  border-radius: 50%;
+  opacity: 0.55;
+  animation: candy-reward-spin 3s linear infinite;
+}
+
+.candy-reward-kicker {
+  color: #b79cc4;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+}
+
+.candy-reward-name {
+  color: #fff4e2;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 18px var(--accent);
+}
+
+.candy-reward-tag {
+  color: var(--accent);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+}
+
+.candy-reward-count {
+  margin-top: 7px;
+  padding: 2px 11px;
+  color: #1a0f20;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.candy-reward-count.is-full {
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+}
+
+.candy-reward-sparks {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.candy-reward-sparks i {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: var(--s, 5px);
+  height: var(--s, 5px);
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--accent);
+  opacity: 0;
+  animation: candy-reward-spark 820ms ease-out 60ms both;
+}
+
+.candy-reward.is-collecting .candy-reward-card {
+  animation: candy-reward-fly 640ms cubic-bezier(0.55, 0, 0.8, 0.45) both;
+}
+
+.candy-reward.is-collecting .candy-reward-flash,
+.candy-reward.is-collecting .candy-reward-sparks {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+/* 糖落进袋子那一下，计数上扩一圈光。 */
+.candy-reward-ping {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: candy-reward-ping 640ms ease-out both;
+}
+
+/* 卡片飞到位以后，糖袋里那个数字亮一下。 */
+.panel-memorial-row b.is-candy-bump {
+  animation: pouch-count-bump 640ms ease-out;
+}
+
+@keyframes candy-reward-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.55) rotate(-5deg);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.07) rotate(1.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes candy-reward-flash {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.25);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@keyframes candy-reward-spark {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--a, 0deg)) translateX(92px) scale(0.9);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a, 0deg)) translateX(var(--d, 170px)) scale(0.35);
+  }
+}
+
+@keyframes candy-reward-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes candy-reward-fly {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--fly-mx, 0px)), calc(-50% + var(--fly-my, 0px)))
+      scale(0.82);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--fly-x, 0px)), calc(-50% + var(--fly-y, 0px)))
+      scale(0.08);
+  }
+}
+
+@keyframes pouch-count-bump {
+  0% {
+    color: #fff;
+    text-shadow: 0 0 16px var(--accent, #ffcf72), 0 0 30px var(--accent, #ffcf72);
+  }
+  100% {
+    color: #f0dfc8;
+    text-shadow: none;
+  }
+}
+
+@keyframes candy-reward-ping {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.45);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(4.4);
+  }
+}
+
+/* ---------- 走完一段：那一双鞋跟在身后 ----------
+   和拿到一颗糖同一套节奏：卡片弹出、停一下，再缩成一点落进
+   旅人手记里「身后」那一格（结算页上是「身后的鞋」）。
+   中间画的是路上跟着的那双鞋本身，不是图标。 */
+
+.shoe-reward {
+  --accent: #c6b3e0;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.shoe-reward[hidden] {
+  display: none;
+}
+
+.shoe-reward-flash {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 170px;
+  height: 170px;
+  margin: -85px 0 0 -85px;
+  background: radial-gradient(circle, var(--accent), transparent 68%);
+  border-radius: 50%;
+  opacity: 0;
+  animation: candy-reward-flash 620ms ease-out both;
+}
+
+.shoe-reward-card {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 210px;
+  max-width: min(560px, calc(100% - 32px));
+  padding: 13px 26px 12px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(38, 21, 46, 0.96), rgba(12, 6, 17, 0.95));
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  box-shadow:
+    0 0 30px -8px var(--accent),
+    0 18px 40px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  animation: candy-reward-pop 460ms cubic-bezier(0.18, 1.4, 0.42, 1) both;
+  will-change: transform, opacity;
+}
+
+/* 桌面端祝福和鞋卡同时出现：祝福卡高一些时，鞋卡往下让一让，别压住英文。 */
+html:not(.is-mobile) .shoe-reward.has-blessing .shoe-reward-card {
+  top: 48%;
+}
+
+/* 鞋画在卡片正中：底下垫一圈这段的记忆色，让黑鞋在暗底板上也能看清。 */
+.shoe-reward-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 190px;
+  height: 96px;
+  margin: 2px 0 3px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.085));
+  border-radius: 10px;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.shoe-reward-art::before {
+  position: absolute;
+  inset: 6px 4px;
+  content: "";
+  background: radial-gradient(ellipse at 50% 66%, var(--accent), transparent 70%);
+  border-radius: 50%;
+  opacity: 0.22;
+}
+
+.shoe-reward-art canvas {
+  position: relative;
+  display: block;
+  width: 168px;
+  height: 84px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 10px var(--accent)) brightness(1.14);
+  animation: shoe-reward-hover 2.4s ease-in-out infinite;
+}
+
+.shoe-reward-kicker {
+  color: #b79cc4;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+}
+
+.shoe-reward-name {
+  color: #fff4e2;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 18px var(--accent);
+}
+
+.shoe-reward-tag {
+  max-width: 56ch;
+  color: var(--accent);
+  font-size: 15.5px;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+}
+
+/* 人物小传的英文：和中文同一张卡片，只比中文小一点。 */
+.shoe-reward-en {
+  max-width: 56ch;
+  margin-top: 2px;
+  color: rgba(233, 220, 238, 0.76);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.6;
+  letter-spacing: 0.015em;
+}
+
+.shoe-reward-en[hidden] {
+  display: none;
+}
+
+/* 追思小径的第二行：一、二段是英文，第三段换成了文言。
+   文言不跟着正文走斜体，字面换成楷体，行距也松一点。 */
+.is-verse {
+  font-family: "KaiTi", "STKaiti", "Kaiti SC", "Noto Serif SC", "Songti SC", serif;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  line-height: 1.8;
+}
+
+.shoe-reward-count {
+  margin-top: 7px;
+  padding: 2px 11px;
+  color: #1a0f20;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.shoe-reward-sparks {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.shoe-reward-sparks i {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: var(--s, 5px);
+  height: var(--s, 5px);
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--accent);
+  opacity: 0;
+  animation: candy-reward-spark 820ms ease-out 60ms both;
+}
+
+.shoe-reward.is-collecting .shoe-reward-card {
+  animation: candy-reward-fly 640ms cubic-bezier(0.55, 0, 0.8, 0.45) both;
+}
+
+.shoe-reward.is-collecting .shoe-reward-flash,
+.shoe-reward.is-collecting .shoe-reward-sparks {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+/* 鞋落进「身后」那一格时，那一行亮一下。 */
+.is-shoe-bump {
+  animation: pouch-count-bump 640ms ease-out;
+}
+
+.shoe-reward-ping {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: candy-reward-ping 640ms ease-out both;
+}
+
+@keyframes shoe-reward-hover {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 @keyframes panel-in {
@@ -2540,7 +3908,11 @@ kbd {
 
   .page-note {
     margin-top: 9px;
-    font-size: 12px;
+    font-size: 11px;
+  }
+
+  .page-note-title {
+    font-size: 13px;
   }
 
   .page-note span:last-child {
@@ -2827,6 +4199,7 @@ kbd {
   html:not(.is-mobile) .start-panel .overlay-copy,
   html:not(.is-mobile) .start-panel .goal-badge,
   html:not(.is-mobile) .start-panel .mini-controls,
+  html:not(.is-mobile) .start-panel .mode-group-title,
   html:not(.is-mobile) .start-panel .save-reset-button {
     display: none;
   }
@@ -3025,198 +4398,30 @@ kbd {
   box-shadow: 2px -2px 0 #bca98f;
 }
 
-/* ---------- v0.4 additions：糖果罐与时装衣橱 ---------- */
+/* ---------- 背包里的糖袋 ---------- */
 
-.candy-strip {
-  margin: 0 0 12px;
-  padding: 9px 12px;
-  background:
-    radial-gradient(circle at 88% 0%, rgba(255, 143, 188, 0.08), transparent 55%),
-    rgba(12, 8, 18, 0.66);
-  border: 1px solid #4a3044;
-}
-
-.candy-strip-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.candy-strip-head .inventory-label {
-  flex: 0 0 auto;
-  margin: 0;
-  color: #c58aa7;
-}
-
-.candy-total {
-  flex: 0 0 auto;
-  color: #ff9bc4;
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.candy-total b {
-  font-size: 21px;
-}
-
-.candy-kinds {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin: 0;
-}
-
-.candy-kind {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  color: #e3c8d5;
-  font-size: 13px;
-  background: rgba(30, 15, 26, 0.8);
-  border: 1px solid #58384c;
-}
-
-.candy-kind b {
-  color: #ffc7dd;
-  font-family: var(--mono);
-  font-size: 12px;
-}
-
-.candy-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-}
-
-.candy-dot--candyCorn {
-  background: #ffcf4a;
-  box-shadow: 0 0 0 1px #ff7d1a;
-}
-
-.candy-dot--lollipop {
-  background: #ff6fa5;
-  box-shadow: 0 0 0 1px #ffc2da;
-}
-
-.candy-dot--chocolate {
-  background: #8a563a;
-  box-shadow: 0 0 0 1px #3d2118;
-}
-
-.candy-dot--sourGummy {
-  background: #8dffa8;
-  box-shadow: 0 0 0 1px #3e9c62;
-}
-
-.candy-dot--licorice {
-  background: #c86b6b;
-  box-shadow: 0 0 0 1px #3b1a1c;
-}
-
-.candy-dot--marshmallow {
-  background: #fffafd;
-  box-shadow: 0 0 0 1px #ffd9ec;
-}
-
-.candy-dot--poppingCandy {
-  background: #ff9a6b;
-  box-shadow: 0 0 0 1px #ffd166;
-}
-
-.candy-dot--toffee {
-  background: #d9a15a;
-  box-shadow: 0 0 0 1px #8a5a2c;
-}
-
-.candy-dot--mint {
-  background: #eefcff;
-  box-shadow: 0 0 0 1px #7fd8f0;
-}
-
-.candy-dot--nougat {
-  background: #f0d29a;
-  box-shadow: 0 0 0 1px #9a6b3c;
-}
-
-.candy-empty {
-  color: #8f7e93;
-  font-size: 13px;
-}
-
-/* 五种糖果的图鉴：吃下后会发生什么 */
-.candy-catalogue {
-  display: grid;
-  gap: 3px;
-  margin: 9px 0 0;
-  padding: 9px 0 0;
-  list-style: none;
+.pouch-section {
+  margin: 14px 0 0;
+  padding-top: 12px;
   border-top: 1px solid rgba(88, 56, 76, 0.55);
 }
 
-.candy-entry {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 4px 6px;
-  opacity: 0.56;
-}
-
-.candy-entry.is-found {
-  opacity: 1;
-}
-
-.candy-entry .candy-dot {
-  flex: 0 0 auto;
-  margin-top: 5px;
-}
-
-.candy-entry-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.candy-entry-title {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  color: #e3c8d5;
-  font-size: 13px;
-}
-
-.candy-entry-title span {
-  color: #a58ab3;
-}
-
-.candy-entry-copy {
-  margin: 2px 0 0;
-  color: #98809a;
+.pouch-hint {
+  margin: 6px 0 0;
+  color: #8f7e93;
   font-size: 12px;
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
-.candy-entry-count {
-  flex: 0 0 auto;
+.pouch-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px 10px;
   color: #b78ea9;
-  font-size: 11px;
-  font-style: normal;
-  letter-spacing: 0.04em;
-}
-
-.candy-note {
-  margin: 9px 0 0;
-  color: #7f6d86;
-  font-size: 11px;
-  line-height: 1.55;
-}
-
-/* ---------- 糖袋（Trick or Treat） ---------- */
-
-.pouch-panel {
-  width: min(100%, 860px);
+  font-size: 13px;
+  line-height: 1.6;
+  background: rgba(30, 15, 26, 0.7);
+  border: 1px dashed rgba(120, 84, 134, 0.5);
 }
 
 .pouch-grid {
@@ -3598,6 +4803,27 @@ html.is-mobile .trick-door-trick {
   border-radius: 2px;
 }
 
+/* 几何题的图：夹在题干和选项中间，窄屏跟着缩。 */
+.puzzle-figure {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.puzzle-figure svg {
+  display: block;
+  width: min(100%, 380px);
+  height: auto;
+  overflow: visible;
+}
+
+/* 横屏手机只有三百多像素高：图收小一点，别把选项挤到看不见。 */
+@media (max-height: 520px) {
+  .puzzle-figure svg {
+    width: min(100%, 260px);
+  }
+}
+
 .puzzle-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3675,35 +4901,34 @@ html.is-mobile .trick-door-trick {
   border-radius: 2px;
 }
 
-.puzzle-lantern {
-  position: relative;
+.puzzle-option-letter {
   flex: 0 0 auto;
-  width: 18px;
-  height: 24px;
-  background: linear-gradient(180deg, rgba(255, 214, 120, 0.95), rgba(255, 138, 68, 0.7));
-  border: 1px solid rgba(255, 214, 120, 0.75);
-  border-radius: 50% 50% 42% 42%;
-  box-shadow: 0 0 10px rgba(255, 190, 94, 0.45);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--accent, #ffcf72);
+  font-size: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(255, 207, 114, 0.34);
+  border-radius: 2px;
 }
 
-.puzzle-lantern::after {
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  width: 4px;
-  height: 6px;
-  content: '';
-  background: #ffd678;
-  border-radius: 50%;
-  transform: translateX(-50%);
-  box-shadow: 0 0 6px #ffcf72;
+/* 判断题只有两个选项：按钮放大、居中，像门上的两扇小窗。 */
+.puzzle-options.is-judge {
+  max-width: 420px;
 }
 
-.puzzle-bolt {
-  flex: 0 0 auto;
-  color: #ffe08a;
-  font-size: 18px;
-  text-shadow: 0 0 8px rgba(255, 224, 138, 0.6);
+.puzzle-option.is-judge {
+  justify-content: center;
+  min-height: 68px;
+  font-size: 21px;
+  letter-spacing: 0.16em;
+}
+
+.puzzle-option.is-judge .puzzle-option-text {
+  flex: 0 1 auto;
+  text-align: center;
 }
 
 .puzzle-sequence {
@@ -3742,87 +4967,6 @@ html.is-mobile .trick-door-trick {
 
 .puzzle-bone-icon {
   image-rendering: pixelated;
-}
-
-.puzzle-boxes {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  width: 100%;
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-.puzzle-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  min-height: 180px;
-  padding: 13px 12px;
-  color: #e8d9ea;
-  font-family: var(--sans);
-  cursor: pointer;
-  background: linear-gradient(180deg, rgba(44, 27, 52, 0.95), rgba(22, 12, 28, 0.96));
-  border: 1px solid rgba(255, 207, 114, 0.32);
-  border-radius: 3px;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.puzzle-box:hover {
-  border-color: var(--accent, #ffcf72);
-}
-
-.puzzle-box:focus-visible {
-  outline: 2px solid #fff0cf;
-  outline-offset: 2px;
-}
-
-.puzzle-box-label {
-  color: var(--accent, #ffcf72);
-  font-size: 20px;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-}
-
-.puzzle-box-lid {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 12px 8px;
-  border: 1px dashed rgba(255, 207, 114, 0.26);
-}
-
-.puzzle-box-inscription {
-  color: #d8c6dc;
-  font-size: 13px;
-  line-height: 1.55;
-  text-align: center;
-}
-
-.puzzle-box-candy {
-  opacity: 0;
-  transform: scale(0.6);
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
-
-.puzzle-box.is-open {
-  background: rgba(255, 207, 114, 0.12);
-  border-color: #ffd678;
-}
-
-.puzzle-box.is-open .puzzle-box-candy {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.puzzle-box.is-wrong {
-  border-color: #ff8f9a;
-  animation: puzzle-shake 0.36s ease;
 }
 
 .puzzle-equations {
@@ -4045,6 +5189,116 @@ html.is-mobile .trick-door-trick {
   box-shadow: inset 0 0 14px rgba(255, 207, 114, 0.18);
 }
 
+/* 绷带记号：上面一排进度格，下面一排可以点的记号。 */
+.puzzle-echo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.puzzle-echo-status {
+  margin: 0;
+  color: #bfa9c8;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.puzzle-echo-slots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+
+.puzzle-echo-slot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: rgba(230, 207, 156, 0.07);
+  border: 1px solid rgba(230, 207, 156, 0.24);
+  border-radius: 50%;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.puzzle-echo-slot.is-lit {
+  background: var(--accent, #ffcf72);
+  border-color: var(--accent, #ffcf72);
+  box-shadow: 0 0 8px rgba(255, 207, 114, 0.5);
+}
+
+.puzzle-echo-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: min(320px, 100%);
+}
+
+.puzzle-echo-button {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  cursor: pointer;
+  background: linear-gradient(145deg, rgba(58, 37, 68, 0.9), rgba(26, 14, 32, 0.95));
+  border: 1px solid rgba(230, 207, 156, 0.26);
+  border-radius: 4px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.puzzle-echo-button:hover {
+  border-color: var(--accent, #ffcf72);
+}
+
+.puzzle-echo-button:focus-visible {
+  outline: 2px solid #fff0cf;
+  outline-offset: 2px;
+}
+
+.puzzle-echo-button.is-on {
+  border-color: var(--accent, #ffcf72);
+  box-shadow: 0 0 14px rgba(255, 207, 114, 0.45);
+  transform: translateY(-1px);
+}
+
+/* 古堡灯阵：一排排窗格，亮着的暖、灭着的冷。 */
+.puzzle-lantern-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--lantern-size, 3), minmax(0, 1fr));
+  gap: 8px;
+  width: min(300px, 100%);
+  margin: 0 auto;
+}
+
+.puzzle-lantern-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(20, 12, 26, 0.92);
+  border: 1px solid rgba(140, 120, 160, 0.26);
+  border-radius: 3px;
+  transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.puzzle-lantern-cell:hover {
+  border-color: rgba(255, 207, 114, 0.6);
+}
+
+.puzzle-lantern-cell:focus-visible {
+  outline: 2px solid #fff0cf;
+  outline-offset: 2px;
+}
+
+.puzzle-lantern-cell.is-lit {
+  background: rgba(255, 207, 114, 0.12);
+  border-color: var(--accent, #ffcf72);
+  box-shadow:
+    inset 0 0 12px rgba(255, 207, 114, 0.22),
+    0 0 10px rgba(255, 207, 114, 0.24);
+}
+
 .puzzle-spot {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4160,23 +5414,6 @@ html.is-mobile .trick-puzzle-feedback {
     gap: 10px;
   }
 
-  .puzzle-boxes {
-    gap: 8px;
-  }
-
-  .puzzle-box {
-    min-height: 140px;
-    padding: 8px 6px;
-  }
-
-  .puzzle-box-label {
-    font-size: 17px;
-  }
-
-  .puzzle-box-inscription {
-    font-size: 12px;
-  }
-
   .puzzle-memory-grid {
     gap: 6px;
   }
@@ -4221,10 +5458,6 @@ html.is-mobile .trick-puzzle-feedback {
     grid-template-columns: repeat(8, minmax(0, 1fr));
     width: min(440px, 100%);
     gap: 5px;
-  }
-
-  .puzzle-box {
-    min-height: 130px;
   }
 
   .puzzle-spot {
@@ -4429,6 +5662,13 @@ html.is-mobile .trick-puzzle-feedback {
   font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+.wardrobe-progress {
+  margin: 0 0 10px;
+  color: #cbb7d8;
+  font-size: 14px;
+  letter-spacing: 0.03em;
 }
 
 .wardrobe-grid {
@@ -4735,6 +5975,177 @@ html:fullscreen body {
   opacity: 1;
 }
 
+/* 左上角常驻的「目录 / 提示」：任何一局里都能看见。
+   提示不离开这一局，先让玩法停住，看完再继续。 */
+.screen-corner {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 7;
+  display: flex;
+  gap: 8px;
+  opacity: 0.6;
+  transition: opacity 120ms ease;
+}
+
+.screen-corner:hover,
+.screen-corner:focus-within {
+  opacity: 1;
+}
+
+.screen-corner[hidden] {
+  display: none;
+}
+
+.screen-corner .fullscreen-toggle {
+  margin-top: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.screen-corner .fullscreen-toggle[hidden] {
+  display: none;
+}
+
+.screen-menu {
+  color: #d9c5a6;
+}
+
+.screen-hint {
+  color: #9fd7e8;
+}
+
+/* 教程提示框里的按键总表：每一步都写明该按什么。 */
+.tutorial-coach .tutorial-keys {
+  margin-top: 8px;
+  color: #9aac84;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.9;
+  letter-spacing: 0.01em;
+}
+
+.tutorial-coach .tutorial-keys kbd {
+  margin: 0 2px;
+}
+
+/* ---------- 提示面板 ---------- */
+
+.hint-panel {
+  width: min(100%, 760px);
+}
+
+.hint-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 2px 0 16px;
+}
+
+.hint-title {
+  margin: 0;
+  color: #f0e2c6;
+  font-size: 19px;
+  letter-spacing: 0.04em;
+}
+
+.hint-step {
+  margin: 3px 0 0;
+  color: #b7a2c4;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.hint-objective {
+  max-width: 48%;
+  margin: 0;
+  color: #cdbfae;
+  font-size: 13px;
+  line-height: 1.65;
+  text-align: right;
+}
+
+.hint-list {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.hint-list li {
+  display: flex;
+  gap: 10px;
+  color: #e7ddce;
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.hint-list li b {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  color: #f0b562;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: rgba(213, 150, 66, 0.16);
+  border-radius: 50%;
+}
+
+.hint-keys {
+  margin-bottom: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hint-keys-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 16px;
+  margin-top: 8px;
+  color: #b9c0cf;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.hint-keys-grid span {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .hint-head {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hint-objective {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .hint-keys-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* 手机上「全部按键」写的是虚拟键，字比键盘表长：两列、允许换行，
+   不然 nowrap 会让相邻两列的说明叠在一起。 */
+html.is-mobile .hint-keys-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  font-size: 12.5px;
+}
+
+html.is-mobile .hint-keys-grid span {
+  white-space: normal;
+  line-height: 1.5;
+}
+
 /* ---------- 触屏 / 移动端网页 ---------- */
 
 /* 手机横屏时把页面外壳收掉，只留 16:9 的游戏画面。
@@ -4773,6 +6184,7 @@ html.is-mobile .topbar,
 html.is-mobile .control-bar,
 html.is-mobile .page-note,
 html.is-mobile .screen-fullscreen,
+html.is-mobile .screen-corner,
 html.is-mobile .sneak-legend {
   display: none;
 }
@@ -4857,10 +6269,30 @@ html.is-mobile .overlay-copy {
 }
 
 html.is-mobile .mode-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 0;
+}
+
+html.is-mobile .mode-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  margin-top: 0;
+}
+
+html.is-mobile .mode-group {
+  gap: 4px;
+}
+
+html.is-mobile .mode-group-title {
+  margin: 0 2px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+
+html.is-mobile .mode-group-title b {
+  font-size: 10.5px;
 }
 
 html.is-mobile .primary-button.mode-button,
@@ -4870,6 +6302,16 @@ html.is-mobile .secondary-button.mode-button {
   min-height: 49px;
   padding: 5px 10px;
   gap: 2px;
+}
+
+html.is-mobile .primary-button.mode-button.mode-button--tutorial,
+html.is-mobile .primary-button.mode-button.mode-button--memorial {
+  min-height: 58px;
+}
+
+html.is-mobile .primary-button.mode-button.mode-button--tutorial .mode-main,
+html.is-mobile .primary-button.mode-button.mode-button--memorial .mode-main {
+  font-size: 18px;
 }
 
 html.is-mobile .mode-main {
@@ -4889,10 +6331,6 @@ html.is-mobile .mode-badge {
   font-size: 9px;
 }
 
-html.is-mobile .mode-button--trick {
-  grid-column: 1 / -1;
-}
-
 html.is-mobile .pouch-grid {
   gap: 6px;
 }
@@ -4903,10 +6341,6 @@ html.is-mobile .pouch-card {
 
 html.is-mobile .pouch-card p {
   font-size: 11px;
-}
-
-html.is-mobile .mode-button--continue {
-  grid-column: 1 / -1;
 }
 
 .mobile-controls {
@@ -5045,12 +6479,24 @@ html.is-mobile .quest-track {
   font-size: 12px;
 }
 
+/* 手机上没有 X：退出任务靠这颗按钮，按得下去才重要。 */
+html.is-mobile .quest-exit {
+  padding: 10px 16px;
+  min-height: 42px;
+  font-size: 14px;
+}
+
 html.is-mobile .tutorial-coach {
   top: max(54px, calc(env(safe-area-inset-top) + 46px));
   left: max(8px, env(safe-area-inset-left));
   width: calc(100% - 220px);
   padding: 9px 11px;
   font-size: 14px;
+}
+
+/* 手机上用的是虚拟按键，教程框里的键盘总表让位给画面。 */
+html.is-mobile .tutorial-coach .tutorial-keys {
+  display: none;
 }
 
 html.is-mobile .toast {
@@ -5063,6 +6509,51 @@ html.is-mobile .toast {
 
 html.is-mobile .screen.has-quest .toast {
   top: 78px;
+}
+
+html.is-mobile .candy-reward-card {
+  min-width: 152px;
+  padding: 10px 18px 9px;
+}
+
+html.is-mobile .candy-reward-glyph {
+  width: 42px;
+  height: 42px;
+  font-size: 21px;
+}
+
+html.is-mobile .candy-reward-name {
+  font-size: 17px;
+}
+
+html.is-mobile .shoe-reward-card {
+  min-width: 172px;
+  padding: 10px 18px 9px;
+}
+
+html.is-mobile .shoe-reward-art {
+  width: 156px;
+  height: 80px;
+  margin: 0 0 2px;
+}
+
+html.is-mobile .shoe-reward-art canvas {
+  width: 140px;
+  height: 70px;
+}
+
+html.is-mobile .shoe-reward-name {
+  font-size: 17px;
+}
+
+html.is-mobile .shoe-reward-tag {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+html.is-mobile .shoe-reward-en {
+  font-size: 14.5px;
+  line-height: 1.5;
 }
 
 /* 电磁长夜的信息面板原本占着左下角，手机上让给方向键，挪到左上。 */
@@ -5105,34 +6596,48 @@ html.is-mobile .interaction-prompt kbd {
 
 .touch-pad {
   position: absolute;
-  display: flex;
+  display: grid;
   gap: calc(var(--touch-btn) * 0.12);
 }
 
+/* 左手只管左右：两块并排，贴着左下角。 */
 .touch-pad--move {
   bottom: max(10px, env(safe-area-inset-bottom));
   left: max(10px, env(safe-area-inset-left));
   display: grid;
   grid-template-columns: repeat(2, var(--touch-btn));
-  grid-template-rows: repeat(2, var(--touch-btn));
+  grid-template-rows: var(--touch-btn);
 }
 
+/* 右手管上下和互动：↑ 在右下角（最常按），↓ 压在它上面一格，
+   互动在左下方和 ↑ 并排，拇指不用来回找。 */
 .touch-pad--action {
   right: max(10px, env(safe-area-inset-right));
   bottom: max(10px, env(safe-area-inset-bottom));
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: var(--touch-btn) calc(var(--touch-btn) * 1.15);
+  grid-template-rows: calc(var(--touch-btn) * 0.82) calc(var(--touch-btn) * 1.15);
+  align-items: stretch;
 }
 
-.touch-btn--left {
+.touch-pad--move .touch-btn--left {
+  grid-area: 1 / 1;
+}
+
+.touch-pad--move .touch-btn--right {
+  grid-area: 1 / 2;
+}
+
+.touch-pad--action .touch-btn--down {
+  grid-area: 1 / 2;
+}
+
+.touch-pad--action .touch-btn--interact {
   grid-area: 2 / 1;
 }
 
-.touch-btn--right {
+.touch-pad--action .touch-btn--jump {
   grid-area: 2 / 2;
-}
-
-.touch-btn--down {
-  grid-area: 1 / 2;
 }
 
 .touch-btn {
@@ -5149,20 +6654,27 @@ html.is-mobile .interaction-prompt kbd {
   pointer-events: auto;
   touch-action: none;
   cursor: pointer;
-  background: rgba(19, 11, 26, 0.58);
+  background: rgba(19, 11, 26, 0.42);
   border: 1px solid rgba(255, 178, 94, 0.38);
   border-radius: 9px;
   box-shadow:
-    0 3px 0 rgba(4, 1, 8, 0.55),
+    0 3px 0 rgba(4, 1, 8, 0.35),
     inset 0 0 18px rgba(255, 150, 60, 0.06);
-  opacity: 0.82;
+  opacity: 0.9;
   transition: background 90ms linear, border-color 90ms linear, transform 90ms linear;
   -webkit-tap-highlight-color: transparent;
 }
 
-.touch-btn--jump {
-  width: calc(var(--touch-btn) * 1.15);
-  height: calc(var(--touch-btn) * 1.15);
+/* 右手这一摞按键按格子撑满：↓ 扁一点，互动和 ↑ 一样高。 */
+.touch-pad--action .touch-btn--jump,
+.touch-pad--action .touch-btn--interact,
+.touch-pad--action .touch-btn--down {
+  width: 100%;
+  height: 100%;
+}
+
+.touch-btn--down {
+  font-size: calc(var(--touch-btn) * 0.36);
 }
 
 .touch-btn--interact {
@@ -5320,4 +6832,561 @@ html.is-mobile .interaction-prompt kbd {
   70% {
     transform: rotate(-90deg);
   }
+}
+
+/* ---------- 手机：开场白、路牌与祝福都收窄一档 ---------- */
+
+.is-mobile .opening-card,
+html.is-mobile .opening-card {
+  top: max(6px, env(safe-area-inset-top));
+  width: calc(100% - 20px);
+  max-height: calc(100% - 16px);
+  padding: 10px 12px 8px;
+  gap: 6px;
+}
+
+.is-mobile .opening-cn,
+html.is-mobile .opening-cn {
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.is-mobile .opening-en,
+html.is-mobile .opening-en {
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+
+.is-mobile .opening-tutorial-toggle,
+html.is-mobile .opening-tutorial-toggle {
+  padding: 5px 10px;
+  font-size: 11.5px;
+}
+
+.is-mobile .opening-tutorial,
+html.is-mobile .opening-tutorial {
+  max-height: 44vh;
+  padding: 10px 12px 11px;
+}
+
+.is-mobile .opening-tutorial-cn,
+html.is-mobile .opening-tutorial-cn {
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.is-mobile .blessing-card,
+html.is-mobile .blessing-card {
+  top: max(6px, env(safe-area-inset-top));
+  width: calc(100% - 20px);
+  padding: 10px 14px 11px;
+}
+
+.is-mobile .blessing-cn,
+html.is-mobile .blessing-cn {
+  font-size: 16px;
+}
+
+.is-mobile .blessing-en,
+html.is-mobile .blessing-en {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.is-mobile .sign-card,
+html.is-mobile .sign-card {
+  width: calc(100% - 20px);
+  max-height: calc(100% - 20px);
+  padding: 14px 16px 12px;
+}
+
+.is-mobile .sign-card-cn,
+html.is-mobile .sign-card-cn {
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.is-mobile .sign-card-en,
+html.is-mobile .sign-card-en {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* 手机上，鞋卡和祝福占着画面时，旅人手记先让开。 */
+.is-mobile .player-panel.is-rewarding,
+html.is-mobile .player-panel.is-rewarding {
+  display: none;
+}
+
+/* 手机上祝福放在画面正中：上方是任务条与飘字，两边都不和它抢地方。 */
+.is-mobile .blessing-card,
+html.is-mobile .blessing-card {
+  top: 50%;
+  transform: translate(-50%, calc(-50% - 8px));
+}
+
+.is-mobile .blessing-card.is-visible,
+html.is-mobile .blessing-card.is-visible {
+  transform: translate(-50%, -50%);
+}
+
+/* ---------- 背包里的鞋架 ---------- */
+
+.shoe-rack-section {
+  margin: 18px 0 4px;
+  padding: 14px 16px 16px;
+  background: linear-gradient(150deg, rgba(39, 23, 50, 0.55), rgba(15, 9, 22, 0.55));
+  border: 1px solid #3a2748;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.shoe-rack-section[hidden] {
+  display: none;
+}
+
+.shoe-rack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.shoe-card {
+  display: flex;
+  flex: 1 1 200px;
+  align-items: center;
+  gap: 10px;
+  min-width: 188px;
+  padding: 8px 12px 8px 8px;
+  color: #e8dbee;
+  text-align: left;
+  cursor: pointer;
+  background: linear-gradient(160deg, rgba(34, 20, 45, 0.9), rgba(16, 9, 23, 0.92));
+  border: 1px solid #3c2a4a;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    transform 120ms ease;
+}
+
+.shoe-card:hover {
+  border-color: var(--accent, #76518a);
+  transform: translateY(-1px);
+}
+
+.shoe-card.is-selected {
+  background: linear-gradient(160deg, rgba(58, 34, 72, 0.95), rgba(24, 13, 33, 0.95));
+  border-color: var(--accent, #ffcf72);
+  box-shadow: inset 0 0 0 1px var(--accent, #ffcf72);
+}
+
+.shoe-card-art {
+  flex: 0 0 auto;
+  width: 120px;
+  height: 60px;
+  background: radial-gradient(ellipse at 50% 68%, rgba(255, 255, 255, 0.05), transparent 70%);
+  image-rendering: pixelated;
+}
+
+.shoe-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.shoe-card-copy b {
+  font-size: 17px;
+  letter-spacing: 0.03em;
+  color: #f6eddf;
+}
+
+.shoe-card-copy em {
+  color: #a996b9;
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.shoe-card--letter {
+  flex: 0 1 230px;
+  border-style: dashed;
+}
+
+.shoe-card-letter {
+  flex: 0 0 auto;
+  width: 44px;
+  font-size: 30px;
+  line-height: 1;
+  text-align: center;
+  color: #ffcf72;
+}
+
+.shoe-rack-detail {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: rgba(10, 6, 15, 0.5);
+  border-left: 3px solid var(--accent, #ffcf72);
+}
+
+.shoe-detail-kicker {
+  margin: 0;
+  color: var(--accent, #ffcf72);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.shoe-detail-title {
+  margin: 4px 0 10px;
+  color: #f6eddf;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.shoe-fit-bar {
+  height: 8px;
+  background: #1a1022;
+  border: 1px solid #3c2a4a;
+}
+
+.shoe-fit-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ffb347, #ffcf72);
+}
+
+.shoe-detail-copy {
+  margin: 10px 0 0;
+  color: #d7c8e2;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.shoe-detail-line {
+  margin: 8px 0 0;
+  color: #c6b3e0;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.7;
+}
+
+.shoe-detail-blessing {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  color: #e0d2ea;
+  font-size: 14px;
+  line-height: 1.75;
+  border-top: 1px dashed rgba(198, 179, 224, 0.28);
+}
+
+.shoe-detail-theory {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 207, 114, 0.06);
+  border: 1px dashed rgba(255, 207, 114, 0.32);
+}
+
+.shoe-theory-title {
+  margin: 0 0 6px;
+  color: #ffcf72;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.shoe-detail-theory p:last-child {
+  margin: 0;
+  color: #d9c9b5;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.shoe-detail-talk {
+  margin-top: 12px;
+}
+
+.shoe-detail-hint {
+  margin: 10px 0 0;
+  color: #a996b9;
+  font-size: 13px;
+}
+
+/* ---------- 与皮鞋对话 ---------- */
+
+.shoe-talk-overlay {
+  /* 盖在背包和目录之上：这一幕不接管游戏状态。 */
+  z-index: 10;
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(120, 84, 40, 0.18), transparent 55%),
+    rgba(5, 2, 8, 0.86);
+}
+
+.shoe-talk-panel {
+  width: min(100%, 880px);
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(18px, 2.6vw, 30px);
+  background: linear-gradient(145deg, rgba(32, 19, 43, 0.97), rgba(12, 7, 18, 0.98));
+  border: 1px solid #4b3059;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.56),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  animation: panel-in 0.3s steps(5, end) both;
+}
+
+.shoe-talk-head {
+  margin-bottom: 10px;
+}
+
+.shoe-talk-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  min-height: 220px;
+  max-height: 52vh;
+  overflow: hidden;
+  background: #08050d;
+  border: 1px solid #3a2748;
+}
+
+#shoeTalkCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.shoe-talk-bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shoe-talk-bubble {
+  position: absolute;
+  max-width: min(48%, 320px);
+  margin: 0;
+  padding: 10px 14px;
+  color: #2c1c10;
+  font-size: clamp(15px, 1.6vw, 18px);
+  line-height: 1.6;
+  background: #f4e8ca;
+  border: 1px solid #c9a86e;
+  border-radius: 10px;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.shoe-talk-bubble.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.shoe-talk-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  background: #f4e8ca;
+  border-right: 1px solid #c9a86e;
+  border-bottom: 1px solid #c9a86e;
+  transform: rotate(45deg);
+}
+
+/* 气泡正对着说话的人：左边是主角，右边是鞋。 */
+.shoe-talk-bubble.is-shoe {
+  left: 67.5%;
+  right: auto;
+  bottom: 48%;
+  max-width: 42%;
+  transform: translate(-50%, 8px) scale(0.96);
+}
+
+.shoe-talk-bubble.is-shoe::after {
+  right: auto;
+  left: 50%;
+  margin-left: -6px;
+}
+
+.shoe-talk-bubble.is-player {
+  left: 35%;
+  right: auto;
+  bottom: 67%;
+  max-width: 40%;
+  background: #ded0f2;
+  border-color: #9a7fb2;
+  transform: translate(-50%, 8px) scale(0.96);
+}
+
+.shoe-talk-bubble.is-player::after {
+  right: auto;
+  left: 50%;
+  margin-left: -6px;
+  background: #ded0f2;
+  border-color: #9a7fb2;
+}
+
+.shoe-talk-bubble.is-shoe.is-visible,
+.shoe-talk-bubble.is-player.is-visible {
+  transform: translate(-50%, 0);
+}
+
+.shoe-talk-bubble.is-thought {
+  color: #7d6a8c;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+}
+
+.shoe-talk-theory {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 207, 114, 0.06);
+  border: 1px dashed rgba(255, 207, 114, 0.4);
+}
+
+.shoe-talk-theory-title {
+  margin: 0 0 6px;
+  color: #ffcf72;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.shoe-talk-theory p:last-child {
+  margin: 0;
+  color: #e2d3c2;
+  font-size: 14.5px;
+  line-height: 1.8;
+}
+
+.shoe-talk-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 0 4px;
+  background: linear-gradient(180deg, rgba(12, 7, 18, 0) 0%, rgba(12, 7, 18, 0.97) 38%);
+}
+
+.shoe-talk-theory-button {
+  color: #ffcf72;
+}
+
+.shoe-talk-theory-button.is-hinting {
+  animation: shoe-theory-nudge 1.4s ease-in-out infinite;
+}
+
+@keyframes shoe-theory-nudge {
+  0%,
+  100% {
+    text-shadow: 0 0 0 rgba(255, 207, 114, 0);
+  }
+  50% {
+    text-shadow: 0 0 12px rgba(255, 207, 114, 0.75);
+  }
+}
+
+.shoe-talk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.shoe-talk-actions .primary-button,
+.shoe-talk-actions .secondary-button {
+  min-width: 150px;
+}
+
+@media (max-width: 980px) {
+  .shoe-card,
+  .shoe-card--letter {
+    flex-basis: calc(50% - 5px);
+  }
+}
+
+@media (max-width: 640px) {
+  .shoe-rack-detail {
+    padding: 12px 13px;
+  }
+
+  .shoe-card,
+  .shoe-card--letter {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .shoe-card-art {
+    width: 120px;
+    height: 60px;
+  }
+
+  .shoe-talk-stage {
+    aspect-ratio: 4 / 3;
+    min-height: 190px;
+    max-height: 46vh;
+  }
+
+  .shoe-talk-bubble {
+    max-width: 62%;
+    padding: 8px 11px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .shoe-talk-bubble.is-shoe {
+    bottom: 46%;
+  }
+
+  .shoe-talk-bubble.is-player {
+    bottom: 63%;
+  }
+
+  .shoe-talk-actions {
+    width: 100%;
+  }
+
+  .shoe-talk-actions .primary-button,
+  .shoe-talk-actions .secondary-button {
+    flex: 1 1 140px;
+  }
+}
+
+/* 起始页：选了「稍后再看」的信，留一个安静入口。 */
+.start-letter-button {
+  margin-top: 12px;
+  color: #ffcf72;
+  border-bottom-color: rgba(255, 207, 114, 0.4);
+}
+
+.start-letter-button[hidden] {
+  display: none;
+}
+
+/* 展开「皮鞋学习论」时把舞台收起来：短的横屏上也能把说明完整读完。 */
+.shoe-talk-panel.is-showing-theory .shoe-talk-stage {
+  display: none;
+}
+
+.shoe-talk-panel.is-showing-theory .shoe-talk-theory {
+  margin-top: 16px;
+}
+
+.shoe-talk-panel.is-showing-theory .shoe-talk-theory p:last-child {
+  font-size: 15.5px;
+  line-height: 1.9;
 }

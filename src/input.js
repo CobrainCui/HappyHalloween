@@ -3,16 +3,25 @@ const KEY_ACTIONS = new Map([
   ['ArrowRight', 'right'],
   ['ArrowUp', 'up'],
   ['ArrowDown', 'down'],
-  // 互动键也记进 keys：惊恐发作时按住 E 呼吸，不靠按键重复事件。
+  // E 只负责抱起 / 抛出身边的东西，不再兼任装置、呼吸或离开。
+  // （装置用的 Q 只在 main.js 里分派，不需要按住状态。）
   ['KeyE', 'interact'],
   // 第三段：你用 WASD，回音用方向键，各走一套。
   ['KeyA', 'p1left'],
   ['KeyD', 'p1right'],
   ['KeyW', 'p1up'],
   ['KeyS', 'p1down'],
-  // 两个人共用的「影子线」：谁都能按，按住就把线收紧。
-  ['Space', 'rope'],
+  // 空格是两个「按住」的动作：第三段收紧影子线，惊恐发作时呼吸。
+  // 两段不会同时出现，各读各的动作名。
+  ['Space', ['rope', 'breath']],
 ]);
+
+/** 一个物理键可以对应多个动作；查表时统一成数组。 */
+function actionsFor(code) {
+  const value = KEY_ACTIONS.get(code);
+  if (!value) return null;
+  return Array.isArray(value) ? value : [value];
+}
 
 /**
  * 只负责键盘状态。UI 快捷键（Esc / R / M）由 main.js 处理。
@@ -26,8 +35,8 @@ export class Input {
     target.addEventListener('keydown', (event) => {
       // 别把 Ctrl+W / Alt+D 这类浏览器快捷键吃掉。
       if (event.ctrlKey || event.metaKey || event.altKey) return;
-      const action = KEY_ACTIONS.get(event.code);
-      if (!action) return;
+      const actions = actionsFor(event.code);
+      if (!actions) return;
 
       // 没在玩的时候，Space 仍然应该能点亮当前聚焦的按钮。
       if (
@@ -41,17 +50,19 @@ export class Input {
       event.preventDefault();
       if (!this.enabled) return;
 
-      if (!event.repeat) this.pressed.add(action);
-      this.keys.add(action);
+      for (const action of actions) {
+        if (!event.repeat) this.pressed.add(action);
+        this.keys.add(action);
+      }
     });
 
     target.addEventListener('keyup', (event) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
-      const action = KEY_ACTIONS.get(event.code);
-      if (!action) return;
+      const actions = actionsFor(event.code);
+      if (!actions) return;
 
       event.preventDefault();
-      this.keys.delete(action);
+      for (const action of actions) this.keys.delete(action);
     });
 
     window.addEventListener('blur', () => this.releaseAll());

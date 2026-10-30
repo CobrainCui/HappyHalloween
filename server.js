@@ -54,7 +54,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`\n  🎃 南瓜小径已点亮：http://127.0.0.1:${PORT}\n`);
+  console.log(`\n  🎃 给老师送南瓜派已点亮：http://127.0.0.1:${PORT}\n`);
   if (LAN) {
     const addresses = Object.values(networkInterfaces())
       .flat()

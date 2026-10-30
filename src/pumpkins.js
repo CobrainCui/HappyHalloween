@@ -1,6 +1,16 @@
 import { PHYSICS, VIEW } from './config.js';
+import { SET_ELEMENT_NAMES } from './setTheory.js';
 
 const T = VIEW.TILE;
+
+/**
+ * 这颗东西叫什么。集合庭院里的元素按自己的长相报名（骷髅、幽灵、眼睛……），
+ * 只有普通南瓜才叫南瓜——互动提示和通知都用这个名字。
+ */
+export function pumpkinLabel(pumpkin) {
+  if (!pumpkin?.look) return null;
+  return SET_ELEMENT_NAMES[pumpkin.look] ?? '东西';
+}
 
 /**
  * 地上的南瓜是可以推、可以抱起来抛、也可以叠高的实体。
@@ -49,9 +59,6 @@ export class PumpkinWorld {
       id: `pumpkin-${index}`,
       x: spawn.x - PUMPKIN.width / 2,
       y: spawn.y - PUMPKIN.height,
-      // 掉进深坑或岩浆后回到最初摆放的位置，避免关卡里的南瓜被永久弄丢。
-      homeX: spawn.x - PUMPKIN.width / 2,
-      homeY: spawn.y - PUMPKIN.height,
       w: PUMPKIN.width,
       h: PUMPKIN.height,
       vx: 0,
@@ -64,40 +71,55 @@ export class PumpkinWorld {
       membership: spawn.membership ?? null,
       onGround: true,
       carrier: null,
+      // 集合庭院里等着分类的元素钉在地上：推不动，只会把人挡回去，
+      // 想挪动它只能捡起来再抛进门后的坑。普通南瓜照旧可以推、可以叠高。
+      pushable: !spawn.tag,
+      // 集合门里已经放对的元素会落进坑里：不参与物理，不被推抱抛，也不挡路。
+      locked: false,
+      // 落进坑之后藏进地下，渲染层只画一小段下沉动画。
+      inPit: false,
+      pit: null,
+      sinkAt: 0,
+      // 被坑弹出来之后的短暂冷却，免得在原地反复触发。
+      rejectT: 0,
       // 集合门每帧写在这里的归属标记，渲染层用来判断放对了没有。
       setMarks: null,
     }));
     this.stats = { pushes: 0, pickups: 0, throws: 0, stacks: 0 };
+    // 声音交给外面放：这里只留回调。推着走是连续的，靠冷却把声音错开。
+    this.onPush = null;
+    this.onStack = null;
+    // 南瓜掉进岩浆、裂隙这类地方就没了，给外面留一个撒碎屑的回调。
+    this.onLost = null;
+    this.pushSoundCooldown = 0;
   }
 
   /** players 可以是单个 Player，也可以是 [player, partner, ...]。 */
   update(dt, players) {
     const list = (Array.isArray(players) ? players : [players]).filter(Boolean);
+    if (this.pushSoundCooldown > 0) {
+      this.pushSoundCooldown = Math.max(0, this.pushSoundCooldown - dt);
+    }
 
     for (const pumpkin of this.pumpkins) {
       if (pumpkin.carrier) this.updateCarried(pumpkin);
     }
+    const lost = [];
     for (const pumpkin of this.pumpkins) {
-      if (pumpkin.carrier) continue;
+      if (pumpkin.carrier || pumpkin.locked) continue;
       this.step(pumpkin, dt);
-      // 掉进岩浆、裂隙、瘴气或掉出地图底部的南瓜，回到最初摆放的位置。
-      if (
-        pumpkin.y > this.level.pixelHeight + 120 ||
-        this.level.overlapsHazard?.(pumpkin)
-      ) {
-        this.respawn(pumpkin);
+      // 掉进岩浆、裂隙、瘴气或掉出地图底部的南瓜就留在下面，不再送回原位：
+      // 推下去就是推下去了，这一关里它不会再回来。
+      const hazard = this.level.overlapsHazard?.(pumpkin) ?? null;
+      if (hazard || pumpkin.y > this.level.pixelHeight + 120) {
+        this.onLost?.(pumpkin, hazard);
+        lost.push(pumpkin);
       }
     }
+    if (lost.length) {
+      this.pumpkins = this.pumpkins.filter((pumpkin) => !lost.includes(pumpkin));
+    }
     for (const player of list) this.resolvePlayer(player);
-  }
-
-  respawn(pumpkin) {
-    pumpkin.x = pumpkin.homeX;
-    pumpkin.y = pumpkin.homeY;
-    pumpkin.vx = 0;
-    pumpkin.vy = 0;
-    pumpkin.onGround = true;
-    pumpkin.carrier = null;
   }
 
   /** 手里的南瓜跟着头顶走，不参与落地碰撞。 */
@@ -147,7 +169,10 @@ export class PumpkinWorld {
       if (landedOn) {
         pumpkin.vy = 0;
         pumpkin.onGround = true;
-        if (landedOn === 'pumpkin' && !wasSupported) this.stats.stacks += 1;
+        if (landedOn === 'pumpkin' && !wasSupported) {
+          this.stats.stacks += 1;
+          this.onStack?.();
+        }
       }
     }
   }
@@ -165,7 +190,7 @@ export class PumpkinWorld {
     }
 
     for (const other of this.pumpkins) {
-      if (other === pumpkin || other.carrier) continue;
+      if (other === pumpkin || other.carrier || other.locked) continue;
       if (!overlapX(pumpkin, other)) continue;
       if (Math.abs(bottom - other.y) <= 0.9) return true;
     }
@@ -199,8 +224,9 @@ export class PumpkinWorld {
     }
 
     // 并排的两颗互相挡住；上下叠着的时候竖直方向几乎没有交叠，不挡横移。
+    // 钉在集合格里的元素已经不算障碍，可以从它身上走过去。
     for (const other of this.pumpkins) {
-      if (other === pumpkin || other.carrier) continue;
+      if (other === pumpkin || other.carrier || other.locked) continue;
       const vOverlap =
         Math.min(pumpkin.y + pumpkin.h, other.y + other.h) -
         Math.max(pumpkin.y, other.y);
@@ -228,7 +254,14 @@ export class PumpkinWorld {
       let next = null;
       let nextGap = Infinity;
       for (const other of this.pumpkins) {
-        if (other.carrier || row.includes(other)) continue;
+        // 钉在地上的集合元素不算这一排：推的队伍不会被它带着走。
+        if (
+          other.carrier ||
+          other.locked ||
+          !other.pushable ||
+          row.includes(other)
+        )
+          continue;
         const vOverlap =
           Math.min(head.y + head.h, other.y + other.h) -
           Math.max(head.y, other.y);
@@ -285,7 +318,7 @@ export class PumpkinWorld {
     }
 
     for (const other of this.pumpkins) {
-      if (other.carrier || ignore.has(other)) continue;
+      if (other.carrier || other.locked || ignore.has(other)) continue;
       const vOverlap =
         Math.min(pumpkin.y + pumpkin.h, other.y + other.h) -
         Math.max(pumpkin.y, other.y);
@@ -349,7 +382,7 @@ export class PumpkinWorld {
       }
 
       for (const other of this.pumpkins) {
-        if (other === pumpkin || other.carrier) continue;
+        if (other === pumpkin || other.carrier || other.locked) continue;
         if (!overlapX(pumpkin, other)) continue;
         if (prevBottom <= other.y + 1.5 && pumpkin.y + pumpkin.h >= other.y) {
           pumpkin.y = other.y - pumpkin.h;
@@ -365,7 +398,7 @@ export class PumpkinWorld {
         }
       }
       for (const other of this.pumpkins) {
-        if (other === pumpkin || other.carrier) continue;
+        if (other === pumpkin || other.carrier || other.locked) continue;
         if (!overlapX(pumpkin, other)) continue;
         if (pumpkin.y <= other.y + other.h && pumpkin.y + pumpkin.h > other.y) {
           pumpkin.y = other.y + other.h;
@@ -383,7 +416,8 @@ export class PumpkinWorld {
    */
   resolvePlayer(player) {
     for (const pumpkin of this.pumpkins) {
-      if (pumpkin.carrier) continue;
+      // 放对、钉住的元素不再是障碍：玩家可以直接从它身上走过去。
+      if (pumpkin.carrier || pumpkin.locked) continue;
       let box = player.bounds;
       if (!overlapX(box, pumpkin)) continue;
 
@@ -404,6 +438,19 @@ export class PumpkinWorld {
         Math.min(box.y + box.h, pumpkin.y + pumpkin.h) - Math.max(box.y, pumpkin.y);
       if (vOverlap <= 4) continue;
 
+      // 集合庭院里摆着等分类的元素推不动：像墙角一样把人挡回去。
+      // 它们在门前排成几列，只有捡起来抛进门后的坑才算数。
+      if (!pumpkin.pushable) {
+        if (player.centerX < pumpkin.x + pumpkin.w / 2) {
+          player.x -= box.x + box.w - pumpkin.x;
+          if (player.vx > 0) player.vx = 0;
+        } else {
+          player.x += pumpkin.x + pumpkin.w - box.x;
+          if (player.vx < 0) player.vx = 0;
+        }
+        continue;
+      }
+
       // 推的方向跟着玩家的朝向走。只看两个中心的相对位置时，
       // 南瓜被推到墙边、玩家还压在里面，会误判成往回推，产生抖动。
       const dir = player.facing >= 0 ? 1 : -1;
@@ -415,6 +462,11 @@ export class PumpkinWorld {
 
       const moved = this.pushRow(pumpkin, dir, penetration);
       if (moved > 0.01) this.stats.pushes += moved;
+      // 真的推动了才响；并排的一排被一起带走时，也只算这一下。
+      if (moved > 0.5 && this.pushSoundCooldown <= 0) {
+        this.pushSoundCooldown = 0.28;
+        this.onPush?.(moved);
+      }
       const remaining = penetration - moved;
       if (remaining > 0.01) {
         if (dir > 0) player.x -= remaining;
@@ -428,7 +480,7 @@ export class PumpkinWorld {
     let nearest = null;
     let nearestDistance = Infinity;
     for (const pumpkin of this.pumpkins) {
-      if (pumpkin.carrier) continue;
+      if (pumpkin.carrier || pumpkin.locked) continue;
       const dx = pumpkin.x + pumpkin.w / 2 - player.centerX;
       const dy = pumpkin.y + pumpkin.h / 2 - player.centerY;
       const distance = Math.hypot(dx, dy);
@@ -498,7 +550,10 @@ export class PumpkinWorld {
 
     // 面前就有一颗可以叠的南瓜：对准它的顶轻轻放上去。
     // 这样「抱起再抛」才真的能叠高，而不是靠玩家手动算抛物线。
-    const target = this.findStackTarget(player, pumpkin);
+    // 集合门里等着分类的元素不叠高：抱着它扔出去，就是要它落进坑里。
+    const target = pumpkin.pushable
+      ? this.findStackTarget(player, pumpkin)
+      : null;
     if (target) {
       pumpkin.x = target.x + (target.w - pumpkin.w) / 2;
       pumpkin.y = target.y - pumpkin.h - 8;
@@ -518,7 +573,8 @@ export class PumpkinWorld {
     let target = null;
     let targetDistance = Infinity;
     for (const other of this.pumpkins) {
-      if (other === carried || other.carrier) continue;
+      // 钉在地上等分类的元素不当叠高的底座：扔出去就该落进坑里。
+      if (other === carried || other.carrier || other.locked || !other.pushable) continue;
       const dx = other.x + other.w / 2 - player.centerX;
       const dy = other.y + other.h / 2 - player.centerY;
       // 只认面朝方向、贴近自己的那一颗；脚边正下方踩着的那颗不算。
@@ -535,20 +591,25 @@ export class PumpkinWorld {
   }
 
   getPrompt(player, key = 'E') {
-    if (this.getCarried(player)) {
+    const carried = this.getCarried(player);
+    if (carried) {
+      const name = pumpkinLabel(carried);
       return {
         kind: 'pumpkin',
         key,
         available: true,
-        text: '抛出南瓜 · 落到另一颗上会叠高',
+        // 集合庭院里的东西钉在地上，只能捡起来再扔：提示里直说「扔」。
+        text: name ? `扔出${name} · 对准门脚的坑` : '抛出南瓜 · 落到另一颗上会叠高',
       };
     }
-    if (this.findNearby(player)) {
+    const nearby = this.findNearby(player);
+    if (nearby) {
+      const name = pumpkinLabel(nearby);
       return {
         kind: 'pumpkin',
         key,
         available: true,
-        text: '抱起南瓜 · 再按一次抛出',
+        text: name ? `拿起${name} · 再按一次扔出` : '抱起南瓜 · 再按一次抛出',
       };
     }
     return null;
