@@ -804,10 +804,17 @@ function playShoeReward(reward) {
   shoeReward.hidden = false;
   // 卡片在画面上停几秒才收：有小传的卡片多留一会儿，让中英文都看得完。
   const holdMs = reward.bio ? 5200 : 3180;
+  // 最后一段的鞋卡落在碑前那一幕的开场黑场上；它的祝福收得更早，
+  // 手机上不另开祝福卡，留给鞋架里读。
+  const finalStage =
+    game.mode === 'memorial' && reward.stage === MEMORIAL_ROUTE.totalStages;
   // 鞋和祝福一起出现：卡片正中是鞋与人物小传，画面上方是这一段的病人留给主角的话。
   // 手机屏幕矮，两张卡会叠在一起，等鞋收进「身后」再浮出祝福。
   if (reward.blessing) {
-    if (isMobile) {
+    if (finalStage) {
+      // 旁白 5.2 秒就开始，祝福收得早一点，别压住第一句。
+      if (!isMobile) playBlessing(reward, 4600);
+    } else if (isMobile) {
       shoeRewardTimers.push(
         window.setTimeout(() => playBlessing(reward), holdMs + 1500),
       );
@@ -833,7 +840,10 @@ function playShoeReward(reward) {
             window.setTimeout(() => {
               shoeReward.classList.remove('is-collecting');
               shoeReward.hidden = true;
-              if (!reward.blessing) playerPanel.classList.remove('is-rewarding');
+              // 最后一段的祝福不在手机上另开卡，鞋卡收完就把旅人手记还回来。
+              if (!reward.blessing || (finalStage && isMobile)) {
+                playerPanel.classList.remove('is-rewarding');
+              }
             }, 760),
           );
         }, 640),
@@ -846,7 +856,7 @@ function playShoeReward(reward) {
  * 通关一段之后浮出来的祝福：中英文各一行，停在画面上方几秒再自己收掉。
  * 不挡路、不接管按键，玩家可以边走边看。
  */
-function playBlessing(reward) {
+function playBlessing(reward, holdMs = 7600) {
   const blessing = reward.blessing;
   if (!blessing?.cn) return;
   stopBlessing();
@@ -856,7 +866,7 @@ function playBlessing(reward) {
   // 祝福是这一段的收尾：左上角的飘字先收掉，等它说完再恢复。
   toast.classList.remove('is-visible');
   window.clearTimeout(toastTimer);
-  blessingUntil = performance.now() + 8000;
+  blessingUntil = performance.now() + holdMs + 400;
   blessingKicker.textContent = `${reward.patient ?? ''} 送给主角的话 · A word for you`;
   blessingCn.textContent = blessing.cn;
   setSecondaryLine(blessingEn, blessing.en);
@@ -871,7 +881,7 @@ function playBlessing(reward) {
       playerPanel.classList.remove('is-rewarding');
       blessingUntil = 0;
     }, 400);
-  }, 7600);
+  }, holdMs);
 }
 
 function stopBlessing() {
@@ -1096,7 +1106,7 @@ function syncOverlays(state) {
   if (state !== 'playing') openingCard.hidden = true;
   // 落幕的文字层只在碑前那一幕出现；结算页、目录都先收掉。
   endingLayer.hidden = state !== 'ending';
-  if (state === 'title' || state === 'complete' || state === 'ending') stopBlessing();
+  if (state === 'title' || state === 'complete') stopBlessing();
   if (state === 'sign') {
     const sign = game.session?.readingSign;
     if (sign) {

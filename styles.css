@@ -3031,6 +3031,8 @@ kbd {
   font-size: 22px;
   line-height: 1.75;
   letter-spacing: 0.03em;
+  /* 一块路牌可以有两行中文：\n 就照原样换行，别挤成一段。 */
+  white-space: pre-line;
 }
 
 .sign-card-en {
@@ -3041,6 +3043,8 @@ kbd {
   font-size: 20px;
   font-style: italic;
   line-height: 1.65;
+  /* 英文同样按原文分行：一块牌子上下各两行。 */
+  white-space: pre-line;
   border-top: 1px dashed rgba(200, 163, 124, 0.38);
 }
 

@@ -244,7 +244,7 @@ export class Game {
       // 第二段惊恐障碍：预兆 / 呼吸小游戏 / 平复后的定神期。
       memorialPanic: null,
       memorialCalm: 0,
-      // 第四段恶劣心境：重量、暂时抬不起脚、旧灯带来的「透亮」。
+      // 第四段失眠的重量：越走越沉、暂时抬不起脚、旧灯带来的「透亮」。
       memorialSlump: 0,
       memorialLift: 0,
       memorialDepth: 0,
@@ -865,7 +865,7 @@ export class Game {
       levelId = 'tutorial';
     } else if (routeKey === 'memorial') {
       let stage = clamp(route.stage ?? 1, 1, MEMORIAL_ROUTE.totalStages);
-      // 旧存档：第三段还是周叔的电磁赛道，没有 sneakCheckpointIndex 字段。
+      // 旧存档：第三段还是那条电磁赛道，没有 sneakCheckpointIndex 字段。
       // 现在电磁赛道顺延到第四段，把旧进度接过去。
       if (stage === 3 && route.sneakCheckpointIndex === undefined) stage = 4;
       levelId = getMemorialChapter(stage)?.levelId ?? `memorial-${stage}`;
@@ -3268,7 +3268,7 @@ export class Game {
   /**
    * 「四盏灯」的持续状态与下一次发作计时。
    * 在玩家物理之前运行：把这一段的连续修正、惊恐的呼吸状态、
-   * 恶劣心境的重量与停顿写进 effectMods。
+   * 失眠的重量与停顿写进 effectMods。
    */
   updateMemorialTimers(dt) {
     if (this.mode !== 'memorial') return;
@@ -3337,7 +3337,7 @@ export class Game {
 
   /** 第四段的负重：随走过的路程加深；透亮期间脚步回到平常，甚至轻一点。 */
   applyMemorialWeight(mods, chapter, player) {
-    if (chapter.kind !== 'dysthymia') return;
+    if (chapter.kind !== 'insomnia') return;
     const session = this.session;
     const span = Math.max(1, this.level.goalX - this.level.spawn.x);
     const progress = Math.max(
@@ -3576,11 +3576,15 @@ export class Game {
     }
 
     if (kind === 'slump') {
-      // 恶劣心境：一步抬不起来。不是定死，按住方向键能一步一步挪出去。
+      // 失眠的重量：一步抬不起来。不是定死，按住方向键能一步一步挪出去。
       player.vx *= 0.25;
       session.memorialSlump = trigger.duration ?? 1.2;
       this.particles.spawnDust(player.centerX, player.feetY, 0, 2);
-      this.notify(trigger.notice ?? '这一步抬不起来。', 2200);
+      const line = trigger.line ?? trigger.notice ?? '这一步抬不起来。';
+      this.notify(
+        trigger.lineEn ? `${line}\n${trigger.lineEn}` : line,
+        trigger.line ? 4600 : 2200,
+      );
       return;
     }
   }
@@ -4062,7 +4066,7 @@ export class Game {
   }
 
   /**
-   * 最后一道门后面：先把周叔那双鞋也叫上来，再把画面交给 ending.js。
+   * 最后一道门后面：先把 Pulse 那双鞋也叫上来，再把画面交给 ending.js。
    * 这一幕播完才真正结算。
    */
   beginMemorialEnding() {
@@ -4100,7 +4104,7 @@ export class Game {
     this.player.vy = 0;
     this.input.releaseAll();
     this.audio.complete();
-    // 第四段也走完了：周叔的雨靴最后跟上来，四双鞋一起停在碑前。
+    // 第四段也走完了：Pulse 的旧雨靴最后跟上来，四双鞋一起停在碑前。
     if (
       this.mode === 'memorial' &&
       this.level.stage >= MEMORIAL_ROUTE.totalStages

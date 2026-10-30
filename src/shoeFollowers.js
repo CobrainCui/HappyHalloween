@@ -3,11 +3,11 @@
  *
  * 给老师送南瓜派每走过一段，那一段的人就只剩下一双鞋跟在后面。
  * 它们不是同伴，也不说话：只是沿着玩家刚走过的那条路，保持固定的距离跟着。
- * 第四段走完时，completeRun 会用 setStage(totalStages + 1) 让周叔那双也跟上来，
+ * 第四段走完时，completeRun 会用 setStage(totalStages + 1) 让 Pulse 那双也跟上来，
  * 四双鞋一起停在老师的碑前。
  *
  * 四双鞋不只是颜色不同：Sybil 留下的是系带皮鞋，Kurt 是阿尔卑斯山间的登山靴，
- * 冯桃是一双旧帆布鞋，周叔是档案室门口那双雨靴。轮廓、鞋底和鞋口的画法都不同，
+ * 冯桃是一双旧帆布鞋，Pulse 是观测台门口那双旧雨靴。轮廓、鞋底和鞋口的画法都不同，
  * 两只靴子的筒比皮鞋、帆布鞋高出一截，排成一队时一眼能分出是谁的。
  *
  * 「前进速度相同」是这套系统的底线：所有鞋都取样同一条足迹链上的点，
@@ -15,7 +15,7 @@
  *   Sybil：走几步就停下，像在确认什么，随后往后退半步再跟上来；
  *   Kurt：跟着呼吸起伏，偶尔屏住一口气，两只鞋一起停住再跟上；
  *   冯桃：总有一只鞋侧着，像在看着另一个自己；身后偶尔会多出一层很淡的复影；
- *   周叔：每一步都沉一点，像脚下还带着水，偶尔拖半步再跟上来。
+ *   Pulse：每一步都沉一点，像整夜没睡，偶尔拖半步再跟上来。
  * 跟得慢一点：每走一像素只推进一点迈步相位，落脚才沉得住，不会像小跑。
  *
  * 玩家跳跃、掉坑、读档、穿门都会让足迹断开：距离突然拉大时，鞋群直接
@@ -57,7 +57,7 @@ const MANNERS = {
   4: {
     id: 'weight',
     shoe: 'rainboot',
-    line: '它每一步都沉一点，像脚下还带着水。',
+    line: '它每一步都沉一点，像整夜没睡。',
   },
 };
 
@@ -346,7 +346,7 @@ function drawCanvas(ctx, w, accent, alpha) {
   fill(accent, 0.75, 0, -3, 2, 1); // 后跟的贴片
 }
 
-/** 雨靴：筒口往外翻、后背一条直线、厚底。周叔脚下总像还带着水。 */
+/** 雨靴：筒口往外翻、后背一条直线、厚底。Pulse 那双在观测台门口站了一整夜。 */
 function drawRainBoot(ctx, w, accent, alpha) {
   const fill = shoeBrush(ctx, alpha);
   const shaft = Math.max(2, w - 4); // 筒身宽度
@@ -501,7 +501,7 @@ function drawPair(ctx, pair, sx, sy, time) {
     shiftX = Math.round(Math.sin(time * 0.85 + pair.seed) * 2);
     echo = Math.sin(time * 0.45 + pair.seed) > 0.4 ? 0.1 : 0;
   } else if (manner === 'weight') {
-    // 周叔：每一步都沉一点，像脚下还带着水；偶尔拖着半步再跟上来。
+    // Pulse：每一步都沉一点，像整夜没睡；偶尔拖着半步再跟上来。
     bob = Math.sin(pair.stepPhase * 0.6 + pair.seed) > 0.45 ? 1 : 0;
     const dragging = Math.sin(pair.stepPhase * 0.23 + pair.seed) > 0.88;
     if (dragging) {

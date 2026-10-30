@@ -5426,7 +5426,7 @@ export class Renderer {
   /**
    * 追思路线的氛围叠加，都只是画面，不造成伤害：
    *   - 每一段：整屏轻轻压一层这一段的病色，天色、远山、雾也同色；
-   *   - 第三段（恶劣心境）：世界随路程慢慢褪色、脚下越来越沉；
+   *   - 第四段（失眠）：世界随路程慢慢褪色、脚下越来越沉；
    *     经过旧灯时短暂「透亮」，颜色和脚步一起回来一会儿；
    *   - 第二段（惊恐障碍）：先心跳脉动，再把视野从四周向角色收拢成一只小孔；
    *     按住空格呼吸后，孔慢慢退开；
@@ -5600,8 +5600,8 @@ export class Renderer {
       ctx.restore();
     }
 
-    // 恶劣心境：颜色和脚步一起随路程变沉；旧灯的「透亮」会把它们短暂拿开。
-    if (this.level.memorialChapter?.kind === 'dysthymia') {
+    // 失眠的重量：颜色和脚步一起随路程变沉；旧灯的「透亮」会把它们短暂拿开。
+    if (this.level.memorialChapter?.kind === 'insomnia') {
       const span = Math.max(1, this.level.goalX - this.level.spawn.x);
       const progress = Math.max(
         0,

@@ -55,7 +55,7 @@ export const THEMES = Object.freeze([
     name: MEMORIAL_ROUTE.name,
     chapter: `${chapter.stageLabel} · ${chapter.patient}`,
     difficulty: 1,
-    style: chapter.kind === 'dysthymia' ? 'cavern' : 'forest',
+    style: chapter.kind === 'insomnia' ? 'cavern' : 'forest',
     // 第三段沿用潜行场景的绘制：影子区、提灯人、石板门与影子桥。
     mood: chapter.mood ?? 'memorial',
     objective: chapter.objective,
@@ -929,7 +929,7 @@ export class Level {
     if (themeId.startsWith('memorial-')) {
       const stage = memorialStageFromTheme(themeId);
       // 第二段是第一座集合庭院；第三段是双人潜行；
-      // 第四段是周叔地下的简易电磁赛道。
+      // 第四段是 Pulse 地下的简易电磁赛道。
       // 糖纸街的女巫房间复用同一套集合门，但只留一道。
       if (stage === 3) return this.buildMemorialSneak();
       if (stage === 4) return this.buildMemorialElectromagnetic();
@@ -1754,7 +1754,7 @@ export class Level {
     if (memorialStage) {
       const chapter = MEMORIAL_CHAPTERS[memorialStage - 1];
       if (chapter) {
-        // 第四段的两盏灯：入口处想起周叔，终点岛上是老师的墓。
+        // 第四段的两盏灯：入口处想起 Pulse，终点岛上是老师的墓。
         const entries = [
           { x: 7.5 * T, patient: chapter.patient, line: chapter.memory },
           { x: (islandEnd.x + 4) * T, patient: '老师', line: MEMORIAL_ROUTE.finale },
@@ -1787,7 +1787,7 @@ export class Level {
 
         // 第四段的四盏旧灯：都摆在结实的落脚点上。走到跟前会自动点起，
         // 给一段「透亮」——颜色回来、脚步变轻，灯灭之后重量还回来。
-        if (chapter.kind === 'dysthymia') {
+        if (chapter.kind === 'insomnia') {
           const solaceSpecs = [
             { x: 17.5 * T, line: '旧灯还亮着。这一步轻了一点。' },
             { x: 49 * T, line: '灯芯还有温度。颜色回来了一会儿。' },
@@ -2186,7 +2186,7 @@ export class Level {
   /**
    * 追思小径第四段 · 简易电磁赛道。
    *
-   * 周叔的档案室在地下。这一段只留下电磁长夜最核心的一件东西：
+   * Pulse 的旧观测台在地下。这一段只留下电磁长夜最核心的一件东西：
    * 铜球给的电荷，和悬在裂隙里的电子。没有熔岩井、骨槽、速度选择器，
    * 也不需要右手骨——那些都留在糖纸街男巫奥兹的地窖。
    *
@@ -2199,7 +2199,7 @@ export class Level {
    * 三道之间都有铜球，可以随时换电荷。走错电荷不会死，
    * 只会掉进裂隙、退回上一个落脚点，电荷还留着。
    *
-   * 周叔的负重、四盏旧灯和两处记忆照旧。走完就是老师的墓。
+   * 失眠的重量、四盏旧灯和两处记忆照旧。走完就是老师的墓。
    */
   buildMemorialElectromagnetic() {
     const chapter = MEMORIAL_CHAPTERS[3];
@@ -2238,10 +2238,6 @@ export class Level {
 
     const decorations = [
       { type: 'rune', x: 4 * T, y: groundAt(4), layer: 'front' },
-      { type: 'sign', x: 27 * T, y: groundAt(27), layer: 'front' },
-      { type: 'sign', x: 63 * T, y: groundAt(63), layer: 'front' },
-      { type: 'sign', x: 73 * T, y: groundAt(73), layer: 'front' },
-      { type: 'sign', x: 86 * T, y: groundAt(86), layer: 'front' },
       { type: 'crystal', x: 6 * T, y: groundAt(6), scale: 0.9, layer: 'front' },
       { type: 'crystal', x: 21 * T, y: groundAt(21), scale: 0.75, layer: 'front' },
       { type: 'crystal', x: 42 * T, y: groundAt(42), scale: 0.9, layer: 'front' },
@@ -2274,16 +2270,43 @@ export class Level {
       { type: 'pumpkin', x: 99 * T, y: groundAt(99), variant: 0, layer: 'front' },
     ];
 
+    // 这一段只留两块路牌：一块在入口，一块在碑前。中间不摆，
+    // 免得读牌子打断过裂隙的节奏。每块四行，两句中文、两句英文。
+    for (const [index, tileX] of [3, 110].entries()) {
+      decorations.push({
+        type: 'sign',
+        x: tileX * T,
+        y: groundAt(tileX),
+        variant: index,
+        layer: 'front',
+        story: true,
+        signId: `memorial-4-sign-${index + 1}`,
+        signIndex: index,
+      });
+    }
+
     const memorials = [];
     const memoryEntries = [
-      { tile: 8, patient: chapter?.patient ?? '周叔', line: chapter?.memory ?? '' },
+      {
+        tile: 8,
+        patient: chapter?.patient ?? 'Pulse',
+        line: chapter?.memory ?? '',
+        lineEn: chapter?.memoryEn ?? null,
+      },
       { tile: 108, patient: '老师', line: MEMORIAL_ROUTE.finale },
     ];
     for (const [index, entry] of memoryEntries.entries()) {
       const id = `memorial-4-memory-${index + 1}`;
       const x = entry.tile * T;
       const y = groundAt(entry.tile);
-      memorials.push({ id, x, y, patient: entry.patient, line: entry.line });
+      memorials.push({
+        id,
+        x,
+        y,
+        patient: entry.patient,
+        line: entry.line,
+        lineEn: entry.lineEn ?? null,
+      });
       decorations.push({ type: 'memory', id, lightId: id, x, y, layer: 'front' });
       decorations.push({ type: 'candle', lightId: id, x: x + T, y, layer: 'front' });
     }

@@ -6,7 +6,7 @@
  * ta 身上可被观察到的行为特点。
  *
  * 四段依次对应 background.md 主线采用的四个病种：
- *   强迫症、惊恐障碍、人格解体、持续性抑郁（恶劣心境）。
+ *   强迫症、惊恐障碍、人格解体、失眠障碍。
  * 他们不是医生，而是各自领域里走到很远、也各自带着一处旧痛的人。
  *
  * 和「电磁长夜」里的糖果一样，这里只借用真实 ICD-10 诊断里「可被观察到的行为」
@@ -17,7 +17,7 @@
  *       第二段每 36–50 秒一次惊恐发作，玩家按住空格呼吸，把收窄的视野慢慢打开；
  *       第三段是墓园里的双人潜行：提灯人的光、可以藏身的墓碑影子，
  *         以及一个只有你听得见的「回音」；
- *       第四段是周叔地下的简易电磁赛道，负重随路程一点点加深，停住只落在结实的落脚点上。
+ *       第四段是 Pulse 地下的简易电磁赛道，失眠的重量随路程一点点加深，停住只落在结实的落脚点上。
  *   - 每段的天空、远山、雾和整屏色偏都取这一段自己的病色（backdrop），
  *     玩家进场先认出颜色，再认出人。
  * 目的不是把病做成难关，而是让玩家在很轻的阻力里，陪他们走一小段。
@@ -32,7 +32,7 @@
  * 不再单独成一条赛道。两名玩家分别操控「你」和「回音」，躲开提灯人的灯，
  * 在墓碑影子里潜行，压住石板替对方开门，两个人都到门口才算数。
  *
- * 第四段是周叔地下室里的简易电磁赛道：前两跳分别用负电和正电，再往后是一条被小岛分成两跳的宽裂隙。他的沉重不是一直压死玩家：
+ * 第四段是 Pulse 旧观测台底下的简易电磁赛道：前两跳分别用负电和正电，再往后是一条被小岛分成两跳的宽裂隙。他的失眠不是一直压死玩家：
  * 路越走越沉，但路上有几盏旧灯，走到跟前会短暂「透亮」——颜色回来、脚步变轻，
  * 灯灭之后重量还会回来。这是慢性、难根治，不是一次性治愈。
  * 这一段只留电磁长夜最核心的铜球与电子：负电被电子推开，正电被电子吸住，
@@ -313,15 +313,15 @@ export const MEMORIAL_CHAPTERS = Object.freeze([
   {
     stage: 4,
     levelId: 'memorial-4',
-    kind: 'dysthymia',
-    // 第四段是周叔地下的简易电磁赛道；背包可用来换装，分格不再存在。
+    kind: 'insomnia',
+    // 第四段是 Pulse 旧观测台底下的简易电磁赛道；背包可用来换装，分格不再存在。
     hasBackpack: true,
     stageLabel: '第四段',
-    patient: '周叔',
-    disorder: '恶劣心境',
-    code: 'F34.1',
-    icdName: '持续性抑郁障碍（恶劣心境）',
-    tag: '长期低沉',
+    patient: 'Pulse',
+    disorder: '失眠障碍',
+    code: 'F51.0',
+    icdName: '非器质性失眠症',
+    tag: '长夜清醒',
     accent: '#8b96ad',
     backdrop: {
       skyTop: '#0a0c11',
@@ -334,10 +334,28 @@ export const MEMORIAL_CHAPTERS = Object.freeze([
     },
     objective: '带着电荷越过裂隙，走到老师的墓',
     intro:
-      '第四段路沉入地下。你想起周叔，和他档案室里那台旧电磁仪。',
+      '第四段路沉入地下。你想起 Pulse，那个整夜守着望远镜、睡不着的人。',
+    // 开篇（人物小传）：鞋子卡片与右上角人物描写都读这一份，中英文各一行。
+    bio: 'Pulse，西班牙籍，潜心凝望星河的天体物理观测者，长久被顽固失眠困住，在永夜般的清醒里独对苍穹。',
+    bioEn:
+      'A physicist named Pulse observed the night sky; for company, he had insomnia by his side.',
+    // 这一段只有两块路牌：一块在入口，一块在碑前。每块四行——
+    // 两句中文、两句英文，中文在上、英文在下。
+    roadSigns: [
+      {
+        cn: 'Pulse是天体物理观测者，曾捕捉到转瞬即逝的脉冲星信号，为宇宙的时序添上一笔记录。\n他狂热偏执，喋喋不休，神经质的思维如此跳脱；他和冯桃是忘年交，总被她嫌弃聒噪。',
+        en: 'A miracle flashed before it died; he caught it, wrote it down, and discovered what’s inside.\nHe kept talking and thinking, indulging in the electrical signals that spread; he got roasted by his friend, which was easy to understand.',
+      },
+      {
+        cn: '失眠是有重量的，漫漫长夜里他只能守着望远镜枯坐，一遍遍凝望星空。\n漫长的岁月里，他一直和失眠为伴，直到垂垂老矣，终于在星河璀璨里，停下了絮语。',
+        en: 'He was always awake along with moon and star, along with a telescope and celestial bodies that were really far.\nYears went by, but insomnia never abandoned this guy, until time wrinkled his skin and closed his eye.',
+      },
+    ],
     memory:
-      '周叔说，每一步都像踩在水里；可每天下午，他还是自己走到档案室，把灯打开。',
-    body: '每一步更沉，颜色一点点褪去；旧灯会短暂透亮。铜球给电荷：负电被电子推开，正电被电子吸住；中间的小岛上也能换电荷。',
+      '漫长的岁月里，他一直和失眠为伴，直到垂垂老矣，终于在星河璀璨里，停下了絮语。',
+    memoryEn:
+      'Years went by, but insomnia never abandoned this guy, until time wrinkled his skin and closed his eye.',
+    body: '失眠是有重量的：每一步更沉，颜色一点点褪去；旧灯会短暂透亮。铜球给电荷：负电被电子推开，正电被电子吸住；中间的小岛上也能换电荷。',
     // 基础手感只比平常沉一点；真正的「负重」由更新循环按路程一点点加深。
     mods: { moveScale: 0.94, jumpVelocityScale: 0.98 },
     trigger: {
@@ -346,6 +364,9 @@ export const MEMORIAL_CHAPTERS = Object.freeze([
       firstInterval: [16, 22],
       interval: [24, 34],
       duration: 1.2,
+      // 疾病发作：照文档第四幕的原文，中文一行、英文一行。
+      line: '今晚的宇宙有遗忘的浩渺和狂热的精确',
+      lineEn: 'Tonight the universe is likely to forget; my Milky Way flows with precision.',
       notice: '这一步抬不起来。',
     },
     // 路上旧灯的「透亮」时间。灯本身摆在 level.js 的第四段庭院规格里。
@@ -353,8 +374,13 @@ export const MEMORIAL_CHAPTERS = Object.freeze([
       duration: 9,
       line: '旧灯还亮着。这一步轻了一点。',
     },
-    // 这一段除了周叔，还会经过老师的墓，所以有两盏灯。
+    // 这一段除了 Pulse，还会经过老师的墓，所以有两盏灯。
     memoryCount: 2,
+    // 通关后（走到第四扇门）才出现：这一段的人留给主角的话。
+    blessing: {
+      cn: '亲爱的年轻人，祝你拥有良好的睡眠，健康的身体，有前进的勇气以及万事都平淡的心境。',
+      en: 'Good night, my young and brave friend. I wish you a healthy body and a calm mind.',
+    },
   },
 ]);
 
